@@ -95,6 +95,14 @@ public struct MemoListView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: VMDesignTokens.Spacing.md, pinnedViews: [.sectionHeaders]) {
+                        // AI分析クォータ表示（Phase 3 UXレビュー）
+                        AIQuotaProgressBar(
+                            used: store.aiQuotaUsed,
+                            limit: store.aiQuotaLimit,
+                            nextResetDate: store.nextResetDate
+                        )
+                        .padding(.horizontal, VMDesignTokens.Spacing.lg)
+                        .padding(.bottom, VMDesignTokens.Spacing.sm)
                         ForEach(store.sections) { section in
                             Section {
                                 ForEach(section.memoIDs, id: \.self) { memoID in
@@ -279,4 +287,53 @@ struct SectionHeader: View {
         .padding(.vertical, VMDesignTokens.Spacing.sm)
         .background(Color.vmBackground)
     }
+}
+
+/// AI分析クォータ表示バー（Phase 3 UXレビュー）
+/// メモ一覧上部に月間使用回数を表示
+struct AIQuotaProgressBar: View {
+    let used: Int
+    let limit: Int
+    let nextResetDate: Date?
+
+    private var progress: Double {
+        guard limit > 0 else { return 0 }
+        return min(Double(used) / Double(limit), 1.0)
+    }
+
+    private var isNearLimit: Bool {
+        guard limit > 0 else { return false }
+        return Double(used) / Double(limit) >= 0.8
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
+            HStack {
+                Label("AI分析", systemImage: "sparkles")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+                Spacer()
+                Text("\(used) / \(limit) 回")
+                    .font(.vmCaption1)
+                    .foregroundColor(isNearLimit ? .vmWarning : .vmTextTertiary)
+            }
+            ProgressView(value: progress)
+                .tint(isNearLimit ? .vmWarning : .vmPrimary)
+            if let nextResetDate {
+                Text("リセット: \(Self.dateFormatter.string(from: nextResetDate))")
+                    .font(.system(size: 10))
+                    .foregroundColor(.vmTextTertiary)
+            }
+        }
+        .padding(VMDesignTokens.Spacing.md)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.small)
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M月d日"
+        return formatter
+    }()
 }

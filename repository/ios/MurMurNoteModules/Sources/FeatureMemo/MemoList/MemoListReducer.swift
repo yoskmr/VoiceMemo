@@ -44,6 +44,11 @@ public struct MemoListReducer {
         public var pendingDeleteID: UUID?
         public var showDeleteConfirmation: Bool = false
 
+        /// AI分析クォータ情報（Phase 3 UXレビュー: 一覧上部に使用回数表示）
+        public var aiQuotaUsed: Int = 0
+        public var aiQuotaLimit: Int = 15
+        public var nextResetDate: Date?
+
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
 
@@ -61,7 +66,10 @@ public struct MemoListReducer {
             emotionTrendState: EmotionTrendReducer.State? = nil,
             pendingMemoID: UUID? = nil,
             pendingDeleteID: UUID? = nil,
-            showDeleteConfirmation: Bool = false
+            showDeleteConfirmation: Bool = false,
+            aiQuotaUsed: Int = 0,
+            aiQuotaLimit: Int = 15,
+            nextResetDate: Date? = nil
         ) {
             self.memos = memos
             self.sections = sections
@@ -77,6 +85,9 @@ public struct MemoListReducer {
             self.pendingMemoID = pendingMemoID
             self.pendingDeleteID = pendingDeleteID
             self.showDeleteConfirmation = showDeleteConfirmation
+            self.aiQuotaUsed = aiQuotaUsed
+            self.aiQuotaLimit = aiQuotaLimit
+            self.nextResetDate = nextResetDate
         }
     }
 

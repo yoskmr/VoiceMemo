@@ -367,6 +367,10 @@ public struct MemoDetailReducer {
                         await send(.memoLoaded(result))
                     }
                 }
+                if case .failed(.networkError) = status {
+                    // ネットワークエラー時はオフラインフォールバック案内のみ（自動リトライなし）
+                    return .none
+                }
                 return .none
 
             case .tagTapped, .shareButtonTapped, .backButtonTapped, .regenerateAISummary:

@@ -1,14 +1,29 @@
 import Dependencies
 import Foundation
 
+/// AI処理のエラー種別
+/// Phase 3 UXレビュー: エラー種別を詳細化し、UIでの分岐表示に対応
+public enum AIProcessingError: Equatable, Sendable {
+    /// 月間クォータ超過（残り回数、リセット日）
+    case quotaExceeded(remaining: Int, resetDate: Date)
+    /// ネットワークエラー（詳細メッセージ）
+    case networkError(String)
+    /// 処理失敗（詳細メッセージ）
+    case processingFailed(String)
+}
+
 /// AI処理のステータス
 /// Step 6: AI処理バックグラウンド基盤
+/// Phase 3 UXレビュー: processing に進捗情報、completed にオンデバイス判定を追加
 public enum AIProcessingStatus: Equatable, Sendable {
     case idle
     case queued
-    case processing
-    case completed
-    case failed(String)
+    /// 処理中（progress: 0.0〜1.0、description: 処理段階の説明）
+    case processing(progress: Double, description: String)
+    /// 処理完了（isOnDevice: オンデバイス処理かどうか）
+    case completed(isOnDevice: Bool)
+    /// 処理失敗（詳細エラー）
+    case failed(AIProcessingError)
 }
 
 /// AI処理キューの TCA Dependency クライアント

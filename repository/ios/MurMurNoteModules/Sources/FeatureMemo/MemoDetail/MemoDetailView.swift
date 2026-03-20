@@ -25,6 +25,18 @@ public struct MemoDetailView: View {
                         .font(.vmTitle2)
                         .foregroundColor(.vmTextPrimary)
 
+                    // AI要約カード（最上部に移動: UXレビュー指摘）
+                    AISummarySection(
+                        summary: store.aiSummary,
+                        aiProcessingStatus: store.aiProcessingStatus
+                    )
+
+                    // AI処理ステータスインジケーター（詳細化: Phase 3 UXレビュー）
+                    AIProcessingStatusView(
+                        status: store.aiProcessingStatus,
+                        onRetry: { store.send(.regenerateAISummary) }
+                    )
+
                     // メタ情報
                     MetaInfoRow(
                         date: store.createdAt,
@@ -52,39 +64,6 @@ public struct MemoDetailView: View {
                             store.send(.tagTapped(tagName))
                         }
                     }
-
-                    // AI処理ステータスインジケーター
-                    if store.aiProcessingStatus == .processing {
-                        HStack(spacing: 8) {
-                            ProgressView().tint(.vmInfo)
-                            Text("AI分析中...")
-                                .font(.vmCallout)
-                                .foregroundColor(.vmTextSecondary)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.vmInfo.opacity(0.1))
-                        .cornerRadius(12)
-                    } else if case .failed = store.aiProcessingStatus {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.vmError)
-                            Text("AI分析に失敗しました")
-                                .font(.vmCallout)
-                                .foregroundColor(.vmTextSecondary)
-                            Spacer()
-                            Button("リトライ") { store.send(.regenerateAISummary) }
-                                .font(.vmCaption1)
-                                .foregroundColor(.vmPrimary)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.vmError.opacity(0.1))
-                        .cornerRadius(12)
-                    }
-
-                    // AI要約カード（枠のみ、Phase 3で実装）
-                    AISummarySection(summary: store.aiSummary)
 
                     // 文字起こしセクション
                     TranscriptionSection(text: store.transcriptionText)
@@ -273,17 +252,174 @@ struct TagFlowLayout: View {
     }
 }
 
+/// AI処理ステータスインジケーター（詳細化: Phase 3 UXレビュー）
+/// processing: 進捗バー + 処理段階説明
+/// completed: 処理場所バッジ
+/// failed: エラー種別ごとのUI分岐
+struct AIProcessingStatusView: View {
+    let status: AIProcessingStatus
+    let onRetry: () -> Void
+
+    var body: some View {
+        switch status {
+        case .idle, .queued:
+            EmptyView()
+
+        case let .processing(progress, description):
+            VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
+                HStack(spacing: 8) {
+                    ProgressView().tint(.vmInfo)
+                    Text("AI分析中...")
+                        .font(.vmCallout)
+                        .foregroundColor(.vmTextSecondary)
+                }
+                ProgressView(value: progress, total: 1.0)
+                    .tint(.vmInfo)
+                Text(description)
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.vmInfo.opacity(0.1))
+            .cornerRadius(12)
+
+        case let .completed(isOnDevice):
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.vmSuccess)
+                Text("AI分析完了")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextSecondary)
+                Spacer()
+                Text(isOnDevice ? "オンデバイス" : "クラウド")
+                    .font(.vmCaption1)
+                    .foregroundColor(isOnDevice ? .vmSuccess : .vmInfo)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        (isOnDevice ? Color.vmSuccess : Color.vmInfo).opacity(0.1)
+                    )
+                    .cornerRadius(8)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(Color.vmSuccess.opacity(0.05))
+            .cornerRadius(12)
+
+        case let .failed(error):
+            switch error {
+            case let .quotaExceeded(remaining: _, resetDate: resetDate):
+                quotaExceededView(resetDate: resetDate)
+            case let .networkError(message):
+                networkErrorView(message: message)
+            case .processingFailed:
+                processingFailedView()
+            }
+        }
+    }
+
+    private func quotaExceededView(resetDate: Date) -> some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.vmWarning)
+                Text("月間AI分析の上限に達しました")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextPrimary)
+            }
+            Text("次回リセット: \(Self.dateFormatter.string(from: resetDate))")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.vmWarning.opacity(0.1))
+        .cornerRadius(12)
+    }
+
+    private func networkErrorView(message: String) -> some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
+            HStack(spacing: 8) {
+                Image(systemName: "wifi.slash")
+                    .foregroundColor(.vmError)
+                Text("ネットワークエラー")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextPrimary)
+            }
+            Text(message)
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
+            Text("オンデバイスAIで再試行できます")
+                .font(.vmCaption1)
+                .foregroundColor(.vmInfo)
+            Button {
+                onRetry()
+            } label: {
+                Text("オンデバイスで再試行")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmPrimary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.vmError.opacity(0.1))
+        .cornerRadius(12)
+    }
+
+    private func processingFailedView() -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.vmError)
+            Text("AI分析に失敗しました")
+                .font(.vmCallout)
+                .foregroundColor(.vmTextSecondary)
+            Spacer()
+            Button("リトライ") { onRetry() }
+                .font(.vmCaption1)
+                .foregroundColor(.vmPrimary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(Color.vmError.opacity(0.1))
+        .cornerRadius(12)
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M月d日"
+        return formatter
+    }()
+}
+
 /// AI要約セクション（Phase 3 で実体実装、枠のみ）
 /// 設計書 04-ui-design-system.md セクション4.5 準拠
+/// Phase 3 UXレビュー: completed時の処理場所バッジ対応
 struct AISummarySection: View {
     let summary: MemoDetailReducer.State.AISummaryState?
+    var aiProcessingStatus: AIProcessingStatus = .idle
 
     var body: some View {
         if let summary {
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-                Label("AI要約", systemImage: "sparkles")
-                    .font(.vmHeadline)
-                    .foregroundColor(.vmPrimary)
+                HStack {
+                    Label("AI要約", systemImage: "sparkles")
+                        .font(.vmHeadline)
+                        .foregroundColor(.vmPrimary)
+                    Spacer()
+                    if case let .completed(isOnDevice) = aiProcessingStatus {
+                        Text(isOnDevice ? "オンデバイス処理" : "クラウド処理")
+                            .font(.vmCaption1)
+                            .foregroundColor(isOnDevice ? .vmSuccess : .vmInfo)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                (isOnDevice ? Color.vmSuccess : Color.vmInfo).opacity(0.1)
+                            )
+                            .cornerRadius(8)
+                    }
+                }
                 Text(summary.summaryText)
                     .font(.vmCallout)
                     .foregroundColor(.vmTextPrimary)

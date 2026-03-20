@@ -64,13 +64,18 @@ struct RecordingCompletionView: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
 
-            // AI処理インジケーター枠（Phase 3で実体化）
+            // AI処理インジケーター（Phase 3 UXレビュー: テキスト改善）
             if store.completionStage == .preview || store.completionStage == .cta {
-                HStack(spacing: VMDesignTokens.Spacing.sm) {
-                    Image(systemName: "sparkles")
-                        .foregroundColor(.vmInfo)
-                    Text("AI分析は準備中です")
-                        .font(.vmCallout)
+                VStack(spacing: VMDesignTokens.Spacing.xs) {
+                    HStack(spacing: VMDesignTokens.Spacing.sm) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.vmInfo)
+                        Text("AI分析をバックグラウンドで実行中")
+                            .font(.vmCallout)
+                            .foregroundColor(.vmTextSecondary)
+                    }
+                    Text("要約・タグ付け・感情分析を自動で行います")
+                        .font(.vmCaption1)
                         .foregroundColor(.vmTextTertiary)
                 }
                 .padding(VMDesignTokens.Spacing.md)

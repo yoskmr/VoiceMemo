@@ -695,6 +695,21 @@ func selectOnDeviceStrategy() -> OnDeviceLLMStrategy {
 }
 ```
 
+#### 3.2.1.2 オンデバイスLLM対応デバイス一覧
+
+> **Phase 3 UXレビュー（矛盾#2）対応: 2026-03-21追記**
+
+| デバイス | SoC | メモリ | 対応 |
+|:---------|:----|:-------|:----:|
+| iPhone 14 Pro / Pro Max | A16 Bionic | 6GB | ✅ |
+| iPhone 15 / Plus | A16 Bionic | 6GB | ✅ |
+| iPhone 15 Pro / Pro Max | A17 Pro | 8GB | ✅ |
+| iPhone 16 シリーズ以降 | A18+ | 8GB+ | ✅ |
+| iPhone 14 / Plus | A15 Bionic | 6GB | ❌ |
+| iPhone 13 以前 | A15以前 | 4-6GB | ❌ |
+
+非対応デバイスでは自動的にクラウドLLMにフォールバックする。ユーザーへの通知は不要（クラウド処理であることはメモ詳細画面の処理場所バッジで表示）。
+
 #### 3.2.2 処理可能タスク
 
 オンデバイスLLMは計算リソースの制約から、以下のタスクに限定する。
