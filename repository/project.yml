@@ -1,0 +1,89 @@
+name: MurMurNote
+options:
+  bundleIdPrefix: io.murmurnote
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.4"
+  generateEmptyDirectories: true
+
+packages:
+  MurMurNoteModules:
+    path: MurMurNoteModules
+
+targets:
+  MurMurNote:
+    type: application
+    platform: iOS
+    sources:
+      - path: MurMurNoteApp
+        type: group
+    dependencies:
+      - package: MurMurNoteModules
+        product: FeatureRecording
+      - package: MurMurNoteModules
+        product: FeatureMemo
+      - package: MurMurNoteModules
+        product: FeatureAI
+      - package: MurMurNoteModules
+        product: FeatureSearch
+      - package: MurMurNoteModules
+        product: FeatureSettings
+      - package: MurMurNoteModules
+        product: FeatureSubscription
+      - package: MurMurNoteModules
+        product: Domain
+      - package: MurMurNoteModules
+        product: Data
+      - package: MurMurNoteModules
+        product: SharedUI
+      - package: MurMurNoteModules
+        product: SharedUtil
+      - package: MurMurNoteModules
+        product: InfraSTT
+      - package: MurMurNoteModules
+        product: InfraLLM
+      - package: MurMurNoteModules
+        product: InfraStorage
+      - package: MurMurNoteModules
+        product: InfraNetwork
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.murmurnote.app
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: MurMurNoteApp/Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+    info:
+      path: MurMurNoteApp/Info.plist
+      properties:
+        CFBundleDisplayName: つぶやき
+        NSMicrophoneUsageDescription: "音声メモの録音に使用します"
+        NSSpeechRecognitionUsageDescription: "音声をテキストに変換するために使用します"
+        UILaunchScreen: {}
+
+  MurMurNoteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MurMurNoteModules/Tests
+        type: group
+    dependencies:
+      - target: MurMurNote
+      - package: MurMurNoteModules
+        product: Domain
+      - package: MurMurNoteModules
+        product: FeatureRecording
+      - package: MurMurNoteModules
+        product: FeatureMemo
+      - package: MurMurNoteModules
+        product: FeatureSearch
+      - package: MurMurNoteModules
+        product: FeatureSettings
+      - package: MurMurNoteModules
+        product: InfraSTT
+      - package: MurMurNoteModules
+        product: InfraLLM
+      - package: MurMurNoteModules
+        product: InfraStorage

@@ -1,0 +1,76 @@
+# Xcode
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.xccheckout
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+Packages/
+
+# CocoaPods (if ever used)
+Pods/
+
+# Carthage (if ever used)
+Carthage/Build/
+Carthage/Checkouts/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Archives
+*.xcarchive
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+iOSInjectionProject/
+
+# Environment / Secrets
+.env
+.env.*
+*.xcconfig
+!*.xcconfig.template
+
+# IDE
+.idea/
+.vscode/
+*.swiftpm/xcode/
+
+# Tuist
+Derived/
