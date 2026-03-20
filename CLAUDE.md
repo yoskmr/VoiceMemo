@@ -8,8 +8,8 @@ MurMurNote（AI音声メモアプリ）の開発ガイド。
 - **プラットフォーム**: iOS 17+
 - **言語**: Swift 6.2 / SwiftUI
 - **アーキテクチャ**: TCA (The Composable Architecture) + Clean Architecture
-- **Xcodeプロジェクト**: `repository/MurMurNote.xcodeproj`
-- **SPMパッケージ**: `repository/MurMurNoteModules/`（マルチモジュール構成）
+- **Xcodeプロジェクト**: `repository/ios/MurMurNote.xcodeproj`
+- **SPMパッケージ**: `repository/ios/MurMurNoteModules/`（マルチモジュール構成）
 
 ## 開発環境
 
@@ -21,15 +21,18 @@ MurMurNote（AI音声メモアプリ）の開発ガイド。
 ```
 VoiceMemo/
 ├── CLAUDE.md                    # ← このファイル
-├── repository/                  # アプリケーションのソースコード
-│   ├── MurMurNote.xcodeproj     # Xcode プロジェクト
-│   ├── MurMurNoteApp/           # アプリターゲット（エントリポイント + DI）
-│   │   ├── MurMurNoteApp.swift  # @main, AppReducer, AppView
-│   │   └── LiveDependencies.swift  # 本番 Dependency 接続
-│   └── MurMurNoteModules/       # Swift Package（全モジュール）
-│       ├── Package.swift
-│       ├── Sources/             # 99ファイル / 8,400行
-│       └── Tests/               # 44ファイル / 352テスト全パス
+├── repository/                  # ソースコード（git管理）
+│   ├── ios/                     # iOSアプリ
+│   │   ├── MurMurNote.xcodeproj # Xcode プロジェクト
+│   │   ├── MurMurNoteApp/       # アプリターゲット（エントリポイント + DI）
+│   │   │   ├── MurMurNoteApp.swift  # @main, AppReducer, AppView
+│   │   │   └── LiveDependencies.swift  # 本番 Dependency 接続
+│   │   └── MurMurNoteModules/   # Swift Package（全モジュール）
+│   │       ├── Package.swift
+│   │       ├── Sources/         # 99ファイル / 8,400行
+│   │       └── Tests/           # 44ファイル / 369テスト全パス
+│   ├── backend/                 # バックエンドAPI（Phase 3で作成予定）
+│   └── .gitignore
 ├── docs/
 │   ├── spec/ai-voice-memo/      # 要件定義・設計書
 │   │   ├── requirements.md      # 要件定義
@@ -88,10 +91,10 @@ ExecuteSnippet   → Swift REPL でコード検証
 
 ```bash
 # ビルド
-cd repository && xcodebuild -project MurMurNote.xcodeproj -scheme MurMurNote -destination 'platform=iOS Simulator,name=iPhone 16' -configuration Debug build -skipMacroValidation
+cd repository/ios && xcodebuild -project MurMurNote.xcodeproj -scheme MurMurNote -destination 'platform=iOS Simulator,name=iPhone 16' -configuration Debug build -skipMacroValidation
 
 # テスト（SPM）
-cd repository/MurMurNoteModules && swift test
+cd repository/ios/MurMurNoteModules && swift test
 ```
 
 ## Xcode MCP 連携ルール
@@ -163,7 +166,9 @@ cd repository/MurMurNoteModules && swift test
 
 ## プロジェクト配置ルール
 
-- アプリケーションのソースコードは `repository/` 配下に配置する
+- ソースコードは `repository/` 配下にアプリ種別ごとのディレクトリで管理する
+  - `repository/ios/` — iOSアプリ（Swift/SwiftUI）
+  - `repository/backend/` — バックエンドAPI（Phase 3で作成予定）
 - `works/`、`reports/` は調査・分析用であり、ソースコードとは分離する
 
 ## 作業ディレクトリ運用ルール
