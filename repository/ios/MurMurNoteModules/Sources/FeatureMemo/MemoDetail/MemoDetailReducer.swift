@@ -215,6 +215,12 @@ public struct MemoDetailReducer {
         }
     }
 
+    // MARK: - Cancellation IDs
+
+    private enum CancelID {
+        case aiObserve
+    }
+
     // MARK: - Dependencies
 
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
@@ -246,6 +252,7 @@ public struct MemoDetailReducer {
                             await send(.aiProcessingStatusUpdated(status))
                         }
                     }
+                    .cancellable(id: CancelID.aiObserve, cancelInFlight: true)
                 )
 
             case let .memoLoaded(.success(detail)):

@@ -130,16 +130,29 @@ public struct RecordingFeature {
 
             case .pauseButtonTapped:
                 state.recordingStatus = .paused
-                return .run { _ in
-                    try await audioRecorder.pauseRecording()
-                }
-                .cancellable(id: CancelID.audioLevel)
+                return .merge(
+                    .cancel(id: CancelID.timer),
+                    .run { send in
+                        do {
+                            try await audioRecorder.pauseRecording()
+                        } catch {
+                            await send(.recordingFailed(error.localizedDescription))
+                        }
+                    }
+                )
 
             case .resumeButtonTapped:
                 state.recordingStatus = .recording
-                return .run { _ in
-                    try await audioRecorder.resumeRecording()
-                }
+                return .merge(
+                    startTimerEffect(),
+                    .run { send in
+                        do {
+                            try await audioRecorder.resumeRecording()
+                        } catch {
+                            await send(.recordingFailed(error.localizedDescription))
+                        }
+                    }
+                )
 
             case .stopButtonTapped:
                 state.recordingStatus = .saving

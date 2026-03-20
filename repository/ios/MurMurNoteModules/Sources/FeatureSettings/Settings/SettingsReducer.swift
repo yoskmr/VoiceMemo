@@ -68,6 +68,8 @@ public struct SettingsReducer {
 
             case let .emotionAnalysisToggled(isEnabled):
                 state.emotionAnalysisEnabled = isEnabled
+                // TODO: UserSettingsRepository 実装時に UserDefaults/@AppStorage 相当の永続化を追加する
+                // 現在はメモリ上のみで保持され、アプリ再起動時にリセットされる
                 return .none
 
             case .customDictionary:

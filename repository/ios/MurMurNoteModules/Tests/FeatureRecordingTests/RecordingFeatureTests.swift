@@ -52,8 +52,8 @@ final class RecordingFeatureTests: XCTestCase {
 
     // MARK: - 正常系: pauseButtonTapped → paused状態
 
-    /// 録音中に一時停止ボタンタップ → pausedに遷移する
-    func test_pauseButtonTapped_recording中_pausedに遷移する() async {
+    /// 録音中に一時停止ボタンタップ → pausedに遷移しタイマーがキャンセルされる
+    func test_pauseButtonTapped_recording中_pausedに遷移しタイマーがキャンセルされる() async {
         let store = TestStore(
             initialState: RecordingFeature.State(
                 recordingStatus: .recording,
@@ -70,10 +70,35 @@ final class RecordingFeatureTests: XCTestCase {
         }
     }
 
+    /// 一時停止中にpauseRecordingが失敗 → recordingFailedが送信される
+    func test_pauseButtonTapped_失敗時_recordingFailedが送信される() async {
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingStatus: .recording,
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        } withDependencies: {
+            $0.audioRecorder.pauseRecording = {
+                throw NSError(domain: "Audio", code: -1, userInfo: [NSLocalizedDescriptionKey: "一時停止に失敗"])
+            }
+        }
+
+        await store.send(.pauseButtonTapped) {
+            $0.recordingStatus = .paused
+        }
+
+        await store.receive(\.recordingFailed) {
+            $0.recordingStatus = .idle
+            $0.errorMessage = "一時停止に失敗"
+        }
+    }
+
     // MARK: - 正常系: resumeButtonTapped → recording状態
 
-    /// 一時停止中に再開ボタンタップ → recordingに遷移する
-    func test_resumeButtonTapped_paused中_recordingに遷移する() async {
+    /// 一時停止中に再開ボタンタップ → recordingに遷移しタイマーが再開される
+    func test_resumeButtonTapped_paused中_recordingに遷移しタイマーが再開される() async {
         let store = TestStore(
             initialState: RecordingFeature.State(
                 recordingStatus: .paused,
@@ -83,10 +108,39 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.resumeRecording = {}
+            $0.continuousClock = ImmediateClock()
         }
+        store.exhaustivity = .off
 
         await store.send(.resumeButtonTapped) {
             $0.recordingStatus = .recording
+        }
+    }
+
+    /// 再開時にresumeRecordingが失敗 → recordingFailedが送信される
+    func test_resumeButtonTapped_失敗時_recordingFailedが送信される() async {
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingStatus: .paused,
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        } withDependencies: {
+            $0.audioRecorder.resumeRecording = {
+                throw NSError(domain: "Audio", code: -1, userInfo: [NSLocalizedDescriptionKey: "再開に失敗"])
+            }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off
+
+        await store.send(.resumeButtonTapped) {
+            $0.recordingStatus = .recording
+        }
+
+        await store.receive(\.recordingFailed) {
+            $0.recordingStatus = .idle
+            $0.errorMessage = "再開に失敗"
         }
     }
 

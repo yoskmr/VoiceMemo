@@ -89,8 +89,9 @@ extension AudioFileStoreClient: DependencyKey {
             let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             let audioDir = docsDir.appendingPathComponent("Audio", isDirectory: true)
             let fullURL = docsDir.appendingPathComponent(relativePath).standardizedFileURL
-            // Documents/Audio/ 配下のファイルのみ削除を許可
-            guard fullURL.path.hasPrefix(audioDir.path) else {
+            // Documents/Audio/ 配下のファイルのみ削除を許可（末尾スラッシュで "Audio_evil/" 等の誤マッチを防止）
+            let audioDirPrefix = audioDir.path.hasSuffix("/") ? audioDir.path : audioDir.path + "/"
+            guard fullURL.path.hasPrefix(audioDirPrefix) || fullURL.path == audioDir.path else {
                 throw NSError(
                     domain: "AudioFileStore",
                     code: -2,

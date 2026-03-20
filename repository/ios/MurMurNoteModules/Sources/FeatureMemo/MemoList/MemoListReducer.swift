@@ -318,6 +318,8 @@ public struct MemoListReducer {
                         print("[MemoList Search] FTS5結果: \(ftsResults.count)件")
                         #endif
 
+                        // TODO: N+1クエリ問題 - FTS5結果ごとにfetchMemoForSearchを個別呼び出ししている
+                        // FTS5（SQLite）とSwiftDataのDB分離が原因で構造的に解消困難。Phase後半でバッチ取得APIを検討
                         var items: [SearchResultItem] = []
                         for ftsResult in ftsResults {
                             guard let memoID = UUID(uuidString: ftsResult.memoID),
@@ -426,13 +428,20 @@ public struct MemoListReducer {
         }
     }
 
-    static func sectionLabel(for date: Date, now: Date, calendar: Calendar) -> String {
-        if calendar.isDateInToday(date) { return "今日" }
-        if calendar.isDateInYesterday(date) { return "昨日" }
+    private static let sectionDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "yyyy年M月d日"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    static func sectionLabel(for date: Date, now: Date, calendar: Calendar) -> String {
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfDate = calendar.startOfDay(for: date)
+        let dayDiff = calendar.dateComponents([.day], from: startOfDate, to: startOfToday).day ?? 0
+        if dayDiff == 0 { return "今日" }
+        if dayDiff == 1 { return "昨日" }
+        return sectionDateFormatter.string(from: date)
     }
 }
 

@@ -208,11 +208,15 @@ struct MetaInfoRow: View {
         }
     }
 
-    private var formattedDate: String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "yyyy/M/d HH:mm"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private var formattedDate: String {
+        Self.dateFormatter.string(from: date)
     }
 
     private var formattedDuration: String {
