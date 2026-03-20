@@ -2,6 +2,7 @@ import ComposableArchitecture
 import Domain
 import FeatureMemo
 import FeatureRecording
+import FeatureSettings
 import SharedUI
 import SwiftUI
 
@@ -27,6 +28,7 @@ struct AppReducer {
         var selectedTab: Tab = .home
         var recording = RecordingFeature.State()
         var memoList = MemoListReducer.State()
+        var settings = SettingsReducer.State()
         /// メモ詳細表示用（nilの場合は非表示）
         var selectedMemo: MemoDetailReducer.State?
 
@@ -41,6 +43,7 @@ struct AppReducer {
         case tabSelected(State.Tab)
         case recording(RecordingFeature.Action)
         case memoList(MemoListReducer.Action)
+        case settings(SettingsReducer.Action)
         case memoDetail(MemoDetailReducer.Action)
         case dismissMemoDetail
     }
@@ -53,6 +56,9 @@ struct AppReducer {
         }
         Scope(state: \.memoList, action: \.memoList) {
             MemoListReducer()
+        }
+        Scope(state: \.settings, action: \.settings) {
+            SettingsReducer()
         }
         Reduce { state, action in
             switch action {
@@ -86,6 +92,9 @@ struct AppReducer {
                 )
 
             case .recording:
+                return .none
+
+            case .settings:
                 return .none
 
             // メモ一覧でメモをタップ → メモ詳細を表示
@@ -142,21 +151,20 @@ struct AppView: View {
                 )
                 .navigationTitle("つぶやき")
             }
-            .tabItem { Label("ホーム", systemImage: "mic.fill") }
+            .tabItem { Label("録音", systemImage: "mic.fill") }
             .tag(AppReducer.State.Tab.home)
 
             // メモ一覧タブ
             MemoListView(
                 store: store.scope(state: \.memoList, action: \.memoList)
             )
-            .tabItem { Label("メモ", systemImage: "list.bullet") }
+            .tabItem { Label("メモ", systemImage: "doc.text.fill") }
             .tag(AppReducer.State.Tab.memoList)
 
-            // 設定タブ（プレースホルダー）
-            NavigationStack {
-                Text("設定")
-                    .navigationTitle("設定")
-            }
+            // 設定タブ
+            SettingsView(
+                store: store.scope(state: \.settings, action: \.settings)
+            )
             .tabItem { Label("設定", systemImage: "gearshape") }
             .tag(AppReducer.State.Tab.settings)
         }

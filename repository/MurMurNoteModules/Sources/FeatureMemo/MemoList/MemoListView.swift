@@ -39,6 +39,11 @@ public struct MemoListView: View {
                     SearchView(store: searchStore)
                         .navigationTitle("検索")
                 }
+                .navigationDestination(
+                    item: $store.scope(state: \.emotionTrendState, action: \.emotionTrend)
+                ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
+                    EmotionTrendView(store: emotionTrendStore)
+                }
         }
         .onAppear {
             store.send(.onAppear)

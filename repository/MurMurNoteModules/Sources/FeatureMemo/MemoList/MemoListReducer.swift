@@ -24,6 +24,9 @@ public struct MemoListReducer {
         /// 検索画面（NavigationStack push用、nilで非表示）
         @Presents public var searchState: SearchReducer.State?
 
+        /// 感情トレンド画面（NavigationStack push用、nilで非表示）
+        @Presents public var emotionTrendState: EmotionTrendReducer.State?
+
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
 
@@ -34,7 +37,8 @@ public struct MemoListReducer {
             hasMorePages: Bool = true,
             currentPage: Int = 0,
             errorMessage: String? = nil,
-            searchState: SearchReducer.State? = nil
+            searchState: SearchReducer.State? = nil,
+            emotionTrendState: EmotionTrendReducer.State? = nil
         ) {
             self.memos = memos
             self.sections = sections
@@ -43,6 +47,7 @@ public struct MemoListReducer {
             self.currentPage = currentPage
             self.errorMessage = errorMessage
             self.searchState = searchState
+            self.emotionTrendState = emotionTrendState
         }
     }
 
@@ -108,6 +113,7 @@ public struct MemoListReducer {
         case refreshRequested
         case refreshCompleted(Result<[MemoItem], EquatableError>)
         case search(PresentationAction<SearchReducer.Action>)
+        case emotionTrend(PresentationAction<EmotionTrendReducer.Action>)
     }
 
     // MARK: - Dependencies
@@ -227,12 +233,22 @@ public struct MemoListReducer {
             case .search:
                 return .none
 
-            case .memoTapped, .deleteCancelled, .trendIconTapped:
+            case .trendIconTapped:
+                state.emotionTrendState = EmotionTrendReducer.State()
+                return .none
+
+            case .emotionTrend:
+                return .none
+
+            case .memoTapped, .deleteCancelled:
                 return .none
             }
         }
         .ifLet(\.$searchState, action: \.search) {
             SearchReducer()
+        }
+        .ifLet(\.$emotionTrendState, action: \.emotionTrend) {
+            EmotionTrendReducer()
         }
     }
 
