@@ -10,7 +10,7 @@ final class SettingsReducerTests: XCTestCase {
     func test_initialState() {
         let state = SettingsReducer.State()
         XCTAssertFalse(state.showComingSoonAlert)
-        XCTAssertEqual(state.comingSoonFeature, "")
+        XCTAssertNil(state.comingSoonFeature)
         XCTAssertEqual(state.customDictionary.entries.count, 0)
     }
 
@@ -23,8 +23,8 @@ final class SettingsReducerTests: XCTestCase {
             SettingsReducer()
         }
 
-        await store.send(.comingSoonTapped("プライバシー設定")) {
-            $0.comingSoonFeature = "プライバシー設定"
+        await store.send(.comingSoonTapped(.privacySettings)) {
+            $0.comingSoonFeature = .privacySettings
             $0.showComingSoonAlert = true
         }
     }
@@ -35,7 +35,7 @@ final class SettingsReducerTests: XCTestCase {
         let store = TestStore(
             initialState: SettingsReducer.State(
                 showComingSoonAlert: true,
-                comingSoonFeature: "アプリロック"
+                comingSoonFeature: .appLock
             )
         ) {
             SettingsReducer()
@@ -43,7 +43,7 @@ final class SettingsReducerTests: XCTestCase {
 
         await store.send(.dismissComingSoonAlert) {
             $0.showComingSoonAlert = false
-            $0.comingSoonFeature = ""
+            $0.comingSoonFeature = nil
         }
     }
 
@@ -56,8 +56,8 @@ final class SettingsReducerTests: XCTestCase {
             SettingsReducer()
         }
 
-        await store.send(.comingSoonTapped("テーマ設定")) {
-            $0.comingSoonFeature = "テーマ設定"
+        await store.send(.comingSoonTapped(.themeSettings)) {
+            $0.comingSoonFeature = .themeSettings
             $0.showComingSoonAlert = true
         }
     }
@@ -71,18 +71,18 @@ final class SettingsReducerTests: XCTestCase {
             SettingsReducer()
         }
 
-        await store.send(.comingSoonTapped("プラン管理")) {
-            $0.comingSoonFeature = "プラン管理"
+        await store.send(.comingSoonTapped(.planManagement)) {
+            $0.comingSoonFeature = .planManagement
             $0.showComingSoonAlert = true
         }
 
         await store.send(.dismissComingSoonAlert) {
             $0.showComingSoonAlert = false
-            $0.comingSoonFeature = ""
+            $0.comingSoonFeature = nil
         }
 
-        await store.send(.comingSoonTapped("利用統計")) {
-            $0.comingSoonFeature = "利用統計"
+        await store.send(.comingSoonTapped(.usageStats)) {
+            $0.comingSoonFeature = .usageStats
             $0.showComingSoonAlert = true
         }
     }

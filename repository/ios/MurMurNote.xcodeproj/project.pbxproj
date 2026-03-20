@@ -43,7 +43,10 @@
 		70B828B30E4990D7357524E3 /* InfraStorage in Frameworks */ = {isa = PBXBuildFile; productRef = B0FDBF69CEB31BD950CA5941 /* InfraStorage */; };
 		7B2F2CF831D12DA0A7FA3DCE /* MemoEditReducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C57D32D330F32209D1B858C1 /* MemoEditReducerTests.swift */; };
 		7C91DF32FBCE1C6C49886D7C /* TranscriptionEntityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93FDD90B0498FB2D61741133 /* TranscriptionEntityTests.swift */; };
-		835FFA8311D5470A624886A0 /* LiveDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD1846E0F3EC47B4C4408CB /* LiveDependencies.swift */; };
+		835FFA8311D5470A624886A1 /* RecordingDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD1846E0F3EC47B4C4408C1 /* RecordingDependencies.swift */; };
+		835FFA8311D5470A624886A2 /* StorageDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD1846E0F3EC47B4C4408C2 /* StorageDependencies.swift */; };
+		835FFA8311D5470A624886A3 /* PlayerDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD1846E0F3EC47B4C4408C3 /* PlayerDependencies.swift */; };
+		835FFA8311D5470A624886A4 /* SettingsDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD1846E0F3EC47B4C4408C4 /* SettingsDependencies.swift */; };
 		83F7448EC0C1761EAE86A5DD /* FeatureRecording in Frameworks */ = {isa = PBXBuildFile; productRef = 8B0FBAAD996823D9980756D3 /* FeatureRecording */; };
 		878A5C6302AA68A5432EAC0F /* FeatureRecording in Frameworks */ = {isa = PBXBuildFile; productRef = 40CD16191FC93840B4704B3E /* FeatureRecording */; };
 		8CFB681193AFC18FFB1A7DFD /* STTEngineFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E7CE380B2913A7BD6B590C1 /* STTEngineFactoryTests.swift */; };
@@ -135,7 +138,10 @@
 		CFC6A0D414839342B53AB8B2 /* AudioPlayerReducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerReducerTests.swift; sourceTree = "<group>"; };
 		D2F3734FFAC5FB4E3F0636CA /* FeatureMemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureMemoTests.swift; sourceTree = "<group>"; };
 		D4F140D32E6451F73C085D0C /* SearchReducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchReducerTests.swift; sourceTree = "<group>"; };
-		DCD1846E0F3EC47B4C4408CB /* LiveDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDependencies.swift; sourceTree = "<group>"; };
+		DCD1846E0F3EC47B4C4408C1 /* RecordingDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingDependencies.swift; sourceTree = "<group>"; };
+		DCD1846E0F3EC47B4C4408C2 /* StorageDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageDependencies.swift; sourceTree = "<group>"; };
+		DCD1846E0F3EC47B4C4408C3 /* PlayerDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerDependencies.swift; sourceTree = "<group>"; };
+		DCD1846E0F3EC47B4C4408C4 /* SettingsDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDependencies.swift; sourceTree = "<group>"; };
 		E787D1F6D870362634488332 /* FeatureRecordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRecordingTests.swift; sourceTree = "<group>"; };
 		E9977AE5E7374EAF88C7758F /* InfraStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfraStorageTests.swift; sourceTree = "<group>"; };
 		EAFCB030746AAEC03E500432 /* STTErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTErrorTests.swift; sourceTree = "<group>"; };
@@ -256,9 +262,12 @@
 			isa = PBXGroup;
 			children = (
 				299194D4E593F298C35CE0DE /* Info.plist */,
-				DCD1846E0F3EC47B4C4408CB /* LiveDependencies.swift */,
 				A399BFF5EF22DBB7CCB93CF5 /* MurMurNoteApp.swift */,
+				DCD1846E0F3EC47B4C4408C3 /* PlayerDependencies.swift */,
 				45D68F982C60C00F13601E60 /* PrivacyInfo.xcprivacy */,
+				DCD1846E0F3EC47B4C4408C1 /* RecordingDependencies.swift */,
+				DCD1846E0F3EC47B4C4408C4 /* SettingsDependencies.swift */,
+				DCD1846E0F3EC47B4C4408C2 /* StorageDependencies.swift */,
 			);
 			path = MurMurNoteApp;
 			sourceTree = "<group>";
@@ -460,8 +469,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				835FFA8311D5470A624886A0 /* LiveDependencies.swift in Sources */,
 				A3F4384A3857B45031137817 /* MurMurNoteApp.swift in Sources */,
+				835FFA8311D5470A624886A3 /* PlayerDependencies.swift in Sources */,
+				835FFA8311D5470A624886A1 /* RecordingDependencies.swift in Sources */,
+				835FFA8311D5470A624886A4 /* SettingsDependencies.swift in Sources */,
+				835FFA8311D5470A624886A2 /* StorageDependencies.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

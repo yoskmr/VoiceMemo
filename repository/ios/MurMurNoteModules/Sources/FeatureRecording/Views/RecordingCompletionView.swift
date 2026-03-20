@@ -8,9 +8,7 @@ import SwiftUI
 struct RecordingCompletionView: View {
     let store: StoreOf<RecordingFeature>
 
-    @State private var showCheckmark = false
-    @State private var showPreview = false
-    @State private var showCTA = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// 保存されたメモから文字起こしプレビューを取得（最大100文字）
     private var transcriptionPreview: String {
@@ -27,20 +25,25 @@ struct RecordingCompletionView: View {
         return fullText
     }
 
+    /// reduceMotion対応: アニメーションを条件付きで適用
+    private var stageAnimation: Animation? {
+        reduceMotion ? nil : .easeOut(duration: 0.3)
+    }
+
     var body: some View {
         VStack(spacing: VMDesignTokens.Spacing.xl) {
             Spacer()
 
             // チェックマーク（scaleアニメーション）
-            if showCheckmark {
+            if store.completionStage != .initial {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 48))
                     .foregroundColor(.vmSuccess)
-                    .transition(.scale)
+                    .transition(reduceMotion ? .opacity : .scale)
             }
 
             // 「保存しました」
-            if showCheckmark {
+            if store.completionStage != .initial {
                 Text("保存しました")
                     .font(.vmTitle2)
                     .foregroundColor(.vmTextPrimary)
@@ -48,7 +51,7 @@ struct RecordingCompletionView: View {
             }
 
             // 文字起こしプレビュー（最大4行）
-            if showPreview {
+            if store.completionStage == .preview || store.completionStage == .cta {
                 Text(transcriptionPreview)
                     .font(.vmBody())
                     .foregroundColor(.vmTextSecondary)
@@ -58,11 +61,11 @@ struct RecordingCompletionView: View {
                     .background(Color.vmSurfaceVariant)
                     .cornerRadius(VMDesignTokens.CornerRadius.small)
                     .padding(.horizontal, VMDesignTokens.Spacing.lg)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
 
             // AI処理インジケーター枠（Phase 3で実体化）
-            if showPreview {
+            if store.completionStage == .preview || store.completionStage == .cta {
                 HStack(spacing: VMDesignTokens.Spacing.sm) {
                     Image(systemName: "sparkles")
                         .foregroundColor(.vmInfo)
@@ -81,7 +84,7 @@ struct RecordingCompletionView: View {
             Spacer()
 
             // CTAボタン「メモを見る」
-            if showCTA {
+            if store.completionStage == .cta {
                 Button {
                     store.send(.viewMemoTapped)
                 } label: {
@@ -98,7 +101,7 @@ struct RecordingCompletionView: View {
             }
 
             // 「あとで」テキストボタン
-            if showCTA {
+            if store.completionStage == .cta {
                 Button {
                     store.send(.dismissCompletion)
                 } label: {
@@ -110,20 +113,7 @@ struct RecordingCompletionView: View {
                 .transition(.opacity)
             }
         }
+        .animation(stageAnimation, value: store.completionStage)
         .background(Color.vmBackground)
-        .onAppear {
-            // チェックマーク: 即座にspring表示
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                showCheckmark = true
-            }
-            // プレビューテキスト: 0.3秒遅延
-            withAnimation(.easeOut(duration: 0.4).delay(0.3)) {
-                showPreview = true
-            }
-            // CTAボタン: 0.5秒遅延
-            withAnimation(.easeOut(duration: 0.3).delay(0.5)) {
-                showCTA = true
-            }
-        }
     }
 }

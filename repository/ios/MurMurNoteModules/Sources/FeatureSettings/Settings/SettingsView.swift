@@ -54,12 +54,12 @@ public struct SettingsView: View {
                     comingSoonButton(
                         title: "プライバシー設定",
                         icon: "hand.raised.fill",
-                        feature: "プライバシー設定"
+                        feature: .privacySettings
                     )
                     comingSoonButton(
                         title: "アプリロック",
                         icon: "lock.fill",
-                        feature: "アプリロック"
+                        feature: .appLock
                     )
                 } header: {
                     Text("プライバシー")
@@ -70,12 +70,12 @@ public struct SettingsView: View {
                     comingSoonButton(
                         title: "プラン管理",
                         icon: "creditcard.fill",
-                        feature: "プラン管理"
+                        feature: .planManagement
                     )
                     comingSoonButton(
                         title: "テーマ設定",
                         icon: "paintbrush.fill",
-                        feature: "テーマ設定",
+                        feature: .themeSettings,
                         badge: "Pro"
                     )
                 } header: {
@@ -87,7 +87,7 @@ public struct SettingsView: View {
                     comingSoonButton(
                         title: "利用統計",
                         icon: "chart.bar.fill",
-                        feature: "利用統計"
+                        feature: .usageStats
                     )
                     HStack {
                         Label("バージョン", systemImage: "info.circle")
@@ -107,7 +107,7 @@ public struct SettingsView: View {
             .navigationBarTitleDisplayMode(.large)
             #endif
             .alert(
-                store.comingSoonFeature,
+                store.comingSoonFeature?.displayName ?? "",
                 isPresented: Binding(
                     get: { store.showComingSoonAlert },
                     set: { if !$0 { store.send(.dismissComingSoonAlert) } }
@@ -127,7 +127,7 @@ public struct SettingsView: View {
     private func comingSoonButton(
         title: String,
         icon: String,
-        feature: String,
+        feature: SettingsReducer.ComingSoonFeature,
         badge: String? = nil
     ) -> some View {
         Button {

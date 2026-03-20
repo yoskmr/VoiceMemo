@@ -224,30 +224,32 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
 
         // Tap を設定
         let bufferSize: AVAudioFrameCount = 1024
+        // TODO: os_unfair_lock への移行を検討（RTスレッドでの NSLock オーバーヘッド軽減）
         inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) {
             [weak self] buffer, _ in
             guard let self = self else { return }
 
-            let (recording, paused) = self.withLock { state in
-                (state.isRecording, state.isPaused)
+            // ロック取得を1回に統合: isRecording/isPaused判定 + state値取得を一括で行う
+            let snapshot = self.withLock { state -> (recording: Bool, paused: Bool, startTime: Date?, pausedDuration: TimeInterval, levelCont: AsyncStream<AudioLevelUpdate>.Continuation?, pcmCont: AsyncStream<AVAudioPCMBuffer>.Continuation?)? in
+                guard state.isRecording, !state.isPaused else { return nil }
+                return (
+                    recording: state.isRecording,
+                    paused: state.isPaused,
+                    startTime: state.recordingStartTime,
+                    pausedDuration: state.pausedDuration,
+                    levelCont: state.levelContinuation,
+                    pcmCont: state.pcmBufferContinuation
+                )
             }
 
-            guard recording, !paused else { return }
+            guard let snapshot else { return }
 
-            // 音量レベル計算
+            // 音量レベル計算（ロック外で実行）
             let levels = self.calculateLevels(buffer: buffer)
 
-            // ロック1回でcontinuation取得（再帰ロック回避）
-            self.lock.lock()
-            let startTime = self.state.recordingStartTime
-            let pausedDuration = self.state.pausedDuration
-            let levelCont = self.state.levelContinuation
-            let pcmCont = self.state.pcmBufferContinuation
-            self.lock.unlock()
-
             let timestamp: TimeInterval
-            if let startTime {
-                timestamp = Date().timeIntervalSince(startTime) - pausedDuration
+            if let startTime = snapshot.startTime {
+                timestamp = Date().timeIntervalSince(startTime) - snapshot.pausedDuration
             } else {
                 timestamp = 0
             }
@@ -258,8 +260,8 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
                 timestamp: timestamp
             )
 
-            levelCont?.yield(update)
-            pcmCont?.yield(buffer)
+            snapshot.levelCont?.yield(update)
+            snapshot.pcmCont?.yield(buffer)
 
             // AAC ファイルに書き込み
             do {

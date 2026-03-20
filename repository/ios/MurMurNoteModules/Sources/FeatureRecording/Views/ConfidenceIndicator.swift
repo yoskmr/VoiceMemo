@@ -18,6 +18,7 @@ struct ConfidenceIndicator: View {
         .padding(.vertical, VMDesignTokens.Spacing.xs)
         .background(Color.vmSurfaceVariant.opacity(0.8))
         .clipShape(Capsule())
+        .accessibilityLabel("認識精度: \(indicatorLabel)")
     }
 
     private var indicatorColor: Color {

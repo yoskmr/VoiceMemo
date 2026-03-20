@@ -20,13 +20,20 @@ public struct RecordButton: View {
         self.action = action
     }
 
+    @ScaledMetric(relativeTo: .title) private var outerSize: CGFloat = 80
+    @ScaledMetric(relativeTo: .title) private var innerCircleSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .title) private var stopSize: CGFloat = 28
+    @ScaledMetric(relativeTo: .title) private var pausedSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .title) private var micIconSize: CGFloat = 24
+    @ScaledMetric(relativeTo: .title) private var playIconSize: CGFloat = 16
+
     public var body: some View {
         Button(action: action) {
             ZStack {
                 // 外枠の円（背景）
                 Circle()
                     .fill(outerFillColor)
-                    .frame(width: 80, height: 80)
+                    .frame(width: outerSize, height: outerSize)
 
                 // 内部形状（状態に応じて変化）
                 innerShape
@@ -46,10 +53,10 @@ public struct RecordButton: View {
             // 赤い円 + マイクアイコン（録音開始ボタン）
             Circle()
                 .fill(Color.vmPrimary)
-                .frame(width: 56, height: 56)
+                .frame(width: innerCircleSize, height: innerCircleSize)
                 .overlay {
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 24, weight: .medium))
+                        .font(.system(size: micIconSize, weight: .medium))
                         .foregroundColor(.white)
                 }
 
@@ -57,16 +64,16 @@ public struct RecordButton: View {
             // 赤い正方形（録音中 → 停止ボタン）
             RoundedRectangle(cornerRadius: 4)
                 .fill(Color.vmError)
-                .frame(width: 28, height: 28)
+                .frame(width: stopSize, height: stopSize)
 
         case .paused:
             // 角丸正方形 cornerRadius:16（一時停止中 → 再開ボタン）
             RoundedRectangle(cornerRadius: VMDesignTokens.CornerRadius.medium)
                 .fill(Color.vmWarning)
-                .frame(width: 36, height: 36)
+                .frame(width: pausedSize, height: pausedSize)
                 .overlay {
                     Image(systemName: "play.fill")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: playIconSize, weight: .medium))
                         .foregroundColor(.white)
                 }
         }

@@ -21,6 +21,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.startTranscription = { _, _ in AsyncStream<TranscriptionResult> { $0.finish() } }
             $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、録音開始後のタイマー・STTストリーム等の全エフェクトを明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.recordButtonTapped) {
@@ -110,6 +111,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.audioRecorder.resumeRecording = {}
             $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、再開後のタイマー再開エフェクトを明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.resumeButtonTapped) {
@@ -132,6 +134,7 @@ final class RecordingFeatureTests: XCTestCase {
             }
             $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、エラー時のrecordingFailedアクション受信を完全に検証する
         store.exhaustivity = .off
 
         await store.send(.resumeButtonTapped) {
@@ -175,7 +178,9 @@ final class RecordingFeatureTests: XCTestCase {
             $0.audioFileStore.setFileProtection = { _ in }
             $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
             $0.temporaryRecordingStore.cleanup = { _ in }
+            $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、停止後のFTS5インデックス更新・AI処理キュー投入等の全エフェクトを明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
@@ -234,7 +239,9 @@ final class RecordingFeatureTests: XCTestCase {
             $0.audioFileStore.setFileProtection = { _ in }
             $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
             $0.temporaryRecordingStore.cleanup = { _ in }
+            $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、STT失敗時のフォールバック動作を含む全エフェクトを明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
@@ -391,6 +398,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.startTranscription = { _, _ in AsyncStream<TranscriptionResult> { $0.finish() } }
             $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、権限許可後の自動録音開始エフェクトを明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.permissionResponse(true)) {
@@ -440,6 +448,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.audioRecorder.startRecording = { throw RecordingError.microphonePermissionDenied }
             $0.continuousClock = ImmediateClock()
         }
+        // TODO: exhaustivity = .off を解消し、録音開始失敗後のrecordingFailedアクション受信を完全に検証する
         store.exhaustivity = .off
 
         await store.send(.recordButtonTapped) {

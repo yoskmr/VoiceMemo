@@ -295,11 +295,10 @@ public struct MemoDetailReducer {
                 return .none
 
             case .dismissEditSheet:
+                // キャンセルは MemoEditReducer.onDisappear が自身で処理するため、
+                // 親から子の内部IDを直接キャンセルする必要はない（#14: 親漏洩解消）
                 state.editState = nil
-                return .merge(
-                    .cancel(id: MemoEditReducer.AutoSaveID.debounce),
-                    .cancel(id: MemoEditReducer.SuccessMessageID.dismiss)
-                )
+                return .none
 
             // MARK: - 編集保存完了 → タイトル反映 + リロード（シートは閉じない）
             // シートはユーザーが「閉じる」を押した時（dismissEditSheet）でのみ閉じる。
@@ -324,11 +323,9 @@ public struct MemoDetailReducer {
                 }
 
             case .edit(.discardConfirmed):
+                // キャンセルは MemoEditReducer.discardConfirmed が自身で処理する（#14: 親漏洩解消）
                 state.editState = nil
-                return .merge(
-                    .cancel(id: MemoEditReducer.AutoSaveID.debounce),
-                    .cancel(id: MemoEditReducer.SuccessMessageID.dismiss)
-                )
+                return .none
 
             case .edit:
                 // editState が nil の場合（シート閉じ後のバインディング遅延）は無視

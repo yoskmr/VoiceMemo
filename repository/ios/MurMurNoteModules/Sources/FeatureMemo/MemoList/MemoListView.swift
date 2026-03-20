@@ -215,27 +215,39 @@ struct SearchResultCard: View {
         .accessibilityLabel("\(item.title), \(formattedDate)")
     }
 
-    /// FTS5スニペットの <mark> タグをパースし、ヒット箇所を強調表示する
-    static func highlightedText(_ snippet: String) -> Text {
-        var result = Text("")
+    /// FTS5スニペットの <mark> タグをパースし、セグメント配列に分解する
+    /// View側でText構築に使用（文字列生成コストを削減）
+    static func parseSnippet(_ snippet: String) -> [(text: String, isHighlighted: Bool)] {
+        var segments: [(text: String, isHighlighted: Bool)] = []
         var remaining = snippet
         while let openRange = remaining.range(of: "<mark>") {
-            // <mark> の前のテキスト
             let before = String(remaining[remaining.startIndex..<openRange.lowerBound])
             if !before.isEmpty {
-                result = result + Text(before).foregroundColor(.vmTextSecondary)
+                segments.append((text: before, isHighlighted: false))
             }
             remaining = String(remaining[openRange.upperBound...])
-            // </mark> を探す
             if let closeRange = remaining.range(of: "</mark>") {
                 let highlighted = String(remaining[remaining.startIndex..<closeRange.lowerBound])
-                result = result + Text(highlighted).bold().foregroundColor(.vmPrimary)
+                segments.append((text: highlighted, isHighlighted: true))
                 remaining = String(remaining[closeRange.upperBound...])
             }
         }
-        // 残りのテキスト
         if !remaining.isEmpty {
-            result = result + Text(remaining).foregroundColor(.vmTextSecondary)
+            segments.append((text: remaining, isHighlighted: false))
+        }
+        return segments
+    }
+
+    /// FTS5スニペットの <mark> タグをパースし、ヒット箇所を強調表示する
+    static func highlightedText(_ snippet: String) -> Text {
+        let segments = parseSnippet(snippet)
+        var result = Text("")
+        for segment in segments {
+            if segment.isHighlighted {
+                result = result + Text(segment.text).bold().foregroundColor(.vmPrimary)
+            } else {
+                result = result + Text(segment.text).foregroundColor(.vmTextSecondary)
+            }
         }
         return result
     }

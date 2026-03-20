@@ -400,6 +400,7 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.audioFileStore.deleteAudioFile = { _ in }
             $0.fts5IndexManager.removeIndex = { _ in }
         }
+        // TODO: exhaustivity = .off を解消し、削除完了後の全アクション（_deleteCompletedAndDismiss等）を明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.delete(.deleteConfirmed(id: testMemoID))) {

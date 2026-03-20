@@ -20,6 +20,8 @@ public struct VoiceMemoRepositoryClient: Sendable {
     public var fetchAllTags: @Sendable () async throws -> [String]
     /// 検索用メモ情報取得（TASK-0016）
     public var fetchMemoForSearch: @Sendable (_ id: UUID) async throws -> SearchableMemo?
+    /// 複数IDによるメモ一括取得（N+1クエリ解消用）
+    public var fetchMemosByIDs: @Sendable (_ ids: [UUID]) async throws -> [UUID: SearchableMemo]
 
     public init(
         save: @escaping @Sendable (_ memo: VoiceMemoEntity) async throws -> Void,
@@ -33,7 +35,8 @@ public struct VoiceMemoRepositoryClient: Sendable {
         updateMemoText: @escaping @Sendable (_ id: UUID, _ title: String, _ transcriptionText: String) async throws -> Void = { _, _, _ in },
         getAudioFilePath: @escaping @Sendable (_ id: UUID) async throws -> String = { _ in "" },
         fetchAllTags: @escaping @Sendable () async throws -> [String] = { [] },
-        fetchMemoForSearch: @escaping @Sendable (_ id: UUID) async throws -> SearchableMemo? = { _ in nil }
+        fetchMemoForSearch: @escaping @Sendable (_ id: UUID) async throws -> SearchableMemo? = { _ in nil },
+        fetchMemosByIDs: @escaping @Sendable (_ ids: [UUID]) async throws -> [UUID: SearchableMemo] = { _ in [:] }
     ) {
         self.save = save
         self.fetchByID = fetchByID
@@ -45,6 +48,7 @@ public struct VoiceMemoRepositoryClient: Sendable {
         self.getAudioFilePath = getAudioFilePath
         self.fetchAllTags = fetchAllTags
         self.fetchMemoForSearch = fetchMemoForSearch
+        self.fetchMemosByIDs = fetchMemosByIDs
     }
 }
 
@@ -84,7 +88,8 @@ extension VoiceMemoRepositoryClient: TestDependencyKey {
         updateMemoText: unimplemented("VoiceMemoRepositoryClient.updateMemoText"),
         getAudioFilePath: unimplemented("VoiceMemoRepositoryClient.getAudioFilePath"),
         fetchAllTags: unimplemented("VoiceMemoRepositoryClient.fetchAllTags"),
-        fetchMemoForSearch: unimplemented("VoiceMemoRepositoryClient.fetchMemoForSearch")
+        fetchMemoForSearch: unimplemented("VoiceMemoRepositoryClient.fetchMemoForSearch"),
+        fetchMemosByIDs: unimplemented("VoiceMemoRepositoryClient.fetchMemosByIDs")
     )
 }
 

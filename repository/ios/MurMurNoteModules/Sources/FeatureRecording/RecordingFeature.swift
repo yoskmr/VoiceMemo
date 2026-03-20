@@ -30,6 +30,8 @@ public struct RecordingFeature {
         public var isPermissionGranted: Bool = false
         /// エラーメッセージ（nil = エラーなし）
         public var errorMessage: String?
+        /// 完了画面の表示段階（Reducer駆動）
+        public var completionStage: CompletionStage = .initial
 
         public init(
             recordingID: UUID = UUID(),
@@ -40,7 +42,8 @@ public struct RecordingFeature {
             audioLevel: Float = 0,
             confidenceLevel: ConfidenceLevel = .high,
             isPermissionGranted: Bool = false,
-            errorMessage: String? = nil
+            errorMessage: String? = nil,
+            completionStage: CompletionStage = .initial
         ) {
             self.recordingID = recordingID
             self.recordingStatus = recordingStatus
@@ -51,6 +54,19 @@ public struct RecordingFeature {
             self.confidenceLevel = confidenceLevel
             self.isPermissionGranted = isPermissionGranted
             self.errorMessage = errorMessage
+            self.completionStage = completionStage
+        }
+
+        /// 完了画面の表示段階
+        public enum CompletionStage: Equatable, Sendable {
+            /// 初期（何も表示しない）
+            case initial
+            /// チェックマーク表示
+            case checkmark
+            /// プレビュー表示
+            case preview
+            /// CTAボタン表示
+            case cta
         }
 
         /// 録音状態
@@ -82,6 +98,9 @@ public struct RecordingFeature {
         /// 親（AppReducer）にメモ詳細への遷移を通知
         case navigateToMemoDetail(UUID)
 
+        // 完了画面段階アクション
+        case completionStageAdvanced(RecordingFeature.State.CompletionStage)
+
         // 内部アクション（Effect からの通知）
         case timerTicked
         case audioLevelUpdated(Float)
@@ -104,6 +123,7 @@ public struct RecordingFeature {
         case timer
         case recording
         case audioLevel
+        case completionStage
     }
 
     // MARK: - Reducer Body
@@ -219,6 +239,19 @@ public struct RecordingFeature {
             case let .recordingSaved(memo):
                 // 完了画面を表示（リセットはviewMemoTapped/dismissCompletionで行う）
                 state.recordingStatus = .saved(memo)
+                state.completionStage = .initial
+                return .run { send in
+                    try await clock.sleep(for: .milliseconds(100))
+                    await send(.completionStageAdvanced(.checkmark))
+                    try await clock.sleep(for: .milliseconds(200))
+                    await send(.completionStageAdvanced(.preview))
+                    try await clock.sleep(for: .milliseconds(200))
+                    await send(.completionStageAdvanced(.cta))
+                }
+                .cancellable(id: CancelID.completionStage)
+
+            case let .completionStageAdvanced(stage):
+                state.completionStage = stage
                 return .none
 
             case .viewMemoTapped:
@@ -232,7 +265,11 @@ public struct RecordingFeature {
                 state.confirmedTranscription = ""
                 state.elapsedTime = 0
                 state.audioLevel = 0
-                return .send(.navigateToMemoDetail(memoID))
+                state.completionStage = .initial
+                return .merge(
+                    .cancel(id: CancelID.completionStage),
+                    .send(.navigateToMemoDetail(memoID))
+                )
 
             case .dismissCompletion:
                 // 状態をリセットして録音画面に戻る
@@ -241,7 +278,8 @@ public struct RecordingFeature {
                 state.confirmedTranscription = ""
                 state.elapsedTime = 0
                 state.audioLevel = 0
-                return .none
+                state.completionStage = .initial
+                return .cancel(id: CancelID.completionStage)
 
             case .navigateToMemoDetail:
                 // 親Reducer（AppReducer）で処理する

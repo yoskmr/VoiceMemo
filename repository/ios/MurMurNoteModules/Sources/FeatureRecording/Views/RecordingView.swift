@@ -7,6 +7,7 @@ import SwiftUI
 /// fullScreenCoverとして表示される録音オーバーレイ
 public struct RecordingView: View {
     @Bindable var store: StoreOf<RecordingFeature>
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(store: StoreOf<RecordingFeature>) {
         self.store = store
@@ -90,10 +91,10 @@ public struct RecordingView: View {
                         .foregroundColor(.vmSecondary)
                 }
                 .accessibilityLabel(store.recordingStatus == .paused ? "再開" : "一時停止")
-                .transition(.scale.combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: VMDesignTokens.Duration.fast), value: store.recordingStatus)
+        .animation(reduceMotion ? nil : .easeInOut(duration: VMDesignTokens.Duration.fast), value: store.recordingStatus)
     }
 
     // MARK: - Error Banner

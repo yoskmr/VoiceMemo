@@ -20,10 +20,17 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
     private let dbPath: String
     private let useICU: Bool
     private let lock = NSLock()
+    private var db: OpaquePointer?
 
     public init(dbPath: String) {
         self.dbPath = dbPath
         self.useICU = FTS5IndexManager.checkICUAvailability(dbPath: dbPath)
+
+        if sqlite3_open(dbPath, &db) != SQLITE_OK {
+            let errMsg = db.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+            logger.error("[FTS5] init: sqlite3_open 失敗: \(errMsg)")
+            db = nil
+        }
         logger.info("[FTS5] init: dbPath=\(dbPath, privacy: .private), useICU=\(self.useICU)")
     }
 
@@ -31,6 +38,16 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
     internal init(dbPath: String, useICU: Bool) {
         self.dbPath = dbPath
         self.useICU = useICU
+
+        if sqlite3_open(dbPath, &db) != SQLITE_OK {
+            db = nil
+        }
+    }
+
+    deinit {
+        if let db {
+            sqlite3_close(db)
+        }
     }
 
     /// ICUトークナイザの利用可否
@@ -283,8 +300,18 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         defer { sqlite3_close(db) }
 
         let testSQL = "CREATE VIRTUAL TABLE IF NOT EXISTS _icu_test USING fts5(test_col, tokenize = 'icu ja_JP');"
-        let result = sqlite3_exec(db, testSQL, nil, nil, nil)
-        sqlite3_exec(db, "DROP TABLE IF EXISTS _icu_test;", nil, nil, nil)
+        var errMsg: UnsafeMutablePointer<CChar>?
+        let result = sqlite3_exec(db, testSQL, nil, nil, &errMsg)
+        if let errMsg {
+            sqlite3_free(errMsg)
+        }
+
+        var dropErrMsg: UnsafeMutablePointer<CChar>?
+        sqlite3_exec(db, "DROP TABLE IF EXISTS _icu_test;", nil, nil, &dropErrMsg)
+        if let dropErrMsg {
+            sqlite3_free(dropErrMsg)
+        }
+
         return result == SQLITE_OK
     }
 
@@ -308,13 +335,9 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         lock.lock()
         defer { lock.unlock() }
 
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            throw FTS5Error.databaseOpenFailed(
-                String(cString: sqlite3_errmsg(db))
-            )
+        guard let db else {
+            throw FTS5Error.databaseOpenFailed("コネクションが確立されていません")
         }
-        defer { sqlite3_close(db) }
 
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -341,13 +364,9 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         lock.lock()
         defer { lock.unlock() }
 
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            throw FTS5Error.databaseOpenFailed(
-                String(cString: sqlite3_errmsg(db))
-            )
+        guard let db else {
+            throw FTS5Error.databaseOpenFailed("コネクションが確立されていません")
         }
-        defer { sqlite3_close(db) }
 
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -396,13 +415,9 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         lock.lock()
         defer { lock.unlock() }
 
-        var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            throw FTS5Error.databaseOpenFailed(
-                String(cString: sqlite3_errmsg(db))
-            )
+        guard let db else {
+            throw FTS5Error.databaseOpenFailed("コネクションが確立されていません")
         }
-        defer { sqlite3_close(db) }
 
         // memo_fts_trigram の content テーブルから LIKE 検索
         // FTS5 shadow テーブルは直接アクセスできないため、通常テーブルへ LIKE を使う

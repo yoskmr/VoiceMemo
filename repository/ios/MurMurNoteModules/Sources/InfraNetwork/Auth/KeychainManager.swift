@@ -1,5 +1,8 @@
 import Foundation
+import os.log
 import Security
+
+private let logger = Logger(subsystem: "com.murmurnote", category: "Keychain")
 
 // MARK: - KeychainItemType
 
@@ -42,6 +45,8 @@ public enum KeychainItemType: String, Sendable, CaseIterable {
 public enum KeychainError: Error, Sendable, Equatable {
     /// 保存に失敗した（OSStatus コード付き）
     case saveFailed(OSStatus)
+    /// 削除に失敗した（OSStatus コード付き）
+    case deleteFailed(OSStatus)
     /// 保存対象のデータが空
     case emptyData
 }
@@ -86,7 +91,16 @@ public struct KeychainManager: Sendable {
         }
 
         // 既存アイテムを先に削除（upsert相当）
-        delete(key: key)
+        // errSecItemNotFound は無視し、それ以外の削除エラーは throw する
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key.rawValue,
+        ]
+        let deleteStatus = SecItemDelete(deleteQuery as CFDictionary)
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            throw KeychainError.deleteFailed(deleteStatus)
+        }
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -138,7 +152,10 @@ public struct KeychainManager: Sendable {
     /// 全Keychainデータを削除する（サインアウト時に使用）
     public func deleteAll() {
         for key in KeychainItemType.allCases {
-            delete(key: key)
+            let success = delete(key: key)
+            if !success {
+                logger.error("Keychainデータ削除失敗: key=\(key.rawValue)")
+            }
         }
     }
 

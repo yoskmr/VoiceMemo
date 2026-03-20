@@ -12,6 +12,8 @@ public struct WaveformView: View {
 
     /// 波形のフェーズ（アニメーション駆動）
     @State private var wavePhase: Double = 0
+    /// 前回の音声レベル（変化時のみbarHeight再計算用）
+    @State private var lastAudioLevel: Float = 0
 
     /// 波形バーの本数
     private let barCount = 40
@@ -24,7 +26,7 @@ public struct WaveformView: View {
     }
 
     public var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             HStack(spacing: VMDesignTokens.Spacing.xxs) {
                 ForEach(0..<barCount, id: \.self) { index in
                     RoundedRectangle(cornerRadius: VMDesignTokens.Spacing.xxs)
@@ -39,9 +41,13 @@ public struct WaveformView: View {
             .onChange(of: timeline.date) { _, _ in
                 if isRecording {
                     wavePhase += 0.1
+                    lastAudioLevel = audioLevel
                 }
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("音声波形")
+        .accessibilityValue(isRecording ? "音声レベル: \(Int(audioLevel * 100))%" : "停止中")
     }
 
     // MARK: - Bar Calculations
@@ -54,7 +60,7 @@ public struct WaveformView: View {
             return VMDesignTokens.Spacing.xs
         }
 
-        let normalizedLevel = CGFloat(audioLevel)
+        let normalizedLevel = CGFloat(lastAudioLevel)
         let wave = sin(Double(index) * 0.3 + wavePhase)
         let baseHeight: CGFloat = VMDesignTokens.Spacing.xs
         let maxAmplitude: CGFloat = 50

@@ -60,6 +60,7 @@ public struct MemoEditReducer {
 
     public enum Action: Equatable, Sendable {
         case onAppear(title: String, transcriptionText: String)
+        case onDisappear
         case titleChanged(String)
         case transcriptionTextChanged(String)
         case saveButtonTapped
@@ -101,6 +102,13 @@ public struct MemoEditReducer {
                 state.originalTitle = title
                 state.originalTranscriptionText = transcriptionText
                 return .none
+
+            case .onDisappear:
+                // AutoSave/SuccessMessageのタイマーを自身で責任を持ってキャンセル（#14: 親への漏洩防止）
+                return .merge(
+                    .cancel(id: AutoSaveID.debounce),
+                    .cancel(id: SuccessMessageID.dismiss)
+                )
 
             case let .titleChanged(newTitle):
                 state.title = newTitle

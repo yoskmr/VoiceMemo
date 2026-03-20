@@ -7,6 +7,17 @@ import Foundation
 @Reducer
 public struct SettingsReducer {
 
+    /// 「準備中」機能の型安全な列挙（#39: String → enum化）
+    public enum ComingSoonFeature: String, Equatable, Sendable {
+        case privacySettings = "プライバシー設定"
+        case appLock = "アプリロック"
+        case planManagement = "プラン管理"
+        case themeSettings = "テーマ設定"
+        case usageStats = "利用統計"
+
+        public var displayName: String { rawValue }
+    }
+
     // MARK: - State
 
     @ObservableState
@@ -14,7 +25,7 @@ public struct SettingsReducer {
         /// 「準備中」アラート表示フラグ
         public var showComingSoonAlert: Bool = false
         /// 「準備中」アラートに表示する機能名
-        public var comingSoonFeature: String = ""
+        public var comingSoonFeature: ComingSoonFeature?
         /// 感情分析オプトインフラグ
         public var emotionAnalysisEnabled: Bool = false
         /// カスタム辞書のサブ State
@@ -22,7 +33,7 @@ public struct SettingsReducer {
 
         public init(
             showComingSoonAlert: Bool = false,
-            comingSoonFeature: String = "",
+            comingSoonFeature: ComingSoonFeature? = nil,
             emotionAnalysisEnabled: Bool = false,
             customDictionary: CustomDictionaryReducer.State = .init()
         ) {
@@ -36,8 +47,8 @@ public struct SettingsReducer {
     // MARK: - Action
 
     public enum Action: Equatable, Sendable {
-        /// 準備中の機能がタップされた
-        case comingSoonTapped(String)
+        /// 準備中の機能がタップされた（型安全enum版 #39）
+        case comingSoonTapped(ComingSoonFeature)
         /// 「準備中」アラートを閉じる
         case dismissComingSoonAlert
         /// 感情分析オプトインのトグル
@@ -63,7 +74,7 @@ public struct SettingsReducer {
 
             case .dismissComingSoonAlert:
                 state.showComingSoonAlert = false
-                state.comingSoonFeature = ""
+                state.comingSoonFeature = nil
                 return .none
 
             case let .emotionAnalysisToggled(isEnabled):

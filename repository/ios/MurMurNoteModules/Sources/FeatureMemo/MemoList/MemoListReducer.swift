@@ -11,6 +11,9 @@ public struct MemoListReducer {
 
     // MARK: - State
 
+    // TODO: [#10] State分割 - 検索関連を SearchState 子Stateに分離（searchQuery, searchResults, isSearching）
+    // TODO: [#10] State分割 - 削除関連を DeletionState に分離（pendingDeleteID, showDeleteConfirmation）
+    // 現在のStateプロパティ数が多く凝集度が低いため、Phase後半でサブState化を検討する
     @ObservableState
     public struct State: Equatable {
         public var memos: IdentifiedArrayOf<MemoItem> = []
@@ -343,12 +346,14 @@ public struct MemoListReducer {
                         print("[MemoList Search] FTS5結果: \(ftsResults.count)件")
                         #endif
 
-                        // TODO: N+1クエリ問題 - FTS5結果ごとにfetchMemoForSearchを個別呼び出ししている
-                        // FTS5（SQLite）とSwiftDataのDB分離が原因で構造的に解消困難。Phase後半でバッチ取得APIを検討
+                        // N+1クエリ解消: fetchMemosByIDsで一括取得（#9）
+                        let memoIDs = ftsResults.compactMap { UUID(uuidString: $0.memoID) }
+                        let memosDict = try await voiceMemoRepository.fetchMemosByIDs(memoIDs)
+
                         var items: [SearchResultItem] = []
                         for ftsResult in ftsResults {
                             guard let memoID = UUID(uuidString: ftsResult.memoID),
-                                  let memo = try await voiceMemoRepository.fetchMemoForSearch(memoID)
+                                  let memo = memosDict[memoID]
                             else { continue }
 
                             items.append(SearchResultItem(
@@ -437,6 +442,7 @@ public struct MemoListReducer {
     }
 
     /// 日付セクションの構築
+    // TODO: 1000件超の場合は差分更新を検討（現在は全件再構築のためO(n)コスト）
     static func buildSections(
         from memos: IdentifiedArrayOf<MemoItem>,
         now: Date,
@@ -489,21 +495,3 @@ extension MemoListReducer.MemoItem {
     }
 }
 
-// MARK: - EquatableError
-
-/// Error を Equatable 準拠させるためのラッパー
-public struct EquatableError: Error, Equatable, Sendable {
-    public let localizedDescription: String
-
-    public init(_ error: Error) {
-        self.localizedDescription = error.localizedDescription
-    }
-
-    public init(_ message: String) {
-        self.localizedDescription = message
-    }
-
-    public static func == (lhs: EquatableError, rhs: EquatableError) -> Bool {
-        lhs.localizedDescription == rhs.localizedDescription
-    }
-}

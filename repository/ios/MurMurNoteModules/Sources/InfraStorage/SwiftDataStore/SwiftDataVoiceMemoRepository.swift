@@ -4,6 +4,9 @@ import Domain
 
 /// SwiftData を使用した VoiceMemoRepositoryProtocol の実装
 /// Feature → Infra 直接依存禁止のため、Domain層プロトコルを介してアクセスする
+///
+/// - Note: iOS 17 では ModelContext が MainActor 隔離必須。
+///   TODO: iOS 18+ で ModelContext のバックグラウンド対応が安定したら MainActor.run を軽減する
 public final class SwiftDataVoiceMemoRepository: VoiceMemoRepositoryProtocol, @unchecked Sendable {
 
     private let modelContainer: ModelContainer
@@ -18,8 +21,11 @@ public final class SwiftDataVoiceMemoRepository: VoiceMemoRepositoryProtocol, @u
     }
 
     public func save(_ memo: VoiceMemoEntity) async throws {
+        // VoiceMemoEntity は値型（Sendable）のためキャプチャ安全
+        // MainActor.run の外で ID を事前抽出し、Predicate に渡す
+        let memoID = memo.id
+
         try await MainActor.run {
-            let memoID = memo.id
             let descriptor = FetchDescriptor<VoiceMemoModel>(
                 predicate: #Predicate { $0.id == memoID }
             )
@@ -128,11 +134,16 @@ public final class SwiftDataVoiceMemoRepository: VoiceMemoRepositoryProtocol, @u
     }
 
     public func fetchAll() async throws -> [VoiceMemoEntity] {
+        try await fetchAll(limit: nil)
+    }
+
+    /// fetchLimit 付き全件取得（ページネーション用途）
+    public func fetchAll(limit: Int?) async throws -> [VoiceMemoEntity] {
         try await MainActor.run {
             var descriptor = FetchDescriptor<VoiceMemoModel>(
                 sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
             )
-            descriptor.fetchLimit = nil
+            descriptor.fetchLimit = limit
             return try context.fetch(descriptor).map { $0.toEntity() }
         }
     }
