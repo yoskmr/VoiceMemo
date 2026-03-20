@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Domain
+import FeatureSearch
 import Foundation
 import SharedUI
 
@@ -20,6 +21,9 @@ public struct MemoListReducer {
         public var currentPage: Int = 0
         public var errorMessage: String?
 
+        /// 検索画面（NavigationStack push用、nilで非表示）
+        @Presents public var searchState: SearchReducer.State?
+
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
 
@@ -29,7 +33,8 @@ public struct MemoListReducer {
             isLoading: Bool = false,
             hasMorePages: Bool = true,
             currentPage: Int = 0,
-            errorMessage: String? = nil
+            errorMessage: String? = nil,
+            searchState: SearchReducer.State? = nil
         ) {
             self.memos = memos
             self.sections = sections
@@ -37,6 +42,7 @@ public struct MemoListReducer {
             self.hasMorePages = hasMorePages
             self.currentPage = currentPage
             self.errorMessage = errorMessage
+            self.searchState = searchState
         }
     }
 
@@ -101,6 +107,7 @@ public struct MemoListReducer {
         case trendIconTapped
         case refreshRequested
         case refreshCompleted(Result<[MemoItem], EquatableError>)
+        case search(PresentationAction<SearchReducer.Action>)
     }
 
     // MARK: - Dependencies
@@ -209,9 +216,23 @@ public struct MemoListReducer {
                 state.errorMessage = error.localizedDescription
                 return .none
 
-            case .memoTapped, .deleteCancelled, .searchIconTapped, .trendIconTapped:
+            case .searchIconTapped:
+                state.searchState = SearchReducer.State()
+                return .none
+
+            case .search(.presented(.resultTapped)):
+                // 検索結果タップは親Reducerに伝播
+                return .none
+
+            case .search:
+                return .none
+
+            case .memoTapped, .deleteCancelled, .trendIconTapped:
                 return .none
             }
+        }
+        .ifLet(\.$searchState, action: \.search) {
+            SearchReducer()
         }
     }
 

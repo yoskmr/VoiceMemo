@@ -83,17 +83,15 @@ public struct MemoDetailView: View {
         .onAppear { store.send(.onAppear) }
         // 編集シート
         .sheet(
-            item: Binding(
-                get: {
-                    store.editState.map { EditSheetIdentifier(state: $0) }
-                },
-                set: { newValue in
-                    if newValue == nil {
+            isPresented: Binding(
+                get: { store.editState != nil },
+                set: { isPresented in
+                    if !isPresented {
                         store.send(.dismissEditSheet)
                     }
                 }
             )
-        ) { _ in
+        ) {
             if let editStore = store.scope(state: \.editState, action: \.edit) {
                 NavigationStack {
                     MemoEditView(store: editStore)
@@ -107,6 +105,9 @@ public struct MemoDetailView: View {
                             #endif
                         }
                 }
+            } else {
+                // editState が nil の間（dismiss アニメーション中）の一時的な表示
+                EmptyView()
             }
         }
         // 削除確認ダイアログ

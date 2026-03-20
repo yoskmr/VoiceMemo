@@ -182,7 +182,9 @@ public struct SearchReducer {
                 state.isSearching = true
                 return .run { [fts5IndexManager] send in
                     do {
+                        print("[Search] クエリ: '\(query)'")
                         let ftsResults = try fts5IndexManager.searchWithSnippets(query, 2, 32)
+                        print("[Search] FTS5結果: \(ftsResults.count)件")
 
                         var items: [SearchResultItem] = []
                         for ftsResult in ftsResults {
@@ -214,6 +216,7 @@ public struct SearchReducer {
                         }
                         await send(.searchCompleted(.success(items)))
                     } catch {
+                        print("[Search] エラー: \(error)")
                         await send(.searchCompleted(.failure(error.localizedDescription)))
                     }
                 }

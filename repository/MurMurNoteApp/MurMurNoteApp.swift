@@ -2,7 +2,6 @@ import ComposableArchitecture
 import Domain
 import FeatureMemo
 import FeatureRecording
-import FeatureSearch
 import SharedUI
 import SwiftUI
 
@@ -28,14 +27,12 @@ struct AppReducer {
         var selectedTab: Tab = .home
         var recording = RecordingFeature.State()
         var memoList = MemoListReducer.State()
-        var search = SearchReducer.State()
         /// メモ詳細表示用（nilの場合は非表示）
         var selectedMemo: MemoDetailReducer.State?
 
         enum Tab: Hashable {
             case home
             case memoList
-            case search
             case settings
         }
     }
@@ -44,7 +41,6 @@ struct AppReducer {
         case tabSelected(State.Tab)
         case recording(RecordingFeature.Action)
         case memoList(MemoListReducer.Action)
-        case search(SearchReducer.Action)
         case memoDetail(MemoDetailReducer.Action)
         case dismissMemoDetail
     }
@@ -57,9 +53,6 @@ struct AppReducer {
         }
         Scope(state: \.memoList, action: \.memoList) {
             MemoListReducer()
-        }
-        Scope(state: \.search, action: \.search) {
-            SearchReducer()
         }
         Reduce { state, action in
             switch action {
@@ -74,13 +67,21 @@ struct AppReducer {
                     .send(.memoList(.refreshRequested)),
                     .run { [fts5IndexManager] _ in
                         // 保存されたメモのテキストをFTS5インデックスに追加
-                        try? fts5IndexManager.upsertIndex(
-                            memo.id.uuidString,
-                            memo.title,
-                            memo.transcription?.fullText ?? "",
-                            memo.aiSummary?.summaryText ?? "",
-                            memo.tags.map(\.name).joined(separator: " ")
-                        )
+                        let title = memo.title
+                        let text = memo.transcription?.fullText ?? ""
+                        print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text='\(text.prefix(30))'")
+                        do {
+                            try fts5IndexManager.upsertIndex(
+                                memo.id.uuidString,
+                                title,
+                                text,
+                                memo.aiSummary?.summaryText ?? "",
+                                memo.tags.map(\.name).joined(separator: " ")
+                            )
+                            print("[FTS5] upsert 成功")
+                        } catch {
+                            print("[FTS5] upsert エラー: \(error)")
+                        }
                     }
                 )
 
@@ -92,15 +93,12 @@ struct AppReducer {
                 state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
                 return .none
 
-            case .memoList:
-                return .none
-
             // 検索結果からメモをタップ → メモ詳細を表示
-            case let .search(.resultTapped(id: memoID)):
+            case let .memoList(.search(.presented(.resultTapped(id: memoID)))):
                 state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
                 return .none
 
-            case .search:
+            case .memoList:
                 return .none
 
             case .memoDetail(.backButtonTapped):
@@ -153,16 +151,6 @@ struct AppView: View {
             )
             .tabItem { Label("メモ", systemImage: "list.bullet") }
             .tag(AppReducer.State.Tab.memoList)
-
-            // 検索タブ
-            NavigationStack {
-                SearchView(
-                    store: store.scope(state: \.search, action: \.search)
-                )
-                .navigationTitle("検索")
-            }
-            .tabItem { Label("検索", systemImage: "magnifyingglass") }
-            .tag(AppReducer.State.Tab.search)
 
             // 設定タブ（プレースホルダー）
             NavigationStack {

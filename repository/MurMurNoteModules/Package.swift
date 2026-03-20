@@ -118,6 +118,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUI",
+                "FeatureSearch",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
@@ -162,7 +163,7 @@ let package = Package(
         // MARK: - Test Targets
         .testTarget(name: "DomainTests", dependencies: ["Domain"]),
         .testTarget(name: "FeatureRecordingTests", dependencies: ["FeatureRecording"]),
-        .testTarget(name: "FeatureMemoTests", dependencies: ["FeatureMemo"]),
+        .testTarget(name: "FeatureMemoTests", dependencies: ["FeatureMemo", "FeatureSearch"]),
         .testTarget(name: "FeatureAITests", dependencies: ["FeatureAI"]),
         .testTarget(name: "InfraSTTTests", dependencies: ["InfraSTT"]),
         .testTarget(name: "InfraLLMTests", dependencies: ["InfraLLM"]),
