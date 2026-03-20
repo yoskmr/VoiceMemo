@@ -740,7 +740,7 @@ Proプランの場合:
 
 | メソッド | パス | 説明 | 認証 | App Attest | プラン |
 |:---------|:-----|:-----|:-----|:-----------|:-------|
-| POST | `/api/v1/ai/process` | 統合AI処理 | JWT必須 | assertion必須 | Free(月5回) / Pro(無制限) |
+| POST | `/api/v1/ai/process` | 統合AI処理 | JWT必須 | assertion必須 | Free(月15回) / Pro(無制限) |
 | POST | `/api/v1/stt/transcribe` | クラウドSTT | JWT必須 | assertion必須 | Pro限定 |
 | GET | `/api/v1/auth/challenge` | App Attest用チャレンジ発行 | 不要 | — | 全プラン |
 | POST | `/api/v1/auth/apple-sign-in` | Apple Sign In検証 | 不要 | — | 全プラン |
