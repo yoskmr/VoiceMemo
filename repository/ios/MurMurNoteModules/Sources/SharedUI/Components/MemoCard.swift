@@ -59,7 +59,7 @@ public struct MemoCard: View {
                 .foregroundColor(.vmTextPrimary)
                 .lineLimit(1)
 
-            // プレビューテキスト（最大30文字、2行制限）
+            // プレビューテキスト（最大60文字、2行制限）
             Text(previewText)
                 .font(.vmCallout)
                 .foregroundColor(.vmTextSecondary)
@@ -101,8 +101,8 @@ public struct MemoCard: View {
     }
 
     private var previewText: String {
-        if data.transcriptPreview.count > 30 {
-            return String(data.transcriptPreview.prefix(30)) + "..."
+        if data.transcriptPreview.count > 60 {
+            return String(data.transcriptPreview.prefix(60)) + "..."
         }
         return data.transcriptPreview
     }

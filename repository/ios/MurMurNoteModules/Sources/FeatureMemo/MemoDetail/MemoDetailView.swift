@@ -17,7 +17,7 @@ public struct MemoDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
                 if store.isLoading {
-                    ProgressView()
+                    ProgressView("メモを読み込み中...")
                         .frame(maxWidth: .infinity, minHeight: 200)
                 } else {
                     // タイトル

@@ -52,6 +52,20 @@ public struct MemoListView: View {
             ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
                 EmotionTrendView(store: emotionTrendStore)
             }
+            // スワイプ削除確認ダイアログ
+            .alert(
+                "メモを削除",
+                isPresented: $store.showDeleteConfirmation.sending(\.deleteConfirmationPresented)
+            ) {
+                Button("削除", role: .destructive) {
+                    store.send(.confirmDelete)
+                }
+                Button("キャンセル", role: .cancel) {
+                    store.send(.deleteCancelled)
+                }
+            } message: {
+                Text("このメモを完全に削除しますか？\nこの操作は取り消せません。")
+            }
         }
         .onAppear {
             store.send(.onAppear)
@@ -61,44 +75,64 @@ public struct MemoListView: View {
     // MARK: - Sub Views
 
     private var memoListContent: some View {
-        ScrollView {
-            LazyVStack(spacing: VMDesignTokens.Spacing.md, pinnedViews: [.sectionHeaders]) {
-                ForEach(store.sections) { section in
-                    Section {
-                        ForEach(section.memoIDs, id: \.self) { memoID in
-                            if let memo = store.memos[id: memoID] {
-                                MemoCard(data: memo.cardData)
-                                    .onTapGesture {
-                                        store.send(.memoTapped(id: memoID))
+        Group {
+            if store.memos.isEmpty && !store.isLoading {
+                // 空状態ビュー
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "mic.badge.plus")
+                        .font(.system(size: 48))
+                        .foregroundColor(.vmTextTertiary)
+                    Text("メモがありません")
+                        .font(.vmTitle3)
+                        .foregroundColor(.vmTextPrimary)
+                    Text("録音タブでメモを作成しましょう")
+                        .font(.vmSubheadline)
+                        .foregroundColor(.vmTextSecondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: VMDesignTokens.Spacing.md, pinnedViews: [.sectionHeaders]) {
+                        ForEach(store.sections) { section in
+                            Section {
+                                ForEach(section.memoIDs, id: \.self) { memoID in
+                                    if let memo = store.memos[id: memoID] {
+                                        MemoCard(data: memo.cardData)
+                                            .onTapGesture {
+                                                store.send(.memoTapped(id: memoID))
+                                            }
+                                            .swipeActions(edge: .trailing) {
+                                                Button(role: .destructive) {
+                                                    store.send(.swipeToDelete(id: memoID))
+                                                } label: {
+                                                    Label("削除", systemImage: "trash")
+                                                }
+                                            }
+                                            .padding(.horizontal, VMDesignTokens.Spacing.lg)
                                     }
-                                    .swipeActions(edge: .trailing) {
-                                        Button(role: .destructive) {
-                                            store.send(.swipeToDelete(id: memoID))
-                                        } label: {
-                                            Label("削除", systemImage: "trash")
+                                }
+
+                                // ページネーション: 最後のセクションでトリガー
+                                if section.id == store.sections.last?.id,
+                                   store.hasMorePages {
+                                    Color.clear
+                                        .frame(height: 1)
+                                        .onAppear {
+                                            store.send(.loadNextPage)
                                         }
-                                    }
-                                    .padding(.horizontal, VMDesignTokens.Spacing.lg)
+                                }
+                            } header: {
+                                SectionHeader(label: section.label)
                             }
                         }
 
-                        // ページネーション: 最後のセクションでトリガー
-                        if section.id == store.sections.last?.id,
-                           store.hasMorePages {
-                            Color.clear
-                                .frame(height: 1)
-                                .onAppear {
-                                    store.send(.loadNextPage)
-                                }
+                        if store.isLoading {
+                            ProgressView("メモを読み込み中...")
+                                .padding()
                         }
-                    } header: {
-                        SectionHeader(label: section.label)
                     }
-                }
-
-                if store.isLoading {
-                    ProgressView()
-                        .padding()
                 }
             }
         }
@@ -152,6 +186,15 @@ struct SearchResultCard: View {
                 .font(.vmCallout)
                 .lineLimit(2)
 
+            // タグ表示（最大3件）
+            if !item.tags.isEmpty {
+                HStack(spacing: VMDesignTokens.Spacing.xs) {
+                    ForEach(item.tags.prefix(3), id: \.self) { tag in
+                        TagChip(text: tag)
+                    }
+                }
+            }
+
             HStack {
                 Text(formattedDate)
                     .font(.vmCaption1)
@@ -168,6 +211,8 @@ struct SearchResultCard: View {
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.title), \(formattedDate)")
     }
 
     /// FTS5スニペットの <mark> タグをパースし、ヒット箇所を強調表示する

@@ -37,6 +37,10 @@ public struct MemoListReducer {
         /// 録音完了→メモ詳細遷移時の待機用ID（refreshCompleted前にselectMemoが届いた場合に保持）
         public var pendingMemoID: UUID?
 
+        /// スワイプ削除確認ダイアログ用
+        public var pendingDeleteID: UUID?
+        public var showDeleteConfirmation: Bool = false
+
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
 
@@ -52,7 +56,9 @@ public struct MemoListReducer {
             isSearching: Bool = false,
             selectedMemo: MemoDetailReducer.State? = nil,
             emotionTrendState: EmotionTrendReducer.State? = nil,
-            pendingMemoID: UUID? = nil
+            pendingMemoID: UUID? = nil,
+            pendingDeleteID: UUID? = nil,
+            showDeleteConfirmation: Bool = false
         ) {
             self.memos = memos
             self.sections = sections
@@ -66,6 +72,8 @@ public struct MemoListReducer {
             self.selectedMemo = selectedMemo
             self.emotionTrendState = emotionTrendState
             self.pendingMemoID = pendingMemoID
+            self.pendingDeleteID = pendingDeleteID
+            self.showDeleteConfirmation = showDeleteConfirmation
         }
     }
 
@@ -152,6 +160,8 @@ public struct MemoListReducer {
         case memosLoaded(Result<[MemoItem], EquatableError>)
         case memoTapped(id: UUID)
         case swipeToDelete(id: UUID)
+        case deleteConfirmationPresented(Bool)
+        case confirmDelete
         case deleteConfirmed(id: UUID)
         case deleteCancelled
         case memoDeleted(Result<UUID, EquatableError>)
@@ -232,6 +242,21 @@ public struct MemoListReducer {
                 return .none
 
             case let .swipeToDelete(id):
+                state.pendingDeleteID = id
+                state.showDeleteConfirmation = true
+                return .none
+
+            case let .deleteConfirmationPresented(isPresented):
+                state.showDeleteConfirmation = isPresented
+                if !isPresented {
+                    state.pendingDeleteID = nil
+                }
+                return .none
+
+            case .confirmDelete:
+                guard let id = state.pendingDeleteID else { return .none }
+                state.showDeleteConfirmation = false
+                state.pendingDeleteID = nil
                 return .send(.deleteConfirmed(id: id))
 
             case let .deleteConfirmed(id):
@@ -380,6 +405,8 @@ public struct MemoListReducer {
                 return .none
 
             case .deleteCancelled:
+                state.showDeleteConfirmation = false
+                state.pendingDeleteID = nil
                 return .none
             }
         }

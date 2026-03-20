@@ -320,9 +320,9 @@ final class MemoListReducerTests: XCTestCase {
         // isLoading中は何もしない
     }
 
-    // MARK: - Test 7: スワイプ削除アクション伝播
+    // MARK: - Test 7: スワイプ削除 → 確認ダイアログ → 削除実行
 
-    func test_swipeToDelete_削除アクション伝播() async {
+    func test_swipeToDelete_確認ダイアログ表示後に削除() async {
         let memoID = UUID()
         let now = Date()
 
@@ -347,7 +347,17 @@ final class MemoListReducerTests: XCTestCase {
             $0.calendar = Calendar.current
         }
 
-        await store.send(.swipeToDelete(id: memoID))
+        // スワイプ → 確認ダイアログが表示される
+        await store.send(.swipeToDelete(id: memoID)) {
+            $0.pendingDeleteID = memoID
+            $0.showDeleteConfirmation = true
+        }
+
+        // 確認ボタン → 削除実行
+        await store.send(.confirmDelete) {
+            $0.showDeleteConfirmation = false
+            $0.pendingDeleteID = nil
+        }
 
         await store.receive(.deleteConfirmed(id: memoID))
 
@@ -355,6 +365,48 @@ final class MemoListReducerTests: XCTestCase {
             $0.memos = []
             $0.sections = []
         }
+    }
+
+    // MARK: - Test 7b: スワイプ削除 → キャンセル
+
+    func test_swipeToDelete_キャンセルで削除しない() async {
+        let memoID = UUID()
+        let now = Date()
+
+        let store = TestStore(
+            initialState: MemoListReducer.State(
+                memos: IdentifiedArrayOf(uniqueElements: [
+                    makeMemoItem(id: memoID, createdAt: now)
+                ]),
+                sections: MemoListReducer.buildSections(
+                    from: IdentifiedArrayOf(uniqueElements: [
+                        makeMemoItem(id: memoID, createdAt: now)
+                    ]),
+                    now: now,
+                    calendar: Calendar.current
+                )
+            )
+        ) {
+            MemoListReducer()
+        } withDependencies: {
+            $0.date.now = now
+            $0.calendar = Calendar.current
+        }
+
+        // スワイプ → 確認ダイアログが表示される
+        await store.send(.swipeToDelete(id: memoID)) {
+            $0.pendingDeleteID = memoID
+            $0.showDeleteConfirmation = true
+        }
+
+        // キャンセル → 削除されない
+        await store.send(.deleteCancelled) {
+            $0.showDeleteConfirmation = false
+            $0.pendingDeleteID = nil
+        }
+
+        // メモは残っている
+        XCTAssertEqual(store.state.memos.count, 1)
     }
 
     // MARK: - Test 8: プルリフレッシュ
