@@ -1,11 +1,20 @@
 import Domain
 import Foundation
+import os.log
 import SQLite3
+
+private let logger = Logger(subsystem: "com.murmurnote", category: "FTS5")
 
 /// FTS5全文検索インデックスの管理
 /// TASK-0015: SQLite FTS5全文検索エンジン
 /// REQ-006: フルテキスト検索
 /// 設計書 01-system-architecture.md セクション5.3 準拠
+///
+/// ## 日本語検索の戦略
+/// unicode61 トークナイザは CJK 文字列を単一トークンとして扱うため、
+/// 日本語の部分一致検索ができない。そのため trigram テーブルを常に併用し、
+/// 3文字以上の日本語クエリは trigram で部分一致検索を行う。
+/// 2文字以下のクエリは LIKE フォールバックで対応する。
 public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtocol {
 
     private let dbPath: String
@@ -15,6 +24,7 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
     public init(dbPath: String) {
         self.dbPath = dbPath
         self.useICU = FTS5IndexManager.checkICUAvailability(dbPath: dbPath)
+        logger.info("[FTS5] init: dbPath=\(dbPath), useICU=\(self.useICU)")
     }
 
     /// テスト用: ICU使用可否を明示的に指定
@@ -52,16 +62,19 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
                     tokenize = 'unicode61'
                 );
             """)
-            // trigram テーブル（部分一致検索用）
-            try execute(sql: """
-                CREATE VIRTUAL TABLE IF NOT EXISTS memo_fts_trigram USING fts5(
-                    memo_id UNINDEXED,
-                    title,
-                    transcription_text,
-                    tokenize = 'trigram'
-                );
-            """)
         }
+        // trigram テーブルは常に作成（日本語部分一致検索の安全網）
+        // unicode61 は CJK 文字列を単一トークンとして扱うため、
+        // 日本語の部分一致は trigram に依存する
+        try execute(sql: """
+            CREATE VIRTUAL TABLE IF NOT EXISTS memo_fts_trigram USING fts5(
+                memo_id UNINDEXED,
+                title,
+                transcription_text,
+                tokenize = 'trigram'
+            );
+        """)
+        logger.info("[FTS5] createIndex 完了 (useICU=\(self.useICU))")
     }
 
     // MARK: - CRUD操作
@@ -73,6 +86,12 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         summaryText: String,
         tags: String
     ) throws {
+        logger.info("[FTS5] upsert開始: id=\(memoID.prefix(8)), title='\(title.prefix(20))', text_len=\(transcriptionText.count)")
+
+        if transcriptionText.isEmpty && title.isEmpty {
+            logger.warning("[FTS5] upsert: title と transcriptionText が両方空です")
+        }
+
         // 既存レコードを削除
         try execute(
             sql: "DELETE FROM memo_fts WHERE memo_id = ?;",
@@ -88,20 +107,20 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
             params: [memoID, title, transcriptionText, summaryText, tags]
         )
 
-        // trigram テーブルも更新（フォールバック環境のみ）
-        if !useICU {
-            try execute(
-                sql: "DELETE FROM memo_fts_trigram WHERE memo_id = ?;",
-                params: [memoID]
-            )
-            try execute(
-                sql: """
-                    INSERT INTO memo_fts_trigram (memo_id, title, transcription_text)
-                    VALUES (?, ?, ?);
-                """,
-                params: [memoID, title, transcriptionText]
-            )
-        }
+        // trigram テーブルも常に更新（日本語部分一致の安全網）
+        try execute(
+            sql: "DELETE FROM memo_fts_trigram WHERE memo_id = ?;",
+            params: [memoID]
+        )
+        try execute(
+            sql: """
+                INSERT INTO memo_fts_trigram (memo_id, title, transcription_text)
+                VALUES (?, ?, ?);
+            """,
+            params: [memoID, title, transcriptionText]
+        )
+
+        logger.info("[FTS5] upsert完了: id=\(memoID.prefix(8))")
     }
 
     public func removeIndex(memoID: String) throws {
@@ -109,12 +128,10 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
             sql: "DELETE FROM memo_fts WHERE memo_id = ?;",
             params: [memoID]
         )
-        if !useICU {
-            try execute(
-                sql: "DELETE FROM memo_fts_trigram WHERE memo_id = ?;",
-                params: [memoID]
-            )
-        }
+        try execute(
+            sql: "DELETE FROM memo_fts_trigram WHERE memo_id = ?;",
+            params: [memoID]
+        )
     }
 
     // MARK: - 検索
@@ -123,20 +140,27 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         let sanitizedQuery = sanitizeQuery(query)
         guard !sanitizedQuery.isEmpty else { return [] }
 
-        let results = try executeQuery(
-            sql: """
-                SELECT memo_id,
-                       snippet(memo_fts, 2, '<mark>', '</mark>', '...', 32) AS snippet,
-                       rank
-                FROM memo_fts
-                WHERE memo_fts MATCH ?
-                ORDER BY rank;
-            """,
-            params: [sanitizedQuery]
-        )
+        // unicode61/ICU テーブルで検索（CJK部分一致は期待できない）
+        var primaryResults: [FTS5SearchResult] = []
+        do {
+            primaryResults = try executeQuery(
+                sql: """
+                    SELECT memo_id,
+                           snippet(memo_fts, 2, '<mark>', '</mark>', '...', 32) AS snippet,
+                           rank
+                    FROM memo_fts
+                    WHERE memo_fts MATCH ?
+                    ORDER BY rank;
+                """,
+                params: [sanitizedQuery]
+            )
+        } catch {
+            logger.warning("[FTS5] memo_fts検索エラー（trigramフォールバックに継続）: \(error.localizedDescription)")
+        }
 
-        // ICU非対応環境ではtrigramテーブルも検索してマージ
-        if !useICU {
+        // trigram テーブルで部分一致検索（日本語対応の要）
+        let cleanedQuery = cleanQuery(query)
+        if cleanedQuery.count >= 3 {
             let trigramResults = try executeQuery(
                 sql: """
                     SELECT memo_id,
@@ -148,10 +172,14 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
                 """,
                 params: [sanitizedQuery]
             )
-            return mergeResults(primary: results, secondary: trigramResults)
+            return mergeResults(primary: primaryResults, secondary: trigramResults)
+        } else if cleanedQuery.count >= 1 {
+            // 2文字以下: trigram不可、LIKEフォールバック
+            let likeResults = try executeLikeQuery(query: cleanedQuery)
+            return mergeResults(primary: primaryResults, secondary: likeResults)
         }
 
-        return results
+        return primaryResults
     }
 
     public func searchWithSnippets(
@@ -162,52 +190,79 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         let sanitizedQuery = sanitizeQuery(query)
         guard !sanitizedQuery.isEmpty else { return [] }
 
-        let results = try executeQuery(
-            sql: """
-                SELECT memo_id,
-                       snippet(memo_fts, \(snippetColumn), '<mark>', '</mark>', '...', \(maxTokens)) AS snippet,
-                       rank
-                FROM memo_fts
-                WHERE memo_fts MATCH ?
-                ORDER BY rank;
-            """,
-            params: [sanitizedQuery]
-        )
+        let cleanedQuery = cleanQuery(query)
+        logger.info("[FTS5] searchWithSnippets: query='\(query)', sanitized='\(sanitizedQuery)', cleaned_len=\(cleanedQuery.count)")
 
-        // ICU非対応環境ではtrigramテーブルも検索してマージ
-        if !useICU {
-            // trigramテーブルのsnippetColumnは最大2（memo_id, title, transcription_text）
-            let trigramSnippetCol = min(snippetColumn, 2)
-            let trigramResults = try executeQuery(
+        // unicode61/ICU テーブルで検索
+        // エラーが発生してもtrigramフォールバックに進む
+        var primaryResults: [FTS5SearchResult] = []
+        do {
+            primaryResults = try executeQuery(
                 sql: """
                     SELECT memo_id,
-                           snippet(memo_fts_trigram, \(trigramSnippetCol), '<mark>', '</mark>', '...', \(maxTokens)) AS snippet,
+                           snippet(memo_fts, \(snippetColumn), '<mark>', '</mark>', '...', \(maxTokens)) AS snippet,
                            rank
-                    FROM memo_fts_trigram
-                    WHERE memo_fts_trigram MATCH ?
+                    FROM memo_fts
+                    WHERE memo_fts MATCH ?
                     ORDER BY rank;
                 """,
                 params: [sanitizedQuery]
             )
-            return mergeResults(primary: results, secondary: trigramResults)
+            logger.info("[FTS5] memo_fts結果: \(primaryResults.count)件")
+        } catch {
+            logger.warning("[FTS5] memo_fts検索エラー（trigramフォールバックに継続）: \(error.localizedDescription)")
         }
 
-        return results
+        // trigram テーブルで部分一致検索（3文字以上）
+        if cleanedQuery.count >= 3 {
+            let trigramSnippetCol = min(snippetColumn, 2)
+            do {
+                let trigramResults = try executeQuery(
+                    sql: """
+                        SELECT memo_id,
+                               snippet(memo_fts_trigram, \(trigramSnippetCol), '<mark>', '</mark>', '...', \(maxTokens)) AS snippet,
+                               rank
+                        FROM memo_fts_trigram
+                        WHERE memo_fts_trigram MATCH ?
+                        ORDER BY rank;
+                    """,
+                    params: [sanitizedQuery]
+                )
+                logger.info("[FTS5] trigram結果: \(trigramResults.count)件")
+                return mergeResults(primary: primaryResults, secondary: trigramResults)
+            } catch {
+                logger.warning("[FTS5] trigram検索エラー: \(error.localizedDescription)")
+            }
+        } else if cleanedQuery.count >= 1 {
+            // 2文字以下: trigram不可、LIKEフォールバック
+            do {
+                let likeResults = try executeLikeQuery(query: cleanedQuery)
+                logger.info("[FTS5] LIKEフォールバック結果: \(likeResults.count)件")
+                return mergeResults(primary: primaryResults, secondary: likeResults)
+            } catch {
+                logger.warning("[FTS5] LIKEフォールバックエラー: \(error.localizedDescription)")
+            }
+        }
+
+        return primaryResults
     }
 
     // MARK: - ヘルパー
+
+    /// FTS5特殊文字を除去してクリーンなクエリ文字列を返す
+    internal func cleanQuery(_ query: String) -> String {
+        let specialChars = CharacterSet(charactersIn: "\"*():-^{}")
+        let escaped = query.unicodeScalars.filter { !specialChars.contains($0) }
+        return String(String.UnicodeScalarView(escaped))
+            .trimmingCharacters(in: .whitespaces)
+    }
 
     /// 検索クエリのサニタイズ（FTS5構文エスケープ）
     /// unicode61テーブルとtrigramテーブルの両方で使われるため、
     /// ダブルクォートによるフレーズ検索で安全にエスケープする。
     /// trigramテーブルのフォールバックにより、unicode61で漏れたCJK部分一致もカバーされる。
     internal func sanitizeQuery(_ query: String) -> String {
-        // FTS5特殊文字を除去
-        let specialChars = CharacterSet(charactersIn: "\"*():-^{}")
-        let escaped = query.unicodeScalars.filter { !specialChars.contains($0) }
-        let cleaned = String(String.UnicodeScalarView(escaped))
-            .trimmingCharacters(in: .whitespaces)
-
+        let cleaned = cleanQuery(query)
         guard !cleaned.isEmpty else { return "" }
 
         // 空白区切りの各語をダブルクォートで囲む（フレーズ検索 + エスケープ）
@@ -333,6 +388,76 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         }
 
         return results
+    }
+
+    /// 2文字以下のクエリ用 LIKE フォールバック検索
+    /// trigram は最低3文字必要なため、短いクエリにはLIKEを使う
+    private func executeLikeQuery(query: String) throws -> [FTS5SearchResult] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
+            throw FTS5Error.databaseOpenFailed(
+                String(cString: sqlite3_errmsg(db))
+            )
+        }
+        defer { sqlite3_close(db) }
+
+        // memo_fts_trigram の content テーブルから LIKE 検索
+        // FTS5 shadow テーブルは直接アクセスできないため、通常テーブルへ LIKE を使う
+        // ただし FTS5 テーブルは SELECT で直接読める
+        let sql = """
+            SELECT memo_id, title, transcription_text
+            FROM memo_fts_trigram
+            WHERE title LIKE ? OR transcription_text LIKE ?
+            LIMIT 50;
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            throw FTS5Error.prepareFailed(
+                String(cString: sqlite3_errmsg(db))
+            )
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        let likePattern = "%\(query)%"
+        let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, likePattern, -1, transient)
+        sqlite3_bind_text(stmt, 2, likePattern, -1, transient)
+
+        var results: [FTS5SearchResult] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let memoID = sqlite3_column_text(stmt, 0).map { String(cString: $0) } ?? ""
+            let title = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? ""
+            let text = sqlite3_column_text(stmt, 2).map { String(cString: $0) } ?? ""
+
+            // スニペット生成: マッチ箇所の前後を切り出す
+            let snippet = generateSnippet(from: text.isEmpty ? title : text, query: query)
+            results.append(FTS5SearchResult(memoID: memoID, snippet: snippet, rank: 0))
+        }
+
+        return results
+    }
+
+    /// LIKE フォールバック用のスニペット生成
+    private func generateSnippet(from text: String, query: String, maxLength: Int = 80) -> String {
+        guard let range = text.range(of: query, options: .caseInsensitive) else {
+            let endIndex = text.index(text.startIndex, offsetBy: min(maxLength, text.count))
+            return String(text[..<endIndex])
+        }
+        // マッチ箇所の前後を含むスニペットを生成
+        let matchStart = text.distance(from: text.startIndex, to: range.lowerBound)
+        let contextStart = max(0, matchStart - 20)
+        let startIdx = text.index(text.startIndex, offsetBy: contextStart)
+        let endIdx = text.index(startIdx, offsetBy: min(maxLength, text.distance(from: startIdx, to: text.endIndex)))
+        var snippet = String(text[startIdx..<endIdx])
+        if contextStart > 0 { snippet = "..." + snippet }
+        if endIdx < text.endIndex { snippet = snippet + "..." }
+        // マークアップ追加
+        snippet = snippet.replacingOccurrences(of: query, with: "<mark>\(query)</mark>")
+        return snippet
     }
 }
 

@@ -160,7 +160,12 @@ extension FTS5IndexManagerClient: DependencyKey {
         let manager = FTS5IndexManager(dbPath: dbPath)
 
         // 起動時にFTS5仮想テーブルを作成（既にある場合はスキップ）
-        try? manager.createIndex()
+        do {
+            try manager.createIndex()
+            print("[FTS5] createIndex 成功 (ICU=\(manager.isUsingICU), path=\(dbPath))")
+        } catch {
+            print("[FTS5] createIndex エラー: \(error)")
+        }
 
         return FTS5IndexManagerClient(
             createIndex: { try manager.createIndex() },
@@ -182,17 +187,119 @@ extension FTS5IndexManagerClient: DependencyKey {
     }()
 }
 
-// MARK: AudioPlayerClient → MVPスタブ実装（音声再生は後で実装）
+// MARK: AudioPlayerClient → AVAudioPlayer 実装
+
+/// AVAudioPlayer をラップする MainActor 隔離クラス
+/// すべての操作を MainActor 上で実行し、AVAudioPlayer のスレッドセーフティを保証する
+private final class LiveAudioPlayer: Sendable {
+    /// AVAudioPlayer はメインスレッドでのみ操作する
+    /// nonisolated(unsafe) で Sendable 準拠しつつ、実際のアクセスは全て MainActor 経由
+    nonisolated(unsafe) private var player: AVAudioPlayer?
+
+    /// 音声ファイルをロードし duration を返す
+    @MainActor
+    func loadAudio(path: String) throws -> TimeInterval {
+        let url = Self.resolveFileURL(path: path)
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw AudioPlayerError.fileNotFound(path)
+        }
+
+        let newPlayer = try AVAudioPlayer(contentsOf: url)
+        newPlayer.prepareToPlay()
+        self.player = newPlayer
+        return newPlayer.duration
+    }
+
+    /// 指定位置から再生開始
+    @MainActor
+    func play(from time: TimeInterval) throws {
+        guard let player else { throw AudioPlayerError.notLoaded }
+        player.currentTime = time
+        guard player.play() else { throw AudioPlayerError.playbackFailed }
+    }
+
+    /// 一時停止
+    @MainActor
+    func pause() {
+        player?.pause()
+    }
+
+    /// 停止（先頭に戻す）
+    @MainActor
+    func stop() {
+        player?.stop()
+        player?.currentTime = 0
+    }
+
+    /// 指定時間へシーク
+    @MainActor
+    func seek(to time: TimeInterval) throws {
+        guard let player else { throw AudioPlayerError.notLoaded }
+        let clampedTime = min(max(time, 0), player.duration)
+        player.currentTime = clampedTime
+    }
+
+    /// 現在の再生位置を取得
+    @MainActor
+    func currentTime() -> TimeInterval {
+        player?.currentTime ?? 0
+    }
+
+    // MARK: - Helpers
+
+    /// 相対パス（"Audio/xxx.m4a"）を Documents ディレクトリ基準で解決する
+    private static func resolveFileURL(path: String) -> URL {
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path)
+        }
+        let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return docsDir.appendingPathComponent(path)
+    }
+}
+
+/// AudioPlayer で発生するエラー
+private enum AudioPlayerError: LocalizedError {
+    case fileNotFound(String)
+    case notLoaded
+    case playbackFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .fileNotFound(let path):
+            return "音声ファイルが見つかりません: \(path)"
+        case .notLoaded:
+            return "音声ファイルが読み込まれていません"
+        case .playbackFailed:
+            return "音声の再生に失敗しました"
+        }
+    }
+}
 
 extension AudioPlayerClient: DependencyKey {
-    public static let liveValue = AudioPlayerClient(
-        loadAudio: { _ in 0 },
-        play: { _ in },
-        pause: { },
-        stop: { },
-        seek: { _ in },
-        currentTime: { 0 }
-    )
+    public static let liveValue: AudioPlayerClient = {
+        let player = LiveAudioPlayer()
+        return AudioPlayerClient(
+            loadAudio: { path in
+                try await player.loadAudio(path: path)
+            },
+            play: { from in
+                try await player.play(from: from)
+            },
+            pause: {
+                await player.pause()
+            },
+            stop: {
+                await player.stop()
+            },
+            seek: { to in
+                try await player.seek(to: to)
+            },
+            currentTime: {
+                await player.currentTime()
+            }
+        )
+    }()
 }
 
 // MARK: CustomDictionaryClient → MVPスタブ実装（カスタム辞書は後で実装）
