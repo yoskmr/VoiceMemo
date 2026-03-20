@@ -24,7 +24,7 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
     public init(dbPath: String) {
         self.dbPath = dbPath
         self.useICU = FTS5IndexManager.checkICUAvailability(dbPath: dbPath)
-        logger.info("[FTS5] init: dbPath=\(dbPath), useICU=\(self.useICU)")
+        logger.info("[FTS5] init: dbPath=\(dbPath, privacy: .private), useICU=\(self.useICU)")
     }
 
     /// テスト用: ICU使用可否を明示的に指定
@@ -86,7 +86,7 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         summaryText: String,
         tags: String
     ) throws {
-        logger.info("[FTS5] upsert開始: id=\(memoID.prefix(8)), title='\(title.prefix(20))', text_len=\(transcriptionText.count)")
+        logger.info("[FTS5] upsert開始: id=\(memoID.prefix(8), privacy: .private), title_len=\(title.count), text_len=\(transcriptionText.count)")
 
         if transcriptionText.isEmpty && title.isEmpty {
             logger.warning("[FTS5] upsert: title と transcriptionText が両方空です")
@@ -120,7 +120,7 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
             params: [memoID, title, transcriptionText]
         )
 
-        logger.info("[FTS5] upsert完了: id=\(memoID.prefix(8))")
+        logger.info("[FTS5] upsert完了: id=\(memoID.prefix(8), privacy: .private)")
     }
 
     public func removeIndex(memoID: String) throws {
@@ -191,7 +191,7 @@ public final class FTS5IndexManager: @unchecked Sendable, FTS5IndexManagerProtoc
         guard !sanitizedQuery.isEmpty else { return [] }
 
         let cleanedQuery = cleanQuery(query)
-        logger.info("[FTS5] searchWithSnippets: query='\(query)', sanitized='\(sanitizedQuery)', cleaned_len=\(cleanedQuery.count)")
+        logger.info("[FTS5] searchWithSnippets: query_len=\(query.count), sanitized_len=\(sanitizedQuery.count), cleaned_len=\(cleanedQuery.count)")
 
         // unicode61/ICU テーブルで検索
         // エラーが発生してもtrigramフォールバックに進む

@@ -143,7 +143,7 @@ public struct MemoListReducer {
             case .loadNextPage:
                 guard !state.isLoading, state.hasMorePages else { return .none }
                 state.isLoading = true
-                let nextPage = state.currentPage + 1
+                let nextPage = state.currentPage
                 return .run { send in
                     let result = await Result {
                         try await self.fetchMemoItems(page: nextPage)

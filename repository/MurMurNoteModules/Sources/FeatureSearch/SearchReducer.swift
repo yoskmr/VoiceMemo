@@ -57,9 +57,8 @@ public struct SearchReducer {
             case month = "過去1ヶ月"
             case all = "全期間"
 
-            public var startDate: Date? {
-                let calendar = Calendar.current
-                let now = Date()
+            /// TCA Dependency 経由の now / calendar を受け取ってフィルター開始日を算出する
+            public func startDate(now: Date, calendar: Calendar) -> Date? {
                 switch self {
                 case .today: return calendar.startOfDay(for: now)
                 case .week: return calendar.date(byAdding: .day, value: -7, to: now)
@@ -129,10 +128,13 @@ public struct SearchReducer {
     @Dependency(\.fts5IndexManager) var fts5IndexManager
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
     @Dependency(\.continuousClock) var clock
+    @Dependency(\.date.now) var now
+    @Dependency(\.calendar) var calendar
 
     // MARK: - Cancellation IDs
 
     private enum SearchDebounceID { case debounce }
+    private enum CancelID { case search }
 
     // MARK: - Reducer Body
 
@@ -172,6 +174,7 @@ public struct SearchReducer {
                 let query = state.searchText
                 let dateFilter = state.selectedDateFilter
                 let tagFilter = state.selectedTags
+                let filterStartDate = dateFilter.startDate(now: now, calendar: calendar)
 
                 guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
                     state.results = []
@@ -182,10 +185,17 @@ public struct SearchReducer {
                 state.isSearching = true
                 return .run { [fts5IndexManager] send in
                     do {
+                        #if DEBUG
                         print("[Search] クエリ: '\(query)'")
+                        #endif
                         let ftsResults = try fts5IndexManager.searchWithSnippets(query, 2, 32)
+                        #if DEBUG
                         print("[Search] FTS5結果: \(ftsResults.count)件")
+                        #endif
 
+                        // TODO: N+1クエリ問題 - 現在は FTS5 結果ごとに fetchMemoForSearch を個別呼び出ししている。
+                        // FTS5 は SQLite ベースで Repository(SwiftData) とは別DBのため、一括取得には
+                        // Repository 側に fetchByIDs([UUID]) メソッドの追加が必要。将来的に対応予定。
                         var items: [SearchResultItem] = []
                         for ftsResult in ftsResults {
                             guard let memo = try await voiceMemoRepository.fetchMemoForSearch(
@@ -193,7 +203,7 @@ public struct SearchReducer {
                             ) else { continue }
 
                             // 日付フィルター
-                            if let startDate = dateFilter.startDate,
+                            if let startDate = filterStartDate,
                                memo.createdAt < startDate {
                                 continue
                             }
@@ -216,10 +226,13 @@ public struct SearchReducer {
                         }
                         await send(.searchCompleted(.success(items)))
                     } catch {
+                        #if DEBUG
                         print("[Search] エラー: \(error)")
+                        #endif
                         await send(.searchCompleted(.failure(error.localizedDescription)))
                     }
                 }
+                .cancellable(id: CancelID.search, cancelInFlight: true)
 
             case let .searchCompleted(.success(items)):
                 state.isSearching = false

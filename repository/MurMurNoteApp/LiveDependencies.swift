@@ -78,8 +78,25 @@ extension AudioFileStoreClient: DependencyKey {
             )
         },
         deleteAudioFile: { relativePath in
+            // パストラバーサル対策: ".." を含むパスを拒否し、Audio/ 配下のみ削除を許可
+            guard !relativePath.contains("..") else {
+                throw NSError(
+                    domain: "AudioFileStore",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "不正なファイルパスです"]
+                )
+            }
             let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let fullURL = docsDir.appendingPathComponent(relativePath)
+            let audioDir = docsDir.appendingPathComponent("Audio", isDirectory: true)
+            let fullURL = docsDir.appendingPathComponent(relativePath).standardizedFileURL
+            // Documents/Audio/ 配下のファイルのみ削除を許可
+            guard fullURL.path.hasPrefix(audioDir.path) else {
+                throw NSError(
+                    domain: "AudioFileStore",
+                    code: -2,
+                    userInfo: [NSLocalizedDescriptionKey: "Audio ディレクトリ外のファイルは削除できません"]
+                )
+            }
             try FileManager.default.removeItem(at: fullURL)
         }
     )
@@ -105,6 +122,8 @@ extension VoiceMemoRepositoryClient: DependencyKey {
             fetchByID: { id in try await repo.fetchByID(id) },
             fetchAll: { try await repo.fetchAll() },
             delete: { id in try await repo.delete(id) },
+            // TODO: SwiftData のネイティブページネーション（FetchDescriptor の fetchOffset/fetchLimit）に移行する
+            // 現在は fetchAll() で全件取得後にメモリ上でスライスしているため、データ量増加時にパフォーマンス劣化の可能性あり
             fetchMemos: { page, pageSize in
                 let all = try await repo.fetchAll()
                 let start = page * pageSize
@@ -122,6 +141,14 @@ extension VoiceMemoRepositoryClient: DependencyKey {
             updateMemoText: { id, title, text in
                 if var memo = try await repo.fetchByID(id) {
                     memo.title = title
+                    if var transcription = memo.transcription {
+                        transcription.fullText = text
+                        memo.transcription = transcription
+                    } else if !text.isEmpty {
+                        // transcription が nil の場合、新規作成して fullText を設定
+                        memo.transcription = TranscriptionEntity(fullText: text)
+                    }
+                    memo.updatedAt = Date()
                     try await repo.save(memo)
                 }
             },

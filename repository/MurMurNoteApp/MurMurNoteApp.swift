@@ -15,6 +15,7 @@ struct MurMurNoteApp: App {
                     AppReducer()
                 }
             )
+            .preferredColorScheme(.light)
         }
     }
 }
@@ -75,7 +76,9 @@ struct AppReducer {
                         // 保存されたメモのテキストをFTS5インデックスに追加
                         let title = memo.title
                         let text = memo.transcription?.fullText ?? ""
-                        print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text='\(text.prefix(30))'")
+                        #if DEBUG
+                        print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text_len=\(text.count)")
+                        #endif
                         do {
                             try fts5IndexManager.upsertIndex(
                                 memo.id.uuidString,
@@ -84,9 +87,13 @@ struct AppReducer {
                                 memo.aiSummary?.summaryText ?? "",
                                 memo.tags.map(\.name).joined(separator: " ")
                             )
+                            #if DEBUG
                             print("[FTS5] upsert 成功")
+                            #endif
                         } catch {
+                            #if DEBUG
                             print("[FTS5] upsert エラー: \(error)")
+                            #endif
                         }
                     }
                 )

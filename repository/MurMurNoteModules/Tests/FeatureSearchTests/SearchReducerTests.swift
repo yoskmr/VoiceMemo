@@ -21,6 +21,8 @@ final class SearchReducerTests: XCTestCase {
             SearchReducer()
         } withDependencies: {
             $0.continuousClock = clock
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
             $0.fts5IndexManager.searchWithSnippets = { _, _, _ in
                 searchCalled = true
                 return [
@@ -97,6 +99,8 @@ final class SearchReducerTests: XCTestCase {
             SearchReducer()
         } withDependencies: {
             $0.continuousClock = clock
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
             $0.fts5IndexManager.searchWithSnippets = { _, _, _ in
                 searchCount += 1
                 return []
@@ -174,6 +178,8 @@ final class SearchReducerTests: XCTestCase {
         ) {
             SearchReducer()
         } withDependencies: {
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
             $0.fts5IndexManager.searchWithSnippets = { _, _, _ in
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "検索エラー"])
             }
@@ -217,6 +223,8 @@ final class SearchReducerTests: XCTestCase {
         ) {
             SearchReducer()
         } withDependencies: {
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
             $0.fts5IndexManager.searchWithSnippets = { _, _, _ in [] }
         }
 
@@ -244,6 +252,8 @@ final class SearchReducerTests: XCTestCase {
         ) {
             SearchReducer()
         } withDependencies: {
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
             $0.fts5IndexManager.searchWithSnippets = { _, _, _ in [] }
         }
 
@@ -285,6 +295,8 @@ final class SearchReducerTests: XCTestCase {
         ) {
             SearchReducer()
         } withDependencies: {
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
             $0.fts5IndexManager.searchWithSnippets = { _, _, _ in [] }
         }
 

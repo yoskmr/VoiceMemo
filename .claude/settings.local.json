@@ -33,7 +33,8 @@
       "mcp__xcode__GetBuildLog",
       "mcp__xcode__XcodeListNavigatorIssues",
       "Bash(xcrun simctl:*)",
-      "mcp__xcode__BuildProject"
+      "mcp__xcode__BuildProject",
+      "Bash(codex --version)"
     ]
   }
 }

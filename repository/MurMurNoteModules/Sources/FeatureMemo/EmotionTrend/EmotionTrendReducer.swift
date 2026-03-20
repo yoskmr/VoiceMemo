@@ -55,9 +55,8 @@ public struct EmotionTrendReducer {
         case month = "1ヶ月"
         case all = "全期間"
 
-        public var startDate: Date? {
-            let calendar = Calendar.current
-            let now = Date()
+        /// TCA Dependency 経由の now / calendar を受け取ってフィルター開始日を算出する
+        public func startDate(now: Date, calendar: Calendar) -> Date? {
             switch self {
             case .week: return calendar.date(byAdding: .day, value: -7, to: now)
             case .month: return calendar.date(byAdding: .month, value: -1, to: now)
@@ -74,9 +73,15 @@ public struct EmotionTrendReducer {
         case emotionsLoaded(Result<[EmotionEntry], EquatableError>)
     }
 
+    // MARK: - Cancellation IDs
+
+    private enum CancelID { case fetch }
+
     // MARK: - Dependencies
 
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
+    @Dependency(\.date.now) var now
+    @Dependency(\.calendar) var calendar
 
     public init() {}
 
@@ -94,6 +99,7 @@ public struct EmotionTrendReducer {
                     }.mapError { EquatableError($0) }
                     await send(.emotionsLoaded(result))
                 }
+                .cancellable(id: CancelID.fetch, cancelInFlight: true)
 
             case let .periodChanged(period):
                 state.selectedPeriod = period
@@ -104,6 +110,7 @@ public struct EmotionTrendReducer {
                     }.mapError { EquatableError($0) }
                     await send(.emotionsLoaded(result))
                 }
+                .cancellable(id: CancelID.fetch, cancelInFlight: true)
 
             case let .emotionsLoaded(.success(entries)):
                 state.isLoading = false
@@ -122,7 +129,7 @@ public struct EmotionTrendReducer {
 
     private func fetchEmotionEntries(period: Period) async throws -> [EmotionEntry] {
         let allMemos = try await voiceMemoRepository.fetchAll()
-        let startDate = period.startDate
+        let startDate = period.startDate(now: now, calendar: calendar)
 
         return allMemos
             .filter { memo in

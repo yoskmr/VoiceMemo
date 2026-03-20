@@ -37,6 +37,8 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memoWithoutEmotion] }
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
         }
 
         await store.send(.onAppear) {
@@ -72,6 +74,8 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memoWithEmotion] }
+            $0.date.now = now
+            $0.calendar = Calendar.current
         }
 
         await store.send(.onAppear) {
@@ -107,6 +111,8 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memo] }
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
         }
 
         await store.send(.onAppear) {
@@ -155,6 +161,8 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [recentMemo, oldMemo] }
+            $0.date.now = now
+            $0.calendar = Calendar.current
         }
 
         // 1週間に変更 → 古いメモは除外される
@@ -188,6 +196,8 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchAll = {
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "テストエラー"])
             }
+            $0.date.now = Date()
+            $0.calendar = Calendar.current
         }
 
         await store.send(.onAppear) {
@@ -221,6 +231,8 @@ final class EmotionTrendReducerTests: XCTestCase {
         } withDependencies: {
             // 古い順で渡す
             $0.voiceMemoRepository.fetchAll = { [memo1, memo2] }
+            $0.date.now = now
+            $0.calendar = Calendar.current
         }
 
         await store.send(.onAppear) {
