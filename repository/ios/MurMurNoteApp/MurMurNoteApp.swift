@@ -30,8 +30,6 @@ struct AppReducer {
         var recording = RecordingFeature.State()
         var memoList = MemoListReducer.State()
         var settings = SettingsReducer.State()
-        /// メモ詳細表示用（nilの場合は非表示）
-        var selectedMemo: MemoDetailReducer.State?
 
         enum Tab: Hashable {
             case home
@@ -45,8 +43,6 @@ struct AppReducer {
         case recording(RecordingFeature.Action)
         case memoList(MemoListReducer.Action)
         case settings(SettingsReducer.Action)
-        case memoDetail(MemoDetailReducer.Action)
-        case dismissMemoDetail
     }
 
     @Dependency(\.fts5IndexManager) var fts5IndexManager
@@ -67,35 +63,39 @@ struct AppReducer {
                 state.selectedTab = tab
                 return .none
 
-            // 録音完了 → メモ一覧タブに切替 + 一覧をリフレッシュ + FTS5インデックス更新
+            // 録音完了 → FTS5インデックス更新（完了画面表示中にバックグラウンドで実行）
             case let .recording(.recordingSaved(memo)):
+                return .run { [fts5IndexManager] _ in
+                    // 保存されたメモのテキストをFTS5インデックスに追加
+                    let title = memo.title
+                    let text = memo.transcription?.fullText ?? ""
+                    #if DEBUG
+                    print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text_len=\(text.count)")
+                    #endif
+                    do {
+                        try fts5IndexManager.upsertIndex(
+                            memo.id.uuidString,
+                            title,
+                            text,
+                            memo.aiSummary?.summaryText ?? "",
+                            memo.tags.map(\.name).joined(separator: " ")
+                        )
+                        #if DEBUG
+                        print("[FTS5] upsert 成功")
+                        #endif
+                    } catch {
+                        #if DEBUG
+                        print("[FTS5] upsert エラー: \(error)")
+                        #endif
+                    }
+                }
+
+            // 「メモを見る」タップ → メモ一覧タブに切替 + リフレッシュ + メモ詳細遷移
+            case let .recording(.navigateToMemoDetail(memoID)):
                 state.selectedTab = .memoList
                 return .merge(
                     .send(.memoList(.refreshRequested)),
-                    .run { [fts5IndexManager] _ in
-                        // 保存されたメモのテキストをFTS5インデックスに追加
-                        let title = memo.title
-                        let text = memo.transcription?.fullText ?? ""
-                        #if DEBUG
-                        print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text_len=\(text.count)")
-                        #endif
-                        do {
-                            try fts5IndexManager.upsertIndex(
-                                memo.id.uuidString,
-                                title,
-                                text,
-                                memo.aiSummary?.summaryText ?? "",
-                                memo.tags.map(\.name).joined(separator: " ")
-                            )
-                            #if DEBUG
-                            print("[FTS5] upsert 成功")
-                            #endif
-                        } catch {
-                            #if DEBUG
-                            print("[FTS5] upsert エラー: \(error)")
-                            #endif
-                        }
-                    }
+                    .send(.memoList(.selectMemo(id: memoID)))
                 )
 
             case .recording:
@@ -104,37 +104,9 @@ struct AppReducer {
             case .settings:
                 return .none
 
-            // メモ一覧でメモをタップ → メモ詳細を表示（検索結果タップも同じフローで統一）
-            case let .memoList(.memoTapped(id: memoID)):
-                state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
-                return .none
-
             case .memoList:
                 return .none
-
-            case .memoDetail(.backButtonTapped):
-                state.selectedMemo = nil
-                return .none
-
-            // 削除完了 → メモ詳細を閉じて一覧をリフレッシュ
-            case let .memoDetail(._deleteCompletedAndDismiss(_)):
-                state.selectedMemo = nil
-                return .send(.memoList(.refreshRequested))
-
-            // 編集保存完了 → 一覧をリフレッシュ（詳細画面はそのまま表示）
-            case .memoDetail(._editSavedAndReload):
-                return .send(.memoList(.refreshRequested))
-
-            case .memoDetail:
-                return .none
-
-            case .dismissMemoDetail:
-                state.selectedMemo = nil
-                return .none
             }
-        }
-        .ifLet(\.selectedMemo, action: \.memoDetail) {
-            MemoDetailReducer()
         }
     }
 }
@@ -171,42 +143,5 @@ struct AppView: View {
             .tag(AppReducer.State.Tab.settings)
         }
         .tint(Color.vmPrimary)
-        .sheet(
-            item: Binding(
-                get: {
-                    store.selectedMemo.map { DetailSheetIdentifier(state: $0) }
-                },
-                set: { newValue in
-                    if newValue == nil {
-                        store.send(.dismissMemoDetail)
-                    }
-                }
-            )
-        ) { _ in
-            if let detailStore = store.scope(state: \.selectedMemo, action: \.memoDetail) {
-                NavigationStack {
-                    MemoDetailView(store: detailStore)
-                        .toolbar {
-                            #if os(iOS)
-                            ToolbarItem(placement: .topBarLeading) {
-                                Button("閉じる") {
-                                    store.send(.dismissMemoDetail)
-                                }
-                            }
-                            #endif
-                        }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Sheet識別用ラッパー
-
-/// sheet(item:) に渡すための Identifiable ラッパー
-private struct DetailSheetIdentifier: Identifiable {
-    let id: UUID
-    init(state: MemoDetailReducer.State) {
-        self.id = state.memoID
     }
 }

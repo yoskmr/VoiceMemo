@@ -28,8 +28,14 @@ public struct MemoListReducer {
         /// 検索がアクティブかどうか
         public var isSearchActive: Bool { !searchQuery.isEmpty }
 
+        /// メモ詳細画面（NavigationStack push用、nilで非表示）
+        @Presents public var selectedMemo: MemoDetailReducer.State?
+
         /// 感情トレンド画面（NavigationStack push用、nilで非表示）
         @Presents public var emotionTrendState: EmotionTrendReducer.State?
+
+        /// 録音完了→メモ詳細遷移時の待機用ID（refreshCompleted前にselectMemoが届いた場合に保持）
+        public var pendingMemoID: UUID?
 
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
@@ -44,7 +50,9 @@ public struct MemoListReducer {
             searchQuery: String = "",
             searchResults: [SearchResultItem] = [],
             isSearching: Bool = false,
-            emotionTrendState: EmotionTrendReducer.State? = nil
+            selectedMemo: MemoDetailReducer.State? = nil,
+            emotionTrendState: EmotionTrendReducer.State? = nil,
+            pendingMemoID: UUID? = nil
         ) {
             self.memos = memos
             self.sections = sections
@@ -55,7 +63,9 @@ public struct MemoListReducer {
             self.searchQuery = searchQuery
             self.searchResults = searchResults
             self.isSearching = isSearching
+            self.selectedMemo = selectedMemo
             self.emotionTrendState = emotionTrendState
+            self.pendingMemoID = pendingMemoID
         }
     }
 
@@ -148,8 +158,10 @@ public struct MemoListReducer {
         case searchQueryChanged(String)
         case searchCompleted(SearchResult)
         case trendIconTapped
+        case selectMemo(id: UUID)
         case refreshRequested
         case refreshCompleted(Result<[MemoItem], EquatableError>)
+        case memoDetail(PresentationAction<MemoDetailReducer.Action>)
         case emotionTrend(PresentationAction<EmotionTrendReducer.Action>)
     }
 
@@ -244,6 +256,15 @@ public struct MemoListReducer {
                 state.errorMessage = error.localizedDescription
                 return .none
 
+            case let .selectMemo(id: memoID):
+                if state.memos[id: memoID] != nil {
+                    state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
+                    state.pendingMemoID = nil
+                } else {
+                    state.pendingMemoID = memoID
+                }
+                return .none
+
             case .refreshRequested:
                 state.isLoading = true
                 state.currentPage = 0
@@ -264,6 +285,11 @@ public struct MemoListReducer {
                     now: now,
                     calendar: calendar
                 )
+                // 録音完了→メモ詳細遷移: refresh完了前にselectMemoが届いていた場合の遅延処理
+                if let pendingID = state.pendingMemoID {
+                    state.selectedMemo = MemoDetailReducer.State(memoID: pendingID)
+                    state.pendingMemoID = nil
+                }
                 return .none
 
             case let .refreshCompleted(.failure(error)):
@@ -335,9 +361,28 @@ public struct MemoListReducer {
             case .emotionTrend:
                 return .none
 
-            case .memoTapped, .deleteCancelled:
+            case let .memoTapped(id: memoID):
+                state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
+                return .none
+
+            // メモ詳細: 削除完了 → 詳細を閉じて一覧をリフレッシュ
+            case .memoDetail(.presented(._deleteCompletedAndDismiss)):
+                state.selectedMemo = nil
+                return .send(.refreshRequested)
+
+            // メモ詳細: 編集保存完了 → 一覧をリフレッシュ
+            case .memoDetail(.presented(._editSavedAndReload)):
+                return .send(.refreshRequested)
+
+            case .memoDetail:
+                return .none
+
+            case .deleteCancelled:
                 return .none
             }
+        }
+        .ifLet(\.$selectedMemo, action: \.memoDetail) {
+            MemoDetailReducer()
         }
         .ifLet(\.$emotionTrendState, action: \.emotionTrend) {
             EmotionTrendReducer()

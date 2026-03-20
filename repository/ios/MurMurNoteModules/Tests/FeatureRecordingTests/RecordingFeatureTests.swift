@@ -92,7 +92,7 @@ final class RecordingFeatureTests: XCTestCase {
 
     // MARK: - 正常系: stopButtonTapped → saving → 保存完了
 
-    /// 録音中に停止ボタンタップ → savingに遷移し保存完了アクションを受信する
+    /// 録音中に停止ボタンタップ → savingに遷移し完了画面（saved状態）に遷移する
     func test_stopButtonTapped_recording中_savingに遷移し保存完了する() async {
         let recordingID = UUID()
         let recordingResult = RecordingResult(
@@ -122,18 +122,23 @@ final class RecordingFeatureTests: XCTestCase {
             $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
             $0.temporaryRecordingStore.cleanup = { _ in }
         }
+        store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
             $0.recordingStatus = .saving
         }
 
-        await store.receive(\.recordingSaved) {
-            $0.recordingStatus = .idle
-            $0.partialTranscription = ""
-            $0.confirmedTranscription = ""
-            $0.elapsedTime = 0
-            $0.audioLevel = 0
+        // recordingSaved → saved(memo) 状態に遷移（完了画面表示）
+        await store.receive(\.recordingSaved)
+
+        // saved状態であることを確認
+        guard case let .saved(savedMemo) = store.state.recordingStatus else {
+            XCTFail("recordingStatusが.savedではありません: \(store.state.recordingStatus)")
+            return
         }
+        XCTAssertEqual(savedMemo.id, recordingID)
+        XCTAssertEqual(savedMemo.durationSeconds, 10.0)
+        XCTAssertEqual(savedMemo.transcription?.fullText, "テスト文字起こし")
 
         // VoiceMemoが正しく保存されたことを確認
         savedMemos.withValue { memos in
@@ -176,18 +181,21 @@ final class RecordingFeatureTests: XCTestCase {
             $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
             $0.temporaryRecordingStore.cleanup = { _ in }
         }
+        store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
             $0.recordingStatus = .saving
         }
 
-        await store.receive(\.recordingSaved) {
-            $0.recordingStatus = .idle
-            $0.partialTranscription = ""
-            $0.confirmedTranscription = ""
-            $0.elapsedTime = 0
-            $0.audioLevel = 0
+        // recordingSaved → saved(memo) 状態に遷移（完了画面表示）
+        await store.receive(\.recordingSaved)
+
+        // saved状態であることを確認
+        guard case let .saved(savedMemo) = store.state.recordingStatus else {
+            XCTFail("recordingStatusが.savedではありません: \(store.state.recordingStatus)")
+            return
         }
+        XCTAssertEqual(savedMemo.id, recordingID)
 
         // STT失敗時でも空のTranscriptionで保存される
         savedMemos.withValue { memos in
@@ -390,5 +398,86 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .idle
             $0.errorMessage = RecordingError.microphonePermissionDenied.localizedDescription
         }
+    }
+
+    // MARK: - 正常系: 完了画面 → viewMemoTapped
+
+    /// 完了画面で「メモを見る」タップ → idle状態にリセットしnavigateToMemoDetailを送信する
+    func test_viewMemoTapped_saved状態_idleにリセットしnavigateToMemoDetailを送信する() async {
+        let memoID = UUID()
+        let memo = VoiceMemoEntity(
+            id: memoID,
+            title: "テストメモ",
+            audioFilePath: "/Documents/Audio/test.m4a",
+            transcription: TranscriptionEntity(
+                fullText: "テスト文字起こし",
+                language: "ja-JP",
+                confidence: 0.9
+            )
+        )
+
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingStatus: .saved(memo),
+                elapsedTime: 10.0,
+                partialTranscription: "テスト文字起こし",
+                confirmedTranscription: "テスト文字起こし",
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        }
+
+        await store.send(.viewMemoTapped) {
+            $0.recordingStatus = .idle
+            $0.partialTranscription = ""
+            $0.confirmedTranscription = ""
+            $0.elapsedTime = 0
+            $0.audioLevel = 0
+        }
+
+        await store.receive(.navigateToMemoDetail(memoID))
+    }
+
+    // MARK: - 正常系: 完了画面 → dismissCompletion
+
+    /// 完了画面で「あとで」タップ → idle状態にリセットし録音画面に戻る
+    func test_dismissCompletion_saved状態_idleにリセットする() async {
+        let memo = VoiceMemoEntity(
+            id: UUID(),
+            title: "テストメモ",
+            audioFilePath: "/Documents/Audio/test.m4a"
+        )
+
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingStatus: .saved(memo),
+                elapsedTime: 5.0,
+                partialTranscription: "テスト",
+                confirmedTranscription: "テスト",
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        }
+
+        await store.send(.dismissCompletion) {
+            $0.recordingStatus = .idle
+            $0.partialTranscription = ""
+            $0.confirmedTranscription = ""
+            $0.elapsedTime = 0
+            $0.audioLevel = 0
+        }
+    }
+
+    /// idle状態でviewMemoTappedしても何も起きない
+    func test_viewMemoTapped_idle状態_何も起きない() async {
+        let store = TestStore(
+            initialState: RecordingFeature.State(isPermissionGranted: true)
+        ) {
+            RecordingFeature()
+        }
+
+        await store.send(.viewMemoTapped)
     }
 }

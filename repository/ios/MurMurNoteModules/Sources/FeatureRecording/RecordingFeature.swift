@@ -60,6 +60,8 @@ public struct RecordingFeature {
             case paused
             /// 保存処理中
             case saving
+            /// 保存完了（完了画面表示中）
+            case saved(VoiceMemoEntity)
         }
     }
 
@@ -73,6 +75,12 @@ public struct RecordingFeature {
         case stopButtonTapped
         case permissionRequested
         case permissionResponse(Bool)
+
+        // 完了画面アクション
+        case viewMemoTapped
+        case dismissCompletion
+        /// 親（AppReducer）にメモ詳細への遷移を通知
+        case navigateToMemoDetail(UUID)
 
         // 内部アクション（Effect からの通知）
         case timerTicked
@@ -196,13 +204,34 @@ public struct RecordingFeature {
                 return .none
 
             case let .recordingSaved(memo):
+                // 完了画面を表示（リセットはviewMemoTapped/dismissCompletionで行う）
+                state.recordingStatus = .saved(memo)
+                return .none
+
+            case .viewMemoTapped:
+                guard case let .saved(memo) = state.recordingStatus else {
+                    return .none
+                }
+                let memoID = memo.id
+                // 状態をリセット
                 state.recordingStatus = .idle
                 state.partialTranscription = ""
                 state.confirmedTranscription = ""
                 state.elapsedTime = 0
                 state.audioLevel = 0
-                // 親Featureで処理する（メモ一覧への追加等）
-                _ = memo
+                return .send(.navigateToMemoDetail(memoID))
+
+            case .dismissCompletion:
+                // 状態をリセットして録音画面に戻る
+                state.recordingStatus = .idle
+                state.partialTranscription = ""
+                state.confirmedTranscription = ""
+                state.elapsedTime = 0
+                state.audioLevel = 0
+                return .none
+
+            case .navigateToMemoDetail:
+                // 親Reducer（AppReducer）で処理する
                 return .none
 
             case let .recordingFailed(message):

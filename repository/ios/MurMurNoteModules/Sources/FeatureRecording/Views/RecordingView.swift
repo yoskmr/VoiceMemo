@@ -13,6 +13,17 @@ public struct RecordingView: View {
     }
 
     public var body: some View {
+        Group {
+            if case .saved = store.recordingStatus {
+                RecordingCompletionView(store: store)
+            } else {
+                recordingContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var recordingContent: some View {
         VStack(spacing: VMDesignTokens.Spacing.xl) {
             Spacer()
 
@@ -59,7 +70,7 @@ public struct RecordingView: View {
                     store.send(.recordButtonTapped)
                 case .recording, .paused:
                     store.send(.stopButtonTapped)
-                case .saving:
+                case .saving, .saved:
                     break
                 }
             }
@@ -110,6 +121,7 @@ public struct RecordingView: View {
         case .recording: return .recording
         case .paused: return .paused
         case .saving: return .idle
+        case .saved: return .idle
         }
     }
 }

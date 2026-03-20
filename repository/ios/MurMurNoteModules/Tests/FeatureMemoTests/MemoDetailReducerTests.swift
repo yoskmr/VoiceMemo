@@ -59,6 +59,7 @@ final class MemoDetailReducerTests: XCTestCase {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) {
@@ -113,6 +114,7 @@ final class MemoDetailReducerTests: XCTestCase {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -156,6 +158,7 @@ final class MemoDetailReducerTests: XCTestCase {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -196,6 +199,7 @@ final class MemoDetailReducerTests: XCTestCase {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -237,6 +241,7 @@ final class MemoDetailReducerTests: XCTestCase {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -283,6 +288,7 @@ final class MemoDetailReducerTests: XCTestCase {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -320,6 +326,7 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "メモが見つかりません"])
             }
+            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         }
 
         await store.send(.onAppear) { $0.isLoading = true }

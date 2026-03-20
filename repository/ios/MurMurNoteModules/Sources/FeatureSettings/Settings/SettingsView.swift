@@ -15,6 +15,24 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             List {
+                // MARK: - AI処理セクション
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { store.emotionAnalysisEnabled },
+                        set: { store.send(.emotionAnalysisToggled($0)) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("感情分析")
+                            Text("メモの内容をクラウドで分析し、感情を判定します。AI処理回数を1回消費します。")
+                                .font(.vmCaption1)
+                                .foregroundColor(.vmTextTertiary)
+                        }
+                    }
+                    .tint(.vmPrimary)
+                } header: {
+                    Text("AI処理")
+                }
+
                 // MARK: - 一般セクション
                 Section {
                     NavigationLink {

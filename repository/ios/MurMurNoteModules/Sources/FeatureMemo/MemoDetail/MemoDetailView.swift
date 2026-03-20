@@ -53,6 +53,36 @@ public struct MemoDetailView: View {
                         }
                     }
 
+                    // AI処理ステータスインジケーター
+                    if store.aiProcessingStatus == .processing {
+                        HStack(spacing: 8) {
+                            ProgressView().tint(.vmInfo)
+                            Text("AI分析中...")
+                                .font(.vmCallout)
+                                .foregroundColor(.vmTextSecondary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.vmInfo.opacity(0.1))
+                        .cornerRadius(12)
+                    } else if case .failed = store.aiProcessingStatus {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.vmError)
+                            Text("AI分析に失敗しました")
+                                .font(.vmCallout)
+                                .foregroundColor(.vmTextSecondary)
+                            Spacer()
+                            Button("リトライ") { store.send(.regenerateAISummary) }
+                                .font(.vmCaption1)
+                                .foregroundColor(.vmPrimary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.vmError.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+
                     // AI要約カード（枠のみ、Phase 3で実装）
                     AISummarySection(summary: store.aiSummary)
 

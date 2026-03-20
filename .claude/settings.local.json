@@ -34,7 +34,8 @@
       "mcp__xcode__XcodeListNavigatorIssues",
       "Bash(xcrun simctl:*)",
       "mcp__xcode__BuildProject",
-      "Bash(codex --version)"
+      "Bash(codex --version)",
+      "Bash(swift package:*)"
     ]
   }
 }

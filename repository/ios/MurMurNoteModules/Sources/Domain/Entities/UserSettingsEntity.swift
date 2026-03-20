@@ -11,6 +11,7 @@ public struct UserSettingsEntity: Sendable, Equatable, Identifiable {
     public var customDictionary: [String: String]
     public var aiProcessingCountThisMonth: Int
     public var lastAICountResetDate: Date
+    public var emotionAnalysisEnabled: Bool
 
     public init(
         id: UUID = UUID(),
@@ -20,7 +21,8 @@ public struct UserSettingsEntity: Sendable, Equatable, Identifiable {
         preferredSTTEngine: STTEngineType = .whisperKit,
         customDictionary: [String: String] = [:],
         aiProcessingCountThisMonth: Int = 0,
-        lastAICountResetDate: Date = Date()
+        lastAICountResetDate: Date = Date(),
+        emotionAnalysisEnabled: Bool = false
     ) {
         self.id = id
         self.theme = theme
@@ -30,6 +32,7 @@ public struct UserSettingsEntity: Sendable, Equatable, Identifiable {
         self.customDictionary = customDictionary
         self.aiProcessingCountThisMonth = aiProcessingCountThisMonth
         self.lastAICountResetDate = lastAICountResetDate
+        self.emotionAnalysisEnabled = emotionAnalysisEnabled
     }
 
     /// 月次AI処理カウントのリセット判定 (EC-014: 毎月1日 JST 0:00)

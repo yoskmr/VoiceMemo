@@ -43,6 +43,11 @@ public struct MemoListView: View {
                 store.send(.refreshRequested)
             }
             .navigationDestination(
+                item: $store.scope(state: \.selectedMemo, action: \.memoDetail)
+            ) { (detailStore: StoreOf<MemoDetailReducer>) in
+                MemoDetailView(store: detailStore)
+            }
+            .navigationDestination(
                 item: $store.scope(state: \.emotionTrendState, action: \.emotionTrend)
             ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
                 EmotionTrendView(store: emotionTrendStore)

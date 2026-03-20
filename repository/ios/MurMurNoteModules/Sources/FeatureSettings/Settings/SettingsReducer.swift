@@ -15,16 +15,20 @@ public struct SettingsReducer {
         public var showComingSoonAlert: Bool = false
         /// 「準備中」アラートに表示する機能名
         public var comingSoonFeature: String = ""
+        /// 感情分析オプトインフラグ
+        public var emotionAnalysisEnabled: Bool = false
         /// カスタム辞書のサブ State
         public var customDictionary = CustomDictionaryReducer.State()
 
         public init(
             showComingSoonAlert: Bool = false,
             comingSoonFeature: String = "",
+            emotionAnalysisEnabled: Bool = false,
             customDictionary: CustomDictionaryReducer.State = .init()
         ) {
             self.showComingSoonAlert = showComingSoonAlert
             self.comingSoonFeature = comingSoonFeature
+            self.emotionAnalysisEnabled = emotionAnalysisEnabled
             self.customDictionary = customDictionary
         }
     }
@@ -36,6 +40,8 @@ public struct SettingsReducer {
         case comingSoonTapped(String)
         /// 「準備中」アラートを閉じる
         case dismissComingSoonAlert
+        /// 感情分析オプトインのトグル
+        case emotionAnalysisToggled(Bool)
         /// カスタム辞書のサブ Action
         case customDictionary(CustomDictionaryReducer.Action)
     }
@@ -58,6 +64,10 @@ public struct SettingsReducer {
             case .dismissComingSoonAlert:
                 state.showComingSoonAlert = false
                 state.comingSoonFeature = ""
+                return .none
+
+            case let .emotionAnalysisToggled(isEnabled):
+                state.emotionAnalysisEnabled = isEnabled
                 return .none
 
             case .customDictionary:

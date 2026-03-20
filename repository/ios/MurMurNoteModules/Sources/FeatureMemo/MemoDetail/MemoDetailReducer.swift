@@ -39,6 +39,9 @@ public struct MemoDetailReducer {
         public var deleteState: MemoDeleteReducer.State = .init()
         public var audioPlayer: AudioPlayerReducer.State?
 
+        // AI処理ステータス
+        public var aiProcessingStatus: AIProcessingStatus = .idle
+
         // UI状態
         public var isLoading: Bool = false
         public var errorMessage: String?
@@ -61,6 +64,7 @@ public struct MemoDetailReducer {
             editState: MemoEditReducer.State? = nil,
             deleteState: MemoDeleteReducer.State = .init(),
             audioPlayer: AudioPlayerReducer.State? = nil,
+            aiProcessingStatus: AIProcessingStatus = .idle,
             isLoading: Bool = false,
             errorMessage: String? = nil,
             showDeleteConfirmation: Bool = false
@@ -81,6 +85,7 @@ public struct MemoDetailReducer {
             self.editState = editState
             self.deleteState = deleteState
             self.audioPlayer = audioPlayer
+            self.aiProcessingStatus = aiProcessingStatus
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.showDeleteConfirmation = showDeleteConfirmation
@@ -151,6 +156,7 @@ public struct MemoDetailReducer {
         case shareButtonTapped
         case backButtonTapped
         case regenerateAISummary
+        case aiProcessingStatusUpdated(AIProcessingStatus)
 
         // 子Reducerアクション
         case edit(MemoEditReducer.Action)
@@ -212,6 +218,7 @@ public struct MemoDetailReducer {
     // MARK: - Dependencies
 
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
+    @Dependency(\.aiProcessingQueue) var aiProcessingQueue
 
     public init() {}
 
@@ -227,12 +234,19 @@ public struct MemoDetailReducer {
             case .onAppear:
                 state.isLoading = true
                 let memoID = state.memoID
-                return .run { send in
-                    let result = await Result {
-                        try await self.loadDetail(memoID: memoID)
-                    }.mapError { EquatableError($0) }
-                    await send(.memoLoaded(result))
-                }
+                return .merge(
+                    .run { send in
+                        let result = await Result {
+                            try await self.loadDetail(memoID: memoID)
+                        }.mapError { EquatableError($0) }
+                        await send(.memoLoaded(result))
+                    },
+                    .run { send in
+                        for await status in self.aiProcessingQueue.observeStatus(memoID) {
+                            await send(.aiProcessingStatusUpdated(status))
+                        }
+                    }
+                )
 
             case let .memoLoaded(.success(detail)):
                 state.isLoading = false
@@ -335,6 +349,20 @@ public struct MemoDetailReducer {
 
             case ._deleteCompletedAndDismiss:
                 // AppReducerで処理される
+                return .none
+
+            case let .aiProcessingStatusUpdated(status):
+                state.aiProcessingStatus = status
+                if case .completed = status {
+                    // AI処理完了時はメモ詳細を再読み込み
+                    let memoID = state.memoID
+                    return .run { send in
+                        let result = await Result {
+                            try await self.loadDetail(memoID: memoID)
+                        }.mapError { EquatableError($0) }
+                        await send(.memoLoaded(result))
+                    }
+                }
                 return .none
 
             case .tagTapped, .shareButtonTapped, .backButtonTapped, .regenerateAISummary:

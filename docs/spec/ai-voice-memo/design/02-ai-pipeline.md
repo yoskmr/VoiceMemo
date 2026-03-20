@@ -47,9 +47,9 @@ flowchart TB
 
     subgraph LLM["LLM処理フェーズ ※統合仕様書 v1.0 準拠"]
         K --> L{AI処理判定}
-        L -->|無料プラン<br/>月5回残あり| M{デバイス判定}
+        L -->|無料プラン<br/>月15回残あり| M{デバイス判定}
         L -->|Proプラン| M
-        L -->|無料プラン<br/>月5回到達| N[AI処理スキップ<br/>アップグレード案内]
+        L -->|無料プラン<br/>月15回到達| N[AI処理スキップ<br/>アップグレード案内]
         M -->|A16+, 6GB+<br/>短文 ≦500字| O[オンデバイスLLM<br/>llama.cpp Phi-3-mini]
         M -->|長文 or<br/>非対応端末| P[クラウドLLM<br/>GPT-4o mini]
         O -->|要約+タグのみ| Q1[オンデバイス結果]
@@ -999,7 +999,7 @@ final class CloudLLMProvider: LLMProviderProtocol {
         case 429:
             throw LLMError.rateLimited
         case 402:
-            throw LLMError.quotaExceeded  // 無料プラン月5回到達
+            throw LLMError.quotaExceeded  // 無料プラン月15回到達
         default:
             throw LLMError.serverError(statusCode: httpResponse.statusCode)
         }
@@ -1435,7 +1435,7 @@ struct RetryStrategy {
 - HTTP 401/403 (Auth Error) - 認証失敗
 - HTTP 402 (Payment Required) - クォータ超過
 
-### 5.4 無料プラン月5回制限のカウント管理（REQ-011）
+### 5.4 無料プラン月15回制限のカウント管理（REQ-011）
 
 ```swift
 // MARK: - AI処理クォータ管理
@@ -1469,7 +1469,7 @@ final class AIQuotaManager {
     /// 処理可否を判定
     func canProcess() async throws -> Bool {
         let usage = try await currentMonthUsage()
-        return usage < 5  // 月5回上限
+        return usage < 15  // 月15回上限
     }
 
     /// 使用記録
@@ -1480,7 +1480,7 @@ final class AIQuotaManager {
     /// 残り回数
     func remainingCount() async throws -> Int {
         let usage = try await currentMonthUsage()
-        return max(0, 5 - usage)
+        return max(0, 15 - usage)
     }
 }
 ```
@@ -1801,13 +1801,13 @@ final class AIMemoryManager {
 
 ### 8.2 ユーザーあたり月間コスト試算
 
-#### 無料プランユーザー（月5回AI処理）
+#### 無料プランユーザー（月15回AI処理）
 
 | 項目 | 計算 | コスト |
 |:-----|:-----|:------|
-| 平均入力トークン | 1,200 tokens x 5回 = 6,000 tokens | $0.0009 |
-| 平均出力トークン | 400 tokens x 5回 = 2,000 tokens | $0.0012 |
-| **月間合計** | | **$0.0021（約0.3円）** |
+| 平均入力トークン | 1,200 tokens x 15回 = 18,000 tokens | $0.0027 |
+| 平均出力トークン | 400 tokens x 15回 = 6,000 tokens | $0.0036 |
+| **月間合計** | | **$0.0063（約0.9円）** |
 
 #### Proプランユーザー（月60回AI処理想定）
 
@@ -1829,10 +1829,10 @@ final class AIMemoryManager {
 
 | スケール | 無料ユーザー | Proユーザー | LLM API月額 | Cloudflare Workers | 合計月額 |
 |:---------|:-----------|:-----------|:-----------|:------------------|:---------|
-| 初期（100人） | 80人 | 20人 | ~$1.0 | $5 (Free tier) | ~$6 |
-| 成長期（1,000人） | 800人 | 200人 | ~$7.3 | $5 | ~$12 |
-| 拡大期（10,000人） | 8,000人 | 2,000人 | ~$72 | $25 | ~$97 |
-| 目標（50,000人） | 40,000人 | 10,000人 | ~$360 | $50 | ~$410 |
+| 初期（100人） | 80人 | 20人 | ~$1.1 | $5 (Free tier) | ~$6 |
+| 成長期（1,000人） | 800人 | 200人 | ~$10.6 | $5 | ~$16 |
+| 拡大期（10,000人） | 8,000人 | 2,000人 | ~$106 | $25 | ~$131 |
+| 目標（50,000人） | 40,000人 | 10,000人 | ~$531 | $50 | ~$581 |
 
 ### 8.4 損益分岐分析
 
@@ -1843,9 +1843,9 @@ final class AIMemoryManager {
 | LLMコスト/Pro user | ~¥4.2 |
 | Infra按分コスト/Pro user | ~¥5 |
 | **Pro 1ユーザーあたり粗利** | **~¥416/月** |
-| 無料ユーザーコスト/user | ~¥0.3 |
-| 無料:Pro比率 4:1 の場合、無料ユーザー按分コスト | ~¥1.2/Pro user |
-| **実質粗利（按分後）** | **~¥415/月/Proユーザー** |
+| 無料ユーザーコスト/user | ~¥0.9 |
+| 無料:Pro比率 4:1 の場合、無料ユーザー按分コスト | ~¥3.6/Pro user |
+| **実質粗利（按分後）** | **~¥412/月/Proユーザー** |
 
 > GPT-4o miniの圧倒的な低コストにより、LLM APIコストはサービス全体のコスト構造においてほぼ無視できるレベルである。主要コストはCloudflare Workersのインフラ費用と、将来的にはカスタマーサポート・マーケティング費用となる。
 

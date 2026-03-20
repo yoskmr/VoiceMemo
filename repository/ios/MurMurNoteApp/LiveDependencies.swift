@@ -329,6 +329,16 @@ extension AudioPlayerClient: DependencyKey {
     }()
 }
 
+// MARK: AIProcessingQueueClient → スタブ実装（Phase 3で実体実装予定）
+
+extension AIProcessingQueueClient: DependencyKey {
+    public static let liveValue = AIProcessingQueueClient(
+        enqueueProcessing: { _ in },
+        observeStatus: { _ in AsyncStream { $0.finish() } },
+        cancelProcessing: { _ in }
+    )
+}
+
 // MARK: CustomDictionaryClient → MVPスタブ実装（カスタム辞書は後で実装）
 
 extension CustomDictionaryClient: DependencyKey {
