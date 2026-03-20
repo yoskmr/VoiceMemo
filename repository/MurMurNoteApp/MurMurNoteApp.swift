@@ -104,13 +104,8 @@ struct AppReducer {
             case .settings:
                 return .none
 
-            // メモ一覧でメモをタップ → メモ詳細を表示
+            // メモ一覧でメモをタップ → メモ詳細を表示（検索結果タップも同じフローで統一）
             case let .memoList(.memoTapped(id: memoID)):
-                state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
-                return .none
-
-            // 検索結果からメモをタップ → メモ詳細を表示
-            case let .memoList(.search(.presented(.resultTapped(id: memoID)))):
                 state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
                 return .none
 

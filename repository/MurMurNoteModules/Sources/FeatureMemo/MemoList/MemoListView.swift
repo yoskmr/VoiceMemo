@@ -1,6 +1,5 @@
 import ComposableArchitecture
 import Domain
-import FeatureSearch
 import SharedUI
 import SwiftUI
 
@@ -16,34 +15,38 @@ public struct MemoListView: View {
 
     public var body: some View {
         NavigationStack {
-            memoListContent
-                .background(Color.vmBackground)
-                .navigationTitle("メモ")
-                .toolbar {
-                    #if os(iOS)
-                    ToolbarItem(placement: .topBarTrailing) {
-                        toolbarButtons
-                    }
-                    #else
-                    ToolbarItem(placement: .automatic) {
-                        toolbarButtons
-                    }
-                    #endif
+            Group {
+                if store.isSearchActive {
+                    searchResultsContent
+                } else {
+                    memoListContent
                 }
-                .refreshable {
-                    store.send(.refreshRequested)
+            }
+            .background(Color.vmBackground)
+            .navigationTitle("メモ")
+            .searchable(
+                text: $store.searchQuery.sending(\.searchQueryChanged),
+                prompt: "メモを検索..."
+            )
+            .toolbar {
+                #if os(iOS)
+                ToolbarItem(placement: .topBarTrailing) {
+                    toolbarButtons
                 }
-                .navigationDestination(
-                    item: $store.scope(state: \.searchState, action: \.search)
-                ) { (searchStore: StoreOf<SearchReducer>) in
-                    SearchView(store: searchStore)
-                        .navigationTitle("検索")
+                #else
+                ToolbarItem(placement: .automatic) {
+                    toolbarButtons
                 }
-                .navigationDestination(
-                    item: $store.scope(state: \.emotionTrendState, action: \.emotionTrend)
-                ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
-                    EmotionTrendView(store: emotionTrendStore)
-                }
+                #endif
+            }
+            .refreshable {
+                store.send(.refreshRequested)
+            }
+            .navigationDestination(
+                item: $store.scope(state: \.emotionTrendState, action: \.emotionTrend)
+            ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
+                EmotionTrendView(store: emotionTrendStore)
+            }
         }
         .onAppear {
             store.send(.onAppear)
@@ -96,15 +99,102 @@ public struct MemoListView: View {
         }
     }
 
-    private var toolbarButtons: some View {
-        HStack(spacing: VMDesignTokens.Spacing.lg) {
-            Button { store.send(.trendIconTapped) } label: {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-            }
-            Button { store.send(.searchIconTapped) } label: {
-                Image(systemName: "magnifyingglass")
+    private var searchResultsContent: some View {
+        ScrollView {
+            LazyVStack(spacing: VMDesignTokens.Spacing.md) {
+                if store.isSearching {
+                    ProgressView("検索中...")
+                        .padding()
+                } else if store.searchResults.isEmpty {
+                    Text("検索結果がありません")
+                        .font(.vmCallout)
+                        .foregroundColor(.vmTextSecondary)
+                        .padding(.top, VMDesignTokens.Spacing.xxxl)
+                } else {
+                    ForEach(store.searchResults) { result in
+                        SearchResultCard(item: result)
+                            .onTapGesture {
+                                store.send(.memoTapped(id: result.id))
+                            }
+                            .padding(.horizontal, VMDesignTokens.Spacing.lg)
+                    }
+                }
             }
         }
+    }
+
+    private var toolbarButtons: some View {
+        Button { store.send(.trendIconTapped) } label: {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+        }
+    }
+}
+
+// MARK: - SearchResultCard
+
+/// 検索結果アイテムのカード表示
+struct SearchResultCard: View {
+    let item: MemoListReducer.SearchResultItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
+            Text(item.title)
+                .font(.vmHeadline)
+                .foregroundColor(.vmTextPrimary)
+                .lineLimit(1)
+
+            Self.highlightedText(item.snippet)
+                .font(.vmCallout)
+                .lineLimit(2)
+
+            HStack {
+                Text(formattedDate)
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+
+                Spacer()
+
+                if let emotion = item.emotion {
+                    EmotionBadge(emotion: emotion)
+                }
+            }
+        }
+        .padding(VMDesignTokens.Spacing.lg)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.medium)
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+    }
+
+    /// FTS5スニペットの <mark> タグをパースし、ヒット箇所を強調表示する
+    static func highlightedText(_ snippet: String) -> Text {
+        var result = Text("")
+        var remaining = snippet
+        while let openRange = remaining.range(of: "<mark>") {
+            // <mark> の前のテキスト
+            let before = String(remaining[remaining.startIndex..<openRange.lowerBound])
+            if !before.isEmpty {
+                result = result + Text(before).foregroundColor(.vmTextSecondary)
+            }
+            remaining = String(remaining[openRange.upperBound...])
+            // </mark> を探す
+            if let closeRange = remaining.range(of: "</mark>") {
+                let highlighted = String(remaining[remaining.startIndex..<closeRange.lowerBound])
+                result = result + Text(highlighted).bold().foregroundColor(.vmPrimary)
+                remaining = String(remaining[closeRange.upperBound...])
+            }
+        }
+        // 残りのテキスト
+        if !remaining.isEmpty {
+            result = result + Text(remaining).foregroundColor(.vmTextSecondary)
+        }
+        return result
+    }
+
+    private var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy/M/d HH:mm"
+        return formatter.string(from: item.createdAt)
     }
 }
 

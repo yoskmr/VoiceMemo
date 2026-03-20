@@ -1,6 +1,5 @@
 import ComposableArchitecture
 import Domain
-import FeatureSearch
 import Foundation
 import SharedUI
 
@@ -21,8 +20,13 @@ public struct MemoListReducer {
         public var currentPage: Int = 0
         public var errorMessage: String?
 
-        /// 検索画面（NavigationStack push用、nilで非表示）
-        @Presents public var searchState: SearchReducer.State?
+        /// インライン検索（.searchable 統合）
+        public var searchQuery: String = ""
+        public var searchResults: [SearchResultItem] = []
+        public var isSearching: Bool = false
+
+        /// 検索がアクティブかどうか
+        public var isSearchActive: Bool { !searchQuery.isEmpty }
 
         /// 感情トレンド画面（NavigationStack push用、nilで非表示）
         @Presents public var emotionTrendState: EmotionTrendReducer.State?
@@ -37,7 +41,9 @@ public struct MemoListReducer {
             hasMorePages: Bool = true,
             currentPage: Int = 0,
             errorMessage: String? = nil,
-            searchState: SearchReducer.State? = nil,
+            searchQuery: String = "",
+            searchResults: [SearchResultItem] = [],
+            isSearching: Bool = false,
             emotionTrendState: EmotionTrendReducer.State? = nil
         ) {
             self.memos = memos
@@ -46,8 +52,39 @@ public struct MemoListReducer {
             self.hasMorePages = hasMorePages
             self.currentPage = currentPage
             self.errorMessage = errorMessage
-            self.searchState = searchState
+            self.searchQuery = searchQuery
+            self.searchResults = searchResults
+            self.isSearching = isSearching
             self.emotionTrendState = emotionTrendState
+        }
+    }
+
+    /// 検索結果アイテム（インライン検索用）
+    public struct SearchResultItem: Equatable, Identifiable, Sendable {
+        public let id: UUID
+        public var title: String
+        public var snippet: String
+        public var createdAt: Date
+        public var emotion: EmotionCategory?
+        public var durationSeconds: Double
+        public var tags: [String]
+
+        public init(
+            id: UUID,
+            title: String,
+            snippet: String,
+            createdAt: Date,
+            emotion: EmotionCategory?,
+            durationSeconds: Double,
+            tags: [String]
+        ) {
+            self.id = id
+            self.title = title
+            self.snippet = snippet
+            self.createdAt = createdAt
+            self.emotion = emotion
+            self.durationSeconds = durationSeconds
+            self.tags = tags
         }
     }
 
@@ -108,17 +145,29 @@ public struct MemoListReducer {
         case deleteConfirmed(id: UUID)
         case deleteCancelled
         case memoDeleted(Result<UUID, EquatableError>)
-        case searchIconTapped
+        case searchQueryChanged(String)
+        case searchCompleted(SearchResult)
         case trendIconTapped
         case refreshRequested
         case refreshCompleted(Result<[MemoItem], EquatableError>)
-        case search(PresentationAction<SearchReducer.Action>)
         case emotionTrend(PresentationAction<EmotionTrendReducer.Action>)
     }
+
+    /// 検索結果のEquatable準拠ラッパー
+    public enum SearchResult: Equatable, Sendable {
+        case success([SearchResultItem])
+        case failure(String)
+    }
+
+    // MARK: - Cancellation IDs
+
+    private enum CancelID { case search }
 
     // MARK: - Dependencies
 
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
+    @Dependency(\.fts5IndexManager) var fts5IndexManager
+    @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
     @Dependency(\.calendar) var calendar
 
@@ -222,15 +271,61 @@ public struct MemoListReducer {
                 state.errorMessage = error.localizedDescription
                 return .none
 
-            case .searchIconTapped:
-                state.searchState = SearchReducer.State()
+            case let .searchQueryChanged(query):
+                state.searchQuery = query
+
+                guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+                    state.searchResults = []
+                    state.isSearching = false
+                    return .cancel(id: CancelID.search)
+                }
+
+                state.isSearching = true
+                return .run { [fts5IndexManager, voiceMemoRepository] send in
+                    try await clock.sleep(for: .milliseconds(300))
+                    do {
+                        #if DEBUG
+                        print("[MemoList Search] クエリ: '\(query)'")
+                        #endif
+                        let ftsResults = try fts5IndexManager.searchWithSnippets(query, 2, 32)
+                        #if DEBUG
+                        print("[MemoList Search] FTS5結果: \(ftsResults.count)件")
+                        #endif
+
+                        var items: [SearchResultItem] = []
+                        for ftsResult in ftsResults {
+                            guard let memoID = UUID(uuidString: ftsResult.memoID),
+                                  let memo = try await voiceMemoRepository.fetchMemoForSearch(memoID)
+                            else { continue }
+
+                            items.append(SearchResultItem(
+                                id: memoID,
+                                title: memo.title,
+                                snippet: ftsResult.snippet,
+                                createdAt: memo.createdAt,
+                                emotion: memo.emotion,
+                                durationSeconds: memo.durationSeconds,
+                                tags: memo.tags
+                            ))
+                        }
+                        await send(.searchCompleted(.success(items)))
+                    } catch {
+                        #if DEBUG
+                        print("[MemoList Search] エラー: \(error)")
+                        #endif
+                        await send(.searchCompleted(.failure(error.localizedDescription)))
+                    }
+                }
+                .cancellable(id: CancelID.search, cancelInFlight: true)
+
+            case let .searchCompleted(.success(items)):
+                state.isSearching = false
+                state.searchResults = items
                 return .none
 
-            case .search(.presented(.resultTapped)):
-                // 検索結果タップは親Reducerに伝播
-                return .none
-
-            case .search:
+            case let .searchCompleted(.failure(errorMessage)):
+                state.isSearching = false
+                state.errorMessage = errorMessage
                 return .none
 
             case .trendIconTapped:
@@ -243,9 +338,6 @@ public struct MemoListReducer {
             case .memoTapped, .deleteCancelled:
                 return .none
             }
-        }
-        .ifLet(\.$searchState, action: \.search) {
-            SearchReducer()
         }
         .ifLet(\.$emotionTrendState, action: \.emotionTrend) {
             EmotionTrendReducer()
