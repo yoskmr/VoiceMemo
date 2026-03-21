@@ -8,6 +8,13 @@ import Foundation
 @Reducer
 public struct RecordingFeature {
 
+    // MARK: - Constants
+
+    /// 録音最大時間（5分 = 300秒）
+    public static let maxRecordingDuration: TimeInterval = 300
+    /// 警告表示の閾値（残り30秒 = 270秒）
+    public static let warningThreshold: TimeInterval = 270
+
     // MARK: - State
 
     @ObservableState
@@ -55,6 +62,11 @@ public struct RecordingFeature {
             self.isPermissionGranted = isPermissionGranted
             self.errorMessage = errorMessage
             self.completionStage = completionStage
+        }
+
+        /// 残り30秒以内かどうか（タイマー警告色切り替え用）
+        public var isNearTimeLimit: Bool {
+            elapsedTime >= RecordingFeature.warningThreshold
         }
 
         /// 完了画面の表示段階
@@ -205,6 +217,10 @@ public struct RecordingFeature {
 
             case .timerTicked:
                 state.elapsedTime += 1
+                // 最大録音時間に達したら自動停止
+                if state.elapsedTime >= RecordingFeature.maxRecordingDuration {
+                    return .send(.stopButtonTapped)
+                }
                 return .none
 
             case let .audioLevelUpdated(level):

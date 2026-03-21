@@ -29,7 +29,7 @@ public struct RecordingView: View {
             Spacer()
 
             // 録音経過時間
-            TimerView(elapsedTime: store.elapsedTime)
+            TimerView(elapsedTime: store.elapsedTime, isWarning: store.isNearTimeLimit)
 
             // 波形アニメーション
             WaveformView(

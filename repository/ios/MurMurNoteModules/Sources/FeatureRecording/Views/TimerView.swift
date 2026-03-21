@@ -6,11 +6,12 @@ import SwiftUI
 /// 設計書 04-ui-design-system.md セクション4 準拠
 struct TimerView: View {
     let elapsedTime: TimeInterval
+    var isWarning: Bool = false
 
     var body: some View {
         Text(formattedTime)
             .font(.vmTimer())
-            .foregroundColor(.vmTextPrimary)
+            .foregroundColor(isWarning ? .vmWarning : .vmTextPrimary)
             .monospacedDigit()
             .accessibilityLabel("録音時間 \(formattedTime)")
     }
