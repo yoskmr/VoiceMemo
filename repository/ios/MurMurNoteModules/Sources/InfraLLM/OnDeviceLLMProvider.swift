@@ -1,19 +1,27 @@
 import Domain
 import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 import os.log
 
 private let logger = Logger(subsystem: "com.murmurnote", category: "OnDeviceLLMProvider")
 
-/// llama.cpp ベースのオンデバイス LLM プロバイダ
+/// オンデバイス LLM プロバイダ
 /// P3A-REQ-004 準拠
 ///
-/// Phase 3a では llama.cpp の実統合は行わず、内部的に MockLLMProvider を使用する。
-/// インターフェースは将来の llama.cpp 差し替えを前提に設計されている。
+/// 推論バックエンドの優先順位:
+/// 1. Apple Intelligence Foundation Models（iOS 26+, A17 Pro 以降, 8GB+ RAM）
+/// 2. フォールバック: MockLLMProvider（非対応デバイス・環境）
 ///
-/// 将来の差し替え時の変更箇所:
-/// 1. `internalProcess(_:)` メソッドを llama.cpp コンテキスト呼び出しに置換
-/// 2. `loadModel()` で llama.cpp モデルを Metal GPU オフロードでロード
-/// 3. `unloadModel()` で llama.cpp コンテキストを破棄
+/// Apple Intelligence 利用時:
+/// - `FoundationModels.LanguageModelSession` でプロンプト実行
+/// - OS 内蔵モデルのためダウンロード不要
+/// - プロバイダ種別: `.onDeviceAppleIntelligence`
+///
+/// フォールバック時:
+/// - MockLLMProvider による固定レスポンス（将来 llama.cpp に差し替え予定）
+/// - プロバイダ種別: `.onDeviceLlamaCpp`
 public final class OnDeviceLLMProvider: @unchecked Sendable {
 
     // MARK: - Properties
@@ -27,17 +35,24 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
     /// レスポンスパーサー
     private let responseParser: LLMResponseParser
 
-    /// Phase 3a: 内部的に使用するモック（将来 llama.cpp コンテキストに差し替え）
+    /// フォールバック用モック（Apple Intelligence 非対応環境で使用）
     private let mockProvider: MockLLMProvider
 
-    /// モデルがロード済みか（将来: llama.cpp コンテキストの有無で判定）
+    /// モデルがロード済みか
     private var isModelLoaded: Bool = false
 
     /// メモリ排他制御用ロック
     private let lock = NSLock()
 
-    /// プロバイダ種別
-    public let currentProviderType: LLMProviderType = .onDeviceLlamaCpp
+    /// プロバイダ種別（Apple Intelligence 利用可否に応じて動的に決定）
+    public var currentProviderType: LLMProviderType {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), capabilityChecker.supportsAppleIntelligence {
+            return .onDeviceAppleIntelligence
+        }
+        #endif
+        return .onDeviceLlamaCpp
+    }
 
     /// 最大入力文字数（オンデバイス制限: ~500日本語文字 ≈ 650トークン）
     public let maxInputCharacters: Int = 500
@@ -99,14 +114,15 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
 
     /// プロバイダの利用可否チェック
     ///
-    /// 以下を全て満たす場合に true:
-    /// - デバイスがオンデバイスLLMをサポート（A16+, 6GB+）
-    /// - Phase 3a: モック使用のため常に true（実 llama.cpp 時は `modelManager.isModelDownloaded` も条件に追加）
+    /// Apple Intelligence 利用可能時: 常に true（OS 内蔵モデル）
+    /// フォールバック時: デバイスが A16+ / 6GB+ であれば true
     public func isAvailable() async -> Bool {
-        let deviceSupported = capabilityChecker.supportsOnDeviceLLM
-        // Phase 3a: モック使用のため、デバイスサポートのみで判定
-        // 将来: deviceSupported && modelManager.isModelDownloaded
-        return deviceSupported
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), capabilityChecker.supportsAppleIntelligence {
+            return true
+        }
+        #endif
+        return capabilityChecker.supportsOnDeviceLLM
     }
 
     /// プロバイダ種別を返す
@@ -165,45 +181,81 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
 
     /// モデルロード
     ///
-    /// 将来: llama.cpp コンテキストを Metal GPU オフロードで作成する
-    /// ```swift
-    /// let params = LlamaModelParams.default()
-    /// params.n_gpu_layers = 99  // Metal GPU全レイヤーオフロード
-    /// llamaContext = try LlamaContext(modelPath: modelPath.path, params: params)
-    /// ```
+    /// Apple Intelligence 利用時: OS 内蔵モデルのためロード不要（即座に準備完了）
+    /// フォールバック時: メモリチェック後にモック準備
     private func loadModel() async throws {
         lock.lock()
         defer { lock.unlock() }
 
         guard !isModelLoaded else { return }
 
-        // メモリ余裕チェック
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), capabilityChecker.supportsAppleIntelligence {
+            // Apple Intelligence はOS内蔵モデルのため、モデルロード不要
+            isModelLoaded = true
+            logger.info("Apple Intelligence Foundation Models 準備完了")
+            return
+        }
+        #endif
+
+        // フォールバック: メモリ余裕チェック
         if !capabilityChecker.hasMemoryHeadroomForLLM {
             logger.error("LLMモデルロードに必要なメモリが不足しています")
             throw LLMError.memoryInsufficient
         }
 
-        // Phase 3a: モック使用のため即座にロード完了とする
-        // 将来: llama.cpp モデルファイルの存在チェック + コンテキスト作成
         isModelLoaded = true
-        logger.info("LLMモデルをロードしました (Phase 3a: モック)")
+        logger.info("LLMモデルをロードしました (フォールバック: モック)")
     }
 
     /// 内部推論実行
     ///
-    /// Phase 3a: MockLLMProvider に委譲する
-    /// 将来: llama.cpp コンテキストで推論を実行し、LLMResponseParser でパースする
-    /// ```swift
-    /// let rawOutput = try await llamaContext!.generate(
-    ///     prompt: prompt,
-    ///     maxTokens: 512,
-    ///     temperature: 0.3,
-    ///     stopTokens: ["```", "</json>"]
-    /// )
-    /// return try responseParser.parse(rawOutput, processingTimeMs: elapsed, provider: currentProviderType)
-    /// ```
+    /// Apple Intelligence 利用可能時: FoundationModels API で推論実行
+    /// フォールバック時: MockLLMProvider に委譲
     private func internalProcess(_ request: LLMRequest, prompt: String) async throws -> LLMResponse {
-        // Phase 3a: MockLLMProvider を使用
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), capabilityChecker.supportsAppleIntelligence {
+            return try await processWithFoundationModels(request, prompt: prompt)
+        }
+        #endif
+        // フォールバック: MockLLMProvider を使用
         return try await mockProvider.process(request)
     }
+
+    // MARK: - Apple Intelligence Foundation Models
+
+    #if canImport(FoundationModels)
+    /// Apple Intelligence Foundation Models API を使用して推論を実行する
+    ///
+    /// - Parameters:
+    ///   - request: LLM処理リクエスト
+    ///   - prompt: 構築済みプロンプト文字列
+    /// - Returns: パース済みの LLMResponse
+    /// - Throws: `LLMError.processingFailed` 推論エラー時、`LLMError.invalidOutput` パース失敗時
+    @available(iOS 26.0, macOS 26.0, *)
+    private func processWithFoundationModels(_ request: LLMRequest, prompt: String) async throws -> LLMResponse {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        do {
+            let session = LanguageModelSession()
+            let response = try await session.respond(to: prompt)
+            let responseText = response.content
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            let processingTimeMs = Int(elapsed * 1000)
+
+            logger.info("Apple Intelligence 推論完了: \(processingTimeMs)ms, 出力: \(responseText.prefix(100))...")
+
+            return try responseParser.parse(
+                responseText,
+                processingTimeMs: processingTimeMs,
+                provider: .onDeviceAppleIntelligence
+            )
+        } catch let error as LLMError {
+            throw error
+        } catch {
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            logger.error("Apple Intelligence 推論エラー (\(Int(elapsed * 1000))ms): \(error.localizedDescription)")
+            throw LLMError.processingFailed(error.localizedDescription)
+        }
+    }
+    #endif
 }

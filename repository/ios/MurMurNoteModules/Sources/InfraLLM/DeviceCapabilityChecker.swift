@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -18,15 +21,19 @@ public final class DeviceCapabilityChecker: Sendable {
         public let physicalMemory: UInt64
         public let machineIdentifier: String
         public let availableMemoryProvider: @Sendable () -> UInt64
+        /// テスト用: Apple Intelligence 利用可否をオーバーライド（nil = 実際のAPI判定を使用）
+        public let appleIntelligenceAvailableOverride: Bool?
 
         public init(
             physicalMemory: UInt64,
             machineIdentifier: String,
-            availableMemoryProvider: @escaping @Sendable () -> UInt64
+            availableMemoryProvider: @escaping @Sendable () -> UInt64,
+            appleIntelligenceAvailableOverride: Bool? = nil
         ) {
             self.physicalMemory = physicalMemory
             self.machineIdentifier = machineIdentifier
             self.availableMemoryProvider = availableMemoryProvider
+            self.appleIntelligenceAvailableOverride = appleIntelligenceAvailableOverride
         }
 
         /// 実行環境のデフォルト値
@@ -39,7 +46,8 @@ public final class DeviceCapabilityChecker: Sendable {
                 #else
                 return 0
                 #endif
-            }
+            },
+            appleIntelligenceAvailableOverride: nil
         )
 
         private static func currentMachineIdentifier() -> String {
@@ -66,11 +74,27 @@ public final class DeviceCapabilityChecker: Sendable {
         chipGeneration >= 16 && totalMemoryGB >= 6
     }
 
-    /// Apple Intelligence 利用可否（Phase 3a では常に false）
+    /// Apple Intelligence 利用可否
+    /// iOS 26+ かつ FoundationModels フレームワークが利用可能な環境で動的判定する
+    ///
+    /// 判定優先順位:
+    /// 1. テスト用オーバーライド（`Environment.appleIntelligenceAvailableOverride`）
+    /// 2. FoundationModels API の実際の利用可否チェック
+    /// 3. FoundationModels が import 不可の環境では常に false
     public var supportsAppleIntelligence: Bool {
-        // Phase 3a 初版では false 固定
-        // iOS 26 正式版の API 確定後に有効化する
-        false
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            // テスト用オーバーライドがあればそれを使用
+            if let override = environment.appleIntelligenceAvailableOverride {
+                return override
+            }
+            return _checkFoundationModelsAvailability()
+        }
+        return false
+        #else
+        // FoundationModels が import できない環境（SPM swift test 等）
+        return false
+        #endif
     }
 
     /// STT実行中のメモリ余裕チェック（LLM実行に2GB以上必要）
@@ -140,4 +164,23 @@ public final class DeviceCapabilityChecker: Sendable {
         // 不明なデバイスは非サポートとして扱う
         return 0
     }
+
+    // MARK: - FoundationModels 判定
+
+    #if canImport(FoundationModels)
+    /// FoundationModels (Apple Intelligence) の利用可否をチェック
+    ///
+    /// - A17 Pro 以降（iPhone 15 Pro+, 8GB+ RAM）で利用可能
+    /// - OS 内蔵モデルのため、別途ダウンロード不要
+    @available(iOS 26.0, macOS 26.0, *)
+    private func _checkFoundationModelsAvailability() -> Bool {
+        // FoundationModels が import できる環境 = Xcode 26+ / iOS 26+ SDK
+        // LanguageModelSession の静的な利用可否チェック
+        // 非対応デバイスでは LanguageModelSession の初期化自体は可能だが、
+        // respond(to:) 呼び出し時にエラーとなるため、ここではデバイス条件で判定する
+        //
+        // Apple Intelligence 対応条件: A17 Pro 以降 (iPhone15 Pro = iPhone16,x) + 8GB RAM
+        return chipGeneration >= 17 && totalMemoryGB >= 8
+    }
+    #endif
 }

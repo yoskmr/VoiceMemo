@@ -114,9 +114,54 @@ final class DeviceCapabilityCheckerTests: XCTestCase {
 
     // MARK: - Apple Intelligence テスト
 
-    func testSupportsAppleIntelligence_alwaysFalseInPhase3a() {
+    func testSupportsAppleIntelligence_withoutFoundationModels_returnsFalse() {
+        // swift test (SPM macOS CLI) では FoundationModels が import 不可のため false
+        #if !canImport(FoundationModels)
         let checker = makeChecker()
         XCTAssertFalse(checker.supportsAppleIntelligence)
+        #endif
+    }
+
+    func testSupportsAppleIntelligence_overrideFalse_returnsFalse() {
+        let checker = makeChecker(appleIntelligenceOverride: false)
+        XCTAssertFalse(checker.supportsAppleIntelligence)
+    }
+
+    func testSupportsAppleIntelligence_overrideTrue_returnsTrue() {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let checker = makeChecker(appleIntelligenceOverride: true)
+            XCTAssertTrue(checker.supportsAppleIntelligence)
+        }
+        #endif
+    }
+
+    func testSupportsAppleIntelligence_A17Pro8GB_conditionMet() {
+        // A17 Pro + 8GB は Apple Intelligence のハードウェア条件を満たす
+        // FoundationModels import 可否で結果が異なる
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let checker = makeChecker(machine: "iPhone16,1", physicalMemory: 8 * 1024 * 1024 * 1024)
+            XCTAssertTrue(checker.supportsAppleIntelligence)
+        }
+        #else
+        let checker = makeChecker(machine: "iPhone16,1", physicalMemory: 8 * 1024 * 1024 * 1024)
+        XCTAssertFalse(checker.supportsAppleIntelligence)
+        #endif
+    }
+
+    func testSupportsAppleIntelligence_A16_6GB_notMet() {
+        // A16 + 6GB は Apple Intelligence のハードウェア条件を満たさない
+        // （A17 Pro 以降 + 8GB 必要）
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let checker = makeChecker(machine: "iPhone15,2", physicalMemory: 6 * 1024 * 1024 * 1024)
+            XCTAssertFalse(checker.supportsAppleIntelligence)
+        }
+        #else
+        let checker = makeChecker(machine: "iPhone15,2", physicalMemory: 6 * 1024 * 1024 * 1024)
+        XCTAssertFalse(checker.supportsAppleIntelligence)
+        #endif
     }
 
     // MARK: - Helper
@@ -124,12 +169,14 @@ final class DeviceCapabilityCheckerTests: XCTestCase {
     private func makeChecker(
         machine: String = "iPhone16,1",
         physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
-        availableMemory: UInt64 = 3 * 1024 * 1024 * 1024
+        availableMemory: UInt64 = 3 * 1024 * 1024 * 1024,
+        appleIntelligenceOverride: Bool? = nil
     ) -> DeviceCapabilityChecker {
         let env = DeviceCapabilityChecker.Environment(
             physicalMemory: physicalMemory,
             machineIdentifier: machine,
-            availableMemoryProvider: { availableMemory }
+            availableMemoryProvider: { availableMemory },
+            appleIntelligenceAvailableOverride: appleIntelligenceOverride
         )
         return DeviceCapabilityChecker(environment: env)
     }

@@ -88,10 +88,16 @@ final class OnDeviceLLMProviderTests: XCTestCase {
     }
 
     // MARK: - メモリチェック
+    // Note: メモリチェックは Apple Intelligence 非対応デバイス（フォールバック）パスでのみ実行される
+    // Apple Intelligence 対応デバイス (A17 Pro+, 8GB+) ではOS内蔵モデルのためメモリチェック不要
 
     func testProcess_memoryInsufficient_throwsMemoryInsufficient() async {
-        // 利用可能メモリ 1GB = メモリ不足
-        let provider = makeProvider(availableMemory: 1 * 1024 * 1024 * 1024)
+        // A16 + 6GB = Apple Intelligence 非対応 → フォールバックパスでメモリチェック実行
+        let provider = makeProvider(
+            machine: "iPhone15,2",
+            physicalMemory: 6 * 1024 * 1024 * 1024,
+            availableMemory: 1 * 1024 * 1024 * 1024
+        )
         let request = LLMRequest(text: "テスト用の十分な長さのテキストです", tasks: [.summarize])
 
         do {
@@ -103,8 +109,12 @@ final class OnDeviceLLMProviderTests: XCTestCase {
     }
 
     func testProcess_memoryExactly2GB_throwsMemoryInsufficient() async {
-        // 2GB ちょうどは「> 2GB」を満たさないため memoryInsufficient
-        let provider = makeProvider(availableMemory: 2 * 1024 * 1024 * 1024)
+        // A16 + 6GB = Apple Intelligence 非対応、2GB ちょうどは「> 2GB」を満たさない
+        let provider = makeProvider(
+            machine: "iPhone15,2",
+            physicalMemory: 6 * 1024 * 1024 * 1024,
+            availableMemory: 2 * 1024 * 1024 * 1024
+        )
         let request = LLMRequest(text: "テスト用の十分な長さのテキストです", tasks: [.summarize])
 
         do {
@@ -116,8 +126,12 @@ final class OnDeviceLLMProviderTests: XCTestCase {
     }
 
     func testProcess_memorySufficient_success() async throws {
-        // 3GB = 十分なメモリ
-        let provider = makeProvider(availableMemory: 3 * 1024 * 1024 * 1024)
+        // A16 + 6GB = Apple Intelligence 非対応、3GB = 十分なメモリ
+        let provider = makeProvider(
+            machine: "iPhone15,2",
+            physicalMemory: 6 * 1024 * 1024 * 1024,
+            availableMemory: 3 * 1024 * 1024 * 1024
+        )
         let request = LLMRequest(text: "テスト用の十分な長さのテキストです", tasks: [.summarize])
 
         let response = try await provider.process(request)
@@ -134,7 +148,8 @@ final class OnDeviceLLMProviderTests: XCTestCase {
 
         XCTAssertNotNil(response.summary)
         XCTAssertFalse(response.tags.isEmpty)
-        XCTAssertEqual(response.provider, .onDeviceLlamaCpp)
+        // FoundationModels 環境では Apple Intelligence、非対応環境では Mock フォールバック
+        XCTAssertEqual(response.provider, provider.currentProviderType)
     }
 
     func testProcess_summarizeOnly_returnsSummaryNoTags() async throws {
@@ -173,8 +188,24 @@ final class OnDeviceLLMProviderTests: XCTestCase {
 
     // MARK: - providerType
 
-    func testProviderType_returnsOnDeviceLlamaCpp() {
+    func testProviderType_default_returnsOnDeviceLlamaCpp() {
+        // デフォルト（Apple Intelligence オーバーライド false）では常に onDeviceLlamaCpp
         let provider = makeProvider()
+        XCTAssertEqual(provider.providerType(), .onDeviceLlamaCpp)
+    }
+
+    func testProviderType_appleIntelligenceEnabled_returnsAppleIntelligence() {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let provider = makeProvider(appleIntelligenceOverride: true)
+            XCTAssertEqual(provider.providerType(), .onDeviceAppleIntelligence)
+        }
+        #endif
+    }
+
+    func testProviderType_fallbackDevice_returnsOnDeviceLlamaCpp() {
+        // A15 + 4GB = Apple Intelligence 非対応 → フォールバック
+        let provider = makeProvider(machine: "iPhone14,7", physicalMemory: 4 * 1024 * 1024 * 1024)
         XCTAssertEqual(provider.providerType(), .onDeviceLlamaCpp)
     }
 
@@ -217,7 +248,7 @@ final class OnDeviceLLMProviderTests: XCTestCase {
     func testAsClient_providerType_delegatesToProvider() {
         let provider = makeProvider()
         let client = provider.asClient()
-        XCTAssertEqual(client.providerType(), .onDeviceLlamaCpp)
+        XCTAssertEqual(client.providerType(), provider.currentProviderType)
     }
 
     func testAsClient_unloadModel_delegatesToProvider() async throws {
@@ -250,12 +281,14 @@ final class OnDeviceLLMProviderTests: XCTestCase {
     private func makeProvider(
         machine: String = "iPhone16,1",
         physicalMemory: UInt64 = 8 * 1024 * 1024 * 1024,
-        availableMemory: UInt64 = 3 * 1024 * 1024 * 1024
+        availableMemory: UInt64 = 3 * 1024 * 1024 * 1024,
+        appleIntelligenceOverride: Bool? = false  // テストではデフォルトで Mock フォールバックを使用
     ) -> OnDeviceLLMProvider {
         let env = DeviceCapabilityChecker.Environment(
             physicalMemory: physicalMemory,
             machineIdentifier: machine,
-            availableMemoryProvider: { availableMemory }
+            availableMemoryProvider: { availableMemory },
+            appleIntelligenceAvailableOverride: appleIntelligenceOverride
         )
         let checker = DeviceCapabilityChecker(environment: env)
         return OnDeviceLLMProvider(
