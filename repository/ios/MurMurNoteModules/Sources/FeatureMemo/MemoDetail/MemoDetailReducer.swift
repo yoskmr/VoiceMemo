@@ -42,6 +42,13 @@ public struct MemoDetailReducer {
         // AI処理ステータス
         public var aiProcessingStatus: AIProcessingStatus = .idle
 
+        // AI クォータ情報（T09: AI処理連携拡張）
+        public var remainingQuota: Int = 15
+        public var quotaLimit: Int = 15
+
+        // AI要約 UI 状態（T10: AI要約・タグUI実体化）
+        public var isSummaryExpanded: Bool = false
+
         // UI状態
         public var isLoading: Bool = false
         public var errorMessage: String?
@@ -65,6 +72,9 @@ public struct MemoDetailReducer {
             deleteState: MemoDeleteReducer.State = .init(),
             audioPlayer: AudioPlayerReducer.State? = nil,
             aiProcessingStatus: AIProcessingStatus = .idle,
+            remainingQuota: Int = 15,
+            quotaLimit: Int = 15,
+            isSummaryExpanded: Bool = false,
             isLoading: Bool = false,
             errorMessage: String? = nil,
             showDeleteConfirmation: Bool = false
@@ -86,6 +96,9 @@ public struct MemoDetailReducer {
             self.deleteState = deleteState
             self.audioPlayer = audioPlayer
             self.aiProcessingStatus = aiProcessingStatus
+            self.remainingQuota = remainingQuota
+            self.quotaLimit = quotaLimit
+            self.isSummaryExpanded = isSummaryExpanded
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.showDeleteConfirmation = showDeleteConfirmation
@@ -157,6 +170,12 @@ public struct MemoDetailReducer {
         case backButtonTapped
         case regenerateAISummary
         case aiProcessingStatusUpdated(AIProcessingStatus)
+        /// AI要約カードの展開/折りたたみトグル（T10）
+        case toggleSummaryExpanded
+        /// AI分析を手動トリガーする（未生成時のプレースホルダからの呼び出し）
+        case triggerAIProcessing
+        /// クォータ情報の受信（T09）
+        case _quotaInfoLoaded(remaining: Int, limit: Int)
 
         // 子Reducerアクション
         case edit(MemoEditReducer.Action)
@@ -225,6 +244,7 @@ public struct MemoDetailReducer {
 
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
     @Dependency(\.aiProcessingQueue) var aiProcessingQueue
+    @Dependency(\.aiQuota) var aiQuota
 
     public init() {}
 
@@ -252,7 +272,15 @@ public struct MemoDetailReducer {
                             await send(.aiProcessingStatusUpdated(status))
                         }
                     }
-                    .cancellable(id: CancelID.aiObserve, cancelInFlight: true)
+                    .cancellable(id: CancelID.aiObserve, cancelInFlight: true),
+                    // T09: クォータ情報をロード
+                    .run { send in
+                        let remaining = try await self.aiQuota.remainingCount()
+                        let limit = self.aiQuota.monthlyLimit()
+                        await send(._quotaInfoLoaded(remaining: remaining, limit: limit))
+                    } catch: { _, _ in
+                        // クォータ取得失敗は無視（デフォルト値が表示される）
+                    }
                 )
 
             case let .memoLoaded(.success(detail)):
@@ -358,14 +386,21 @@ public struct MemoDetailReducer {
             case let .aiProcessingStatusUpdated(status):
                 state.aiProcessingStatus = status
                 if case .completed = status {
-                    // AI処理完了時はメモ詳細を再読み込み
+                    // AI処理完了時はメモ詳細を再読み込み + クォータ情報更新
                     let memoID = state.memoID
-                    return .run { send in
-                        let result = await Result {
-                            try await self.loadDetail(memoID: memoID)
-                        }.mapError { EquatableError($0) }
-                        await send(.memoLoaded(result))
-                    }
+                    return .merge(
+                        .run { send in
+                            let result = await Result {
+                                try await self.loadDetail(memoID: memoID)
+                            }.mapError { EquatableError($0) }
+                            await send(.memoLoaded(result))
+                        },
+                        .run { send in
+                            let remaining = try await self.aiQuota.remainingCount()
+                            let limit = self.aiQuota.monthlyLimit()
+                            await send(._quotaInfoLoaded(remaining: remaining, limit: limit))
+                        } catch: { _, _ in }
+                    )
                 }
                 if case .failed(.networkError) = status {
                     // ネットワークエラー時はオフラインフォールバック案内のみ（自動リトライなし）
@@ -373,7 +408,42 @@ public struct MemoDetailReducer {
                 }
                 return .none
 
-            case .tagTapped, .shareButtonTapped, .backButtonTapped, .regenerateAISummary:
+            // T09: AI要約の再生成（AIProcessingQueueClient.enqueueProcessing呼び出し）
+            case .regenerateAISummary:
+                state.aiProcessingStatus = .queued
+                let memoID = state.memoID
+                return .run { send in
+                    try await self.aiProcessingQueue.enqueueProcessing(memoID)
+                } catch: { error, send in
+                    await send(.aiProcessingStatusUpdated(
+                        .failed(.processingFailed(error.localizedDescription))
+                    ))
+                }
+
+            // T10: AI要約カードの展開/折りたたみ
+            case .toggleSummaryExpanded:
+                state.isSummaryExpanded.toggle()
+                return .none
+
+            // T09: AI分析を手動トリガー
+            case .triggerAIProcessing:
+                state.aiProcessingStatus = .queued
+                let memoID = state.memoID
+                return .run { send in
+                    try await self.aiProcessingQueue.enqueueProcessing(memoID)
+                } catch: { error, send in
+                    await send(.aiProcessingStatusUpdated(
+                        .failed(.processingFailed(error.localizedDescription))
+                    ))
+                }
+
+            // T09: クォータ情報受信
+            case let ._quotaInfoLoaded(remaining, limit):
+                state.remainingQuota = remaining
+                state.quotaLimit = limit
+                return .none
+
+            case .tagTapped, .shareButtonTapped, .backButtonTapped:
                 return .none
 
             case .audioPlayer:

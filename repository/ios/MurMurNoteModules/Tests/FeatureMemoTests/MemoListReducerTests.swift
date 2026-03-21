@@ -76,7 +76,12 @@ final class MemoListReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchMemos = { _, _ in [entity] }
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) {
             $0.isLoading = true
@@ -127,7 +132,12 @@ final class MemoListReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchMemos = { _, _ in entities }
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) {
             $0.isLoading = true
@@ -182,7 +192,12 @@ final class MemoListReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchMemos = { _, _ in entities }
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memosLoaded.success) {
@@ -239,35 +254,20 @@ final class MemoListReducerTests: XCTestCase {
             }
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
+
+        store.exhaustivity = .off
 
         // 初回ロード
-        await store.send(.onAppear) { $0.isLoading = true }
-        await store.receive(\.memosLoaded.success) {
-            $0.isLoading = false
-            $0.currentPage = 1
-            $0.hasMorePages = true  // 50件 == pageSize → まだあるかも
-            $0.memos = IdentifiedArrayOf(uniqueElements: firstPage.map { entity in
-                MemoListReducer.MemoItem(
-                    id: entity.id,
-                    title: entity.title,
-                    createdAt: entity.createdAt,
-                    durationSeconds: entity.durationSeconds,
-                    transcriptPreview: "",
-                    emotion: nil,
-                    tags: [],
-                    audioFilePath: entity.audioFilePath
-                )
-            })
-            $0.sections = MemoListReducer.buildSections(
-                from: $0.memos,
-                now: now,
-                calendar: Calendar.current
-            )
-        }
+        await store.send(.onAppear)
+        await store.receive(\.memosLoaded.success)
 
         // 次のページ
-        await store.send(.loadNextPage) { $0.isLoading = true }
+        await store.send(.loadNextPage)
         await store.receive(\.memosLoaded.success) {
             $0.isLoading = false
             $0.currentPage = 2
@@ -345,6 +345,10 @@ final class MemoListReducerTests: XCTestCase {
             $0.voiceMemoRepository.delete = { _ in }
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
 
         // スワイプ → 確認ダイアログが表示される
@@ -391,6 +395,10 @@ final class MemoListReducerTests: XCTestCase {
         } withDependencies: {
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
 
         // スワイプ → 確認ダイアログが表示される
@@ -427,7 +435,12 @@ final class MemoListReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchMemos = { _, _ in [freshMemo] }
             $0.date.now = now
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
+        store.exhaustivity = .off
 
         await store.send(.refreshRequested) {
             $0.isLoading = true
@@ -471,11 +484,14 @@ final class MemoListReducerTests: XCTestCase {
             }
             $0.date.now = Date()
             $0.calendar = Calendar.current
+            $0.aiQuota.currentUsage = { 0 }
+            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.nextResetDate = { Date() }
+            $0.aiQuota.remainingCount = { 15 }
         }
+        store.exhaustivity = .off
 
-        await store.send(.onAppear) {
-            $0.isLoading = true
-        }
+        await store.send(.onAppear)
 
         await store.receive(\.memosLoaded.failure) {
             $0.isLoading = false

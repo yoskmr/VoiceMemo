@@ -66,6 +66,20 @@ public struct MemoListView: View {
             } message: {
                 Text("このメモを完全に削除しますか？\nこの操作は取り消せません。")
             }
+            // T11: 月上限到達時のダイアログ
+            .alert(
+                "今月のAI処理回数に到達しました",
+                isPresented: $store.showQuotaExceededAlert.sending(\.quotaExceededAlertPresented)
+            ) {
+                Button("来月まで待つ", role: .cancel) {
+                    store.send(.quotaExceededAlertPresented(false))
+                }
+                Button("Proを見る") {
+                    store.send(.showProPlanTapped)
+                }
+            } message: {
+                Text("来月1日にリセットされます")
+            }
         }
         .onAppear {
             store.send(.onAppear)
@@ -289,8 +303,9 @@ struct SectionHeader: View {
     }
 }
 
-/// AI分析クォータ表示バー（Phase 3 UXレビュー）
+/// AI分析クォータ表示バー（Phase 3 UXレビュー + T11: 月次制限UI）
 /// メモ一覧上部に月間使用回数を表示
+/// 段階的色変化: 0-79% → vmPrimary、80-99% → vmWarning、100% → vmError
 struct AIQuotaProgressBar: View {
     let used: Int
     let limit: Int
@@ -301,33 +316,92 @@ struct AIQuotaProgressBar: View {
         return min(Double(used) / Double(limit), 1.0)
     }
 
-    private var isNearLimit: Bool {
-        guard limit > 0 else { return false }
-        return Double(used) / Double(limit) >= 0.8
+    private var remaining: Int {
+        max(limit - used, 0)
+    }
+
+    /// 使用率に基づく段階判定
+    private var quotaStage: QuotaStage {
+        guard limit > 0 else { return .normal }
+        let ratio = Double(used) / Double(limit)
+        if ratio >= 1.0 { return .exceeded }
+        if ratio >= 0.8 { return .warning }
+        return .normal
+    }
+
+    private enum QuotaStage {
+        case normal   // 0-79%
+        case warning  // 80-99%
+        case exceeded // 100%
+
+        var tintColor: Color {
+            switch self {
+            case .normal: return .vmPrimary
+            case .warning: return .vmWarning
+            case .exceeded: return .vmError
+            }
+        }
+
+        var textColor: Color {
+            switch self {
+            case .normal: return .vmTextTertiary
+            case .warning: return .vmWarning
+            case .exceeded: return .vmError
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .normal: return "sparkles"
+            case .warning: return "exclamationmark.triangle.fill"
+            case .exceeded: return "nosign"
+            }
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
             HStack {
-                Label("AI分析", systemImage: "sparkles")
+                Label("AI分析", systemImage: quotaStage.icon)
                     .font(.vmCaption1)
-                    .foregroundColor(.vmTextSecondary)
+                    .foregroundColor(quotaStage == .normal ? .vmTextSecondary : quotaStage.textColor)
                 Spacer()
                 Text("\(used) / \(limit) 回")
                     .font(.vmCaption1)
-                    .foregroundColor(isNearLimit ? .vmWarning : .vmTextTertiary)
+                    .foregroundColor(quotaStage.textColor)
             }
             ProgressView(value: progress)
-                .tint(isNearLimit ? .vmWarning : .vmPrimary)
-            if let nextResetDate {
-                Text("リセット: \(Self.dateFormatter.string(from: nextResetDate))")
-                    .font(.system(size: 10))
-                    .foregroundColor(.vmTextTertiary)
+                .tint(quotaStage.tintColor)
+
+            // 段階に応じた補足メッセージ
+            switch quotaStage {
+            case .normal:
+                if let nextResetDate {
+                    Text("リセット: \(Self.dateFormatter.string(from: nextResetDate))")
+                        .font(.system(size: 10))
+                        .foregroundColor(.vmTextTertiary)
+                }
+            case .warning:
+                if remaining == 1 {
+                    Text("今月のAI処理はあと1回です")
+                        .font(.vmFootnote)
+                        .foregroundColor(.vmWarning)
+                } else {
+                    Text("残り\(remaining)回")
+                        .font(.vmFootnote)
+                        .foregroundColor(.vmWarning)
+                }
+            case .exceeded:
+                Text("来月1日にリセットされます")
+                    .font(.vmFootnote)
+                    .foregroundColor(.vmError)
             }
         }
         .padding(VMDesignTokens.Spacing.md)
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.small)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("今月のAI処理: \(limit)回中\(used)回使用済み、残り\(remaining)回")
     }
 
     private static let dateFormatter: DateFormatter = {

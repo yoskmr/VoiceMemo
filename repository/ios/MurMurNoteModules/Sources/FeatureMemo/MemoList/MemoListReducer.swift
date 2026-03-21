@@ -49,6 +49,9 @@ public struct MemoListReducer {
         public var aiQuotaLimit: Int = 15
         public var nextResetDate: Date?
 
+        /// 月上限到達時のダイアログ表示フラグ（T11: 月次制限UI）
+        public var showQuotaExceededAlert: Bool = false
+
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
 
@@ -69,7 +72,8 @@ public struct MemoListReducer {
             showDeleteConfirmation: Bool = false,
             aiQuotaUsed: Int = 0,
             aiQuotaLimit: Int = 15,
-            nextResetDate: Date? = nil
+            nextResetDate: Date? = nil,
+            showQuotaExceededAlert: Bool = false
         ) {
             self.memos = memos
             self.sections = sections
@@ -88,6 +92,7 @@ public struct MemoListReducer {
             self.aiQuotaUsed = aiQuotaUsed
             self.aiQuotaLimit = aiQuotaLimit
             self.nextResetDate = nextResetDate
+            self.showQuotaExceededAlert = showQuotaExceededAlert
         }
     }
 
@@ -187,6 +192,13 @@ public struct MemoListReducer {
         case refreshCompleted(Result<[MemoItem], EquatableError>)
         case memoDetail(PresentationAction<MemoDetailReducer.Action>)
         case emotionTrend(PresentationAction<EmotionTrendReducer.Action>)
+
+        /// T11: AI月次クォータ情報の読み込み完了
+        case aiQuotaLoaded(used: Int, limit: Int, resetDate: Date)
+        /// T11: 月上限到達ダイアログの表示制御
+        case quotaExceededAlertPresented(Bool)
+        /// T11:「Proを見る」タップ（Phase 3aではプレースホルダ）
+        case showProPlanTapped
     }
 
     /// 検索結果のEquatable準拠ラッパー
@@ -206,6 +218,7 @@ public struct MemoListReducer {
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
     @Dependency(\.calendar) var calendar
+    @Dependency(\.aiQuota) var aiQuota
 
     public init() {}
 
@@ -218,12 +231,20 @@ public struct MemoListReducer {
                 guard state.memos.isEmpty else { return .none }
                 state.isLoading = true
                 state.currentPage = 0
-                return .run { send in
-                    let result = await Result {
-                        try await self.fetchMemoItems(page: 0)
-                    }.mapError { EquatableError($0) }
-                    await send(.memosLoaded(result))
-                }
+                return .merge(
+                    .run { send in
+                        let result = await Result {
+                            try await self.fetchMemoItems(page: 0)
+                        }.mapError { EquatableError($0) }
+                        await send(.memosLoaded(result))
+                    },
+                    .run { [aiQuota] send in
+                        let used = (try? await aiQuota.currentUsage()) ?? 0
+                        let limit = aiQuota.monthlyLimit()
+                        let resetDate = aiQuota.nextResetDate()
+                        await send(.aiQuotaLoaded(used: used, limit: limit, resetDate: resetDate))
+                    }
+                )
 
             case .loadNextPage:
                 guard !state.isLoading, state.hasMorePages else { return .none }
@@ -329,7 +350,13 @@ public struct MemoListReducer {
                     state.selectedMemo = MemoDetailReducer.State(memoID: pendingID)
                     state.pendingMemoID = nil
                 }
-                return .none
+                // リフレッシュ時にクォータ情報も再取得
+                return .run { [aiQuota] send in
+                    let used = (try? await aiQuota.currentUsage()) ?? 0
+                    let limit = aiQuota.monthlyLimit()
+                    let resetDate = aiQuota.nextResetDate()
+                    await send(.aiQuotaLoaded(used: used, limit: limit, resetDate: resetDate))
+                }
 
             case let .refreshCompleted(.failure(error)):
                 state.isLoading = false
@@ -423,6 +450,24 @@ public struct MemoListReducer {
             case .deleteCancelled:
                 state.showDeleteConfirmation = false
                 state.pendingDeleteID = nil
+                return .none
+
+            // MARK: - T11: 月次制限UI
+
+            case let .aiQuotaLoaded(used, limit, resetDate):
+                state.aiQuotaUsed = used
+                state.aiQuotaLimit = limit
+                state.nextResetDate = resetDate
+                return .none
+
+            case let .quotaExceededAlertPresented(isPresented):
+                state.showQuotaExceededAlert = isPresented
+                return .none
+
+            case .showProPlanTapped:
+                // Phase 3a: プレースホルダ（Phase 3cで課金画面に遷移）
+                // 現時点ではアラートを閉じるのみ
+                state.showQuotaExceededAlert = false
                 return .none
             }
         }

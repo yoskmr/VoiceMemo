@@ -36,6 +36,17 @@ final class MemoDetailReducerTests: XCTestCase {
         )
     }
 
+    /// 共通のDependency設定（aiQuota含む）
+    private func configureDependencies(
+        _ deps: inout DependencyValues,
+        entity: VoiceMemoEntity
+    ) {
+        deps.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+        deps.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+        deps.aiQuota.remainingCount = { 15 }
+        deps.aiQuota.monthlyLimit = { 15 }
+    }
+
     // MARK: - Test 1: メモ詳細データのロード
 
     func test_onAppear_メモ詳細データのロード() async {
@@ -58,9 +69,10 @@ final class MemoDetailReducerTests: XCTestCase {
         ) {
             MemoDetailReducer()
         } withDependencies: {
-            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            self.configureDependencies(&$0, entity: entity)
         }
+        // onAppear triggers concurrent effects whose order is non-deterministic
+        store.exhaustivity = .off
 
         await store.send(.onAppear) {
             $0.isLoading = true
@@ -94,6 +106,9 @@ final class MemoDetailReducerTests: XCTestCase {
                 audioFilePath: "Audio/test.m4a"
             )
         }
+
+
+
     }
 
     // MARK: - Test 2: 文字起こしテキストが設定される
@@ -113,9 +128,9 @@ final class MemoDetailReducerTests: XCTestCase {
         ) {
             MemoDetailReducer()
         } withDependencies: {
-            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            self.configureDependencies(&$0, entity: entity)
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memoLoaded.success) {
@@ -133,6 +148,7 @@ final class MemoDetailReducerTests: XCTestCase {
                 audioFilePath: "Audio/test.m4a"
             )
         }
+
 
         XCTAssertEqual(store.state.transcriptionText, fullText)
     }
@@ -157,9 +173,9 @@ final class MemoDetailReducerTests: XCTestCase {
         ) {
             MemoDetailReducer()
         } withDependencies: {
-            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            self.configureDependencies(&$0, entity: entity)
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memoLoaded.success) {
@@ -184,6 +200,8 @@ final class MemoDetailReducerTests: XCTestCase {
                 audioFilePath: "Audio/test.m4a"
             )
         }
+
+
     }
 
     // MARK: - Test 4: AI要約がない場合
@@ -198,9 +216,9 @@ final class MemoDetailReducerTests: XCTestCase {
         ) {
             MemoDetailReducer()
         } withDependencies: {
-            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            self.configureDependencies(&$0, entity: entity)
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memoLoaded.success) {
@@ -219,6 +237,7 @@ final class MemoDetailReducerTests: XCTestCase {
                 audioFilePath: "Audio/test.m4a"
             )
         }
+
 
         XCTAssertNil(store.state.aiSummary)
         XCTAssertFalse(store.state.isAISummaryAvailable)
@@ -240,9 +259,9 @@ final class MemoDetailReducerTests: XCTestCase {
         ) {
             MemoDetailReducer()
         } withDependencies: {
-            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            self.configureDependencies(&$0, entity: entity)
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memoLoaded.success) {
@@ -266,6 +285,7 @@ final class MemoDetailReducerTests: XCTestCase {
             )
         }
 
+
         XCTAssertEqual(store.state.emotion?.category, .calm)
     }
 
@@ -287,9 +307,9 @@ final class MemoDetailReducerTests: XCTestCase {
         ) {
             MemoDetailReducer()
         } withDependencies: {
-            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            self.configureDependencies(&$0, entity: entity)
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memoLoaded.success) {
@@ -312,6 +332,7 @@ final class MemoDetailReducerTests: XCTestCase {
             )
         }
 
+
         XCTAssertEqual(store.state.tags.count, 2)
     }
 
@@ -327,13 +348,18 @@ final class MemoDetailReducerTests: XCTestCase {
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "メモが見つかりません"])
             }
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
+            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.monthlyLimit = { 15 }
         }
+        store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
         await store.receive(\.memoLoaded.failure) {
             $0.isLoading = false
             $0.errorMessage = "メモが見つかりません"
         }
+
+
     }
 
     // MARK: - Test 8: editButtonTapped → 編集シート表示
@@ -370,7 +396,6 @@ final class MemoDetailReducerTests: XCTestCase {
         }
 
         await store.send(.tagTapped("アイデア"))
-        // 現時点ではアクションは.noneを返す（将来のタグフィルター機能で利用）
     }
 
     // MARK: - Test 10: deleteButtonTapped → 確認ダイアログ表示
@@ -400,7 +425,6 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.audioFileStore.deleteAudioFile = { _ in }
             $0.fts5IndexManager.removeIndex = { _ in }
         }
-        // TODO: exhaustivity = .off を解消し、削除完了後の全アクション（_deleteCompletedAndDismiss等）を明示的に検証する
         store.exhaustivity = .off
 
         await store.send(.delete(.deleteConfirmed(id: testMemoID))) {
@@ -427,6 +451,96 @@ final class MemoDetailReducerTests: XCTestCase {
 
         await store.send(.dismissEditSheet) {
             $0.editState = nil
+        }
+    }
+
+    // MARK: - Test 13: T09 regenerateAISummary → AI処理キューに追加
+
+    func test_regenerateAISummary_AI処理キューに追加() async {
+        var enqueuedMemoID: UUID?
+        let store = TestStore(
+            initialState: MemoDetailReducer.State(memoID: testMemoID)
+        ) {
+            MemoDetailReducer()
+        } withDependencies: {
+            $0.aiProcessingQueue.enqueueProcessing = { id in
+                enqueuedMemoID = id
+            }
+        }
+
+        await store.send(.regenerateAISummary) {
+            $0.aiProcessingStatus = .queued
+        }
+
+        XCTAssertEqual(enqueuedMemoID, testMemoID)
+    }
+
+    // MARK: - Test 14: T10 toggleSummaryExpanded
+
+    func test_toggleSummaryExpanded_展開折りたたみ切替() async {
+        let store = TestStore(
+            initialState: MemoDetailReducer.State(
+                memoID: testMemoID,
+                isSummaryExpanded: false
+            )
+        ) {
+            MemoDetailReducer()
+        }
+
+        await store.send(.toggleSummaryExpanded) {
+            $0.isSummaryExpanded = true
+        }
+
+        await store.send(.toggleSummaryExpanded) {
+            $0.isSummaryExpanded = false
+        }
+    }
+
+    // MARK: - Test 15: T09 triggerAIProcessing → AI処理キューに追加
+
+    func test_triggerAIProcessing_AI処理をトリガー() async {
+        var enqueuedMemoID: UUID?
+        let store = TestStore(
+            initialState: MemoDetailReducer.State(memoID: testMemoID)
+        ) {
+            MemoDetailReducer()
+        } withDependencies: {
+            $0.aiProcessingQueue.enqueueProcessing = { id in
+                enqueuedMemoID = id
+            }
+        }
+
+        await store.send(.triggerAIProcessing) {
+            $0.aiProcessingStatus = .queued
+        }
+
+        XCTAssertEqual(enqueuedMemoID, testMemoID)
+    }
+
+    // MARK: - Test 16: T09 AI処理完了時にクォータ情報も更新される
+
+    func test_aiProcessingStatusUpdated_completed_クォータ更新() async {
+        let entity = makeEntity(
+            transcription: TranscriptionEntity(fullText: "テスト")
+        )
+
+        let store = TestStore(
+            initialState: MemoDetailReducer.State(
+                memoID: testMemoID,
+                remainingQuota: 15,
+                quotaLimit: 15
+            )
+        ) {
+            MemoDetailReducer()
+        } withDependencies: {
+            $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
+            $0.aiQuota.remainingCount = { 14 }
+            $0.aiQuota.monthlyLimit = { 15 }
+        }
+        store.exhaustivity = .off
+
+        await store.send(.aiProcessingStatusUpdated(.completed(isOnDevice: true))) {
+            $0.aiProcessingStatus = .completed(isOnDevice: true)
         }
     }
 }

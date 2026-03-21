@@ -3,6 +3,6 @@ import XCTest
 
 final class FeatureAITests: XCTestCase {
     func testModuleVersion() {
-        XCTAssertEqual(FeatureAIModule.version, "0.1.0")
+        XCTAssertEqual(FeatureAIModule.version, "0.2.0")
     }
 }
