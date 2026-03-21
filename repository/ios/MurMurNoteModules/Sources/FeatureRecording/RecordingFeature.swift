@@ -133,6 +133,7 @@ public struct RecordingFeature {
     @Dependency(\.saveRecordingUseCase) var saveRecordingUseCase
     @Dependency(\.continuousClock) var clock
     @Dependency(\.customDictionaryClient) var customDictionaryClient
+    @Dependency(\.temporaryRecordingStore) var temporaryRecordingStore
 
     // MARK: - Cancellation IDs
 
@@ -371,6 +372,7 @@ public struct RecordingFeature {
 
     /// 録音停止 → 保存の一連フロー
     /// transcriptionTextはUIに表示中のテキストを直接使う（STTのfinishに頼らない）
+    /// 文字起こしテキストが空（無音）の場合は保存をスキップし、一時ファイルを削除する
     private func stopAndSaveEffect(
         recordingID: UUID,
         elapsedTime: TimeInterval,
@@ -380,7 +382,16 @@ public struct RecordingFeature {
             // 1. 録音停止
             let result = try await audioRecorder.stopRecording()
 
-            // 2. UIに表示されていたテキストでTranscriptionResultを作成
+            // 2. 文字起こしテキストが空（無音）の場合は保存をスキップ
+            if transcriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // 一時ファイルを削除
+                try? temporaryRecordingStore.cleanup(recordingID)
+                try? FileManager.default.removeItem(at: result.fileURL)
+                await send(.recordingFailed("何も話されませんでした"))
+                return
+            }
+
+            // 3. UIに表示されていたテキストでTranscriptionResultを作成
             let transcriptionResult = TranscriptionResult(
                 text: transcriptionText,
                 confidence: 0.8,
@@ -389,7 +400,7 @@ public struct RecordingFeature {
                 segments: []
             )
 
-            // 3. SaveRecordingUseCase実行
+            // 4. SaveRecordingUseCase実行
             let input = SaveRecordingUseCase.Input(
                 recordingID: recordingID,
                 tempAudioURL: result.fileURL,
