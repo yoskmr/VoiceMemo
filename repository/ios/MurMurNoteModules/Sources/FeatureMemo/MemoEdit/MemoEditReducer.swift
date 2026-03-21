@@ -113,20 +113,12 @@ public struct MemoEditReducer {
             case let .titleChanged(newTitle):
                 state.title = newTitle
                 state.hasUnsavedChanges = state.isModified
-                return .run { send in
-                    try await clock.sleep(for: .seconds(2))
-                    await send(.autoSaveTriggered)
-                }
-                .cancellable(id: AutoSaveID.debounce, cancelInFlight: true)
+                return .none
 
             case let .transcriptionTextChanged(newText):
                 state.transcriptionText = newText
                 state.hasUnsavedChanges = state.isModified
-                return .run { send in
-                    try await clock.sleep(for: .seconds(2))
-                    await send(.autoSaveTriggered)
-                }
-                .cancellable(id: AutoSaveID.debounce, cancelInFlight: true)
+                return .none
 
             case .saveButtonTapped, .autoSaveTriggered:
                 guard state.isModified, !state.isSaving else { return .none }
