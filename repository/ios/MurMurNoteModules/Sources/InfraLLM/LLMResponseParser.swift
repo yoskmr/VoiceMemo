@@ -35,6 +35,11 @@ public struct LLMResponseParser: Sendable {
 
         // JSON部分を抽出
         guard let jsonString = extractJSON(from: trimmed) else {
+            // フェンスドコードブロックからの抽出も失敗した場合、
+            // 不完全JSONの修復を試みる
+            if let repaired = tryRepairAndParse(trimmed, processingTimeMs: processingTimeMs, provider: provider) {
+                return repaired
+            }
             throw LLMError.invalidOutput
         }
 
@@ -50,6 +55,10 @@ public struct LLMResponseParser: Sendable {
             // 部分的なパースを試みる
             if let partial = tryPartialParse(jsonData, processingTimeMs: processingTimeMs, provider: provider) {
                 return partial
+            }
+            // 不完全JSON修復を試みる（閉じブレース不足等）
+            if let repaired = tryRepairAndParse(jsonString, processingTimeMs: processingTimeMs, provider: provider) {
+                return repaired
             }
             throw LLMError.invalidOutput
         }
@@ -177,6 +186,84 @@ public struct LLMResponseParser: Sendable {
         let summary = LLMSummaryResult(
             title: String(title.prefix(20)),
             brief: brief,
+            keyPoints: []
+        )
+
+        let tagResults = tags.prefix(3).map { tag in
+            LLMTagResult(label: String(tag.prefix(15)), confidence: 0.6)
+        }
+
+        return LLMResponse(
+            summary: summary,
+            tags: Array(tagResults),
+            processingTimeMs: processingTimeMs,
+            provider: provider
+        )
+    }
+
+    // MARK: - 不完全JSON修復
+
+    /// Apple Intelligence等の出力が途中で切れた場合の修復パース
+    /// 「"title": "...", "cleaned": "...」のような不完全JSONからフィールドを正規表現で抽出
+    private func tryRepairAndParse(
+        _ text: String,
+        processingTimeMs: Int,
+        provider: LLMProviderType
+    ) -> LLMResponse? {
+        var title = ""
+        var cleaned = ""
+        var tags: [String] = []
+
+        // "title": "..." を抽出
+        if let titleMatch = text.range(of: #""title"\s*:\s*"([^"]*)"#, options: .regularExpression) {
+            let afterColon = text[titleMatch]
+            if let firstQuote = afterColon.range(of: #":\s*""#, options: .regularExpression),
+               let endQuote = text[firstQuote.upperBound...].firstIndex(of: "\"") {
+                title = String(text[firstQuote.upperBound..<endQuote])
+            }
+        }
+
+        // "cleaned": "..." または "brief": "..." を抽出（最長マッチ）
+        for key in ["cleaned", "brief"] {
+            let pattern = #""\#(key)"\s*:\s*""#
+            if let keyRange = text.range(of: pattern, options: .regularExpression) {
+                let afterKey = text[keyRange.upperBound...]
+                // 次の "," や "}" や末尾の " を探す（ただし途中で切れている場合もある）
+                // 最後の引用符を探すか、テキスト末尾まで取得
+                var content = String(afterKey)
+                // 末尾の不完全部分を削除（", "} 等）
+                if let lastQuote = content.lastIndex(of: "\"") {
+                    content = String(content[content.startIndex..<lastQuote])
+                }
+                // エスケープされた引用符を元に戻す
+                content = content.replacingOccurrences(of: "\\\"", with: "\"")
+                    .replacingOccurrences(of: "\\n", with: "\n")
+                if !content.isEmpty {
+                    cleaned = content
+                    break
+                }
+            }
+        }
+
+        // "tags": ["...", "..."] を抽出
+        if let tagsRange = text.range(of: #""tags"\s*:\s*\["#, options: .regularExpression) {
+            let afterTags = text[tagsRange.upperBound...]
+            if let closeBracket = afterTags.firstIndex(of: "]") {
+                let tagsContent = String(afterTags[afterTags.startIndex..<closeBracket])
+                tags = tagsContent.components(separatedBy: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
+                    .filter { !$0.isEmpty }
+            }
+        }
+
+        guard !title.isEmpty || !cleaned.isEmpty else {
+            return nil
+        }
+
+        let summary = LLMSummaryResult(
+            title: String(title.prefix(20)),
+            brief: cleaned,
             keyPoints: []
         )
 
