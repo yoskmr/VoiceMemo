@@ -74,3 +74,11 @@ iOSInjectionProject/
 
 # Tuist
 Derived/
+
+# Unused agent tool integrations
+.agent/
+.windsurf/
+.kiro/
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
