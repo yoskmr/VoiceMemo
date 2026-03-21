@@ -21,16 +21,13 @@ public struct MemoEditView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // 保存成功メッセージ
-            if let message = store.saveSuccessMessage {
-                Text(message)
-                    .font(.vmCaption1)
-                    .foregroundColor(.vmTextSecondary)
-                    .padding(8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.vmPrimaryLight.opacity(0.1))
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+            // 保存成功メッセージ（固定高さで画面ずれ防止）
+            Text(store.saveSuccessMessage ?? " ")
+                .font(.vmCaption1)
+                .foregroundColor(store.saveSuccessMessage != nil ? .vmTextSecondary : .clear)
+                .padding(8)
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {

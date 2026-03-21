@@ -151,7 +151,7 @@ public struct MemoEditReducer {
                 state.originalTitle = state.title
                 state.originalTranscriptionText = state.transcriptionText
                 state.hasUnsavedChanges = false
-                state.saveSuccessMessage = "保存しました"
+                state.saveSuccessMessage = "書きとめました"
                 return .run { send in
                     try await clock.sleep(for: .seconds(2))
                     await send(.dismissSaveSuccess)
