@@ -4,7 +4,7 @@ import SharedUI
 import SwiftUI
 
 /// つぶやき完了画面
-/// 保存後にフィードバックを表示し、メモ詳細への遷移を促す
+/// 温かく「受け止めた」ことを伝え、メモ詳細への遷移を促す
 struct RecordingCompletionView: View {
     let store: StoreOf<RecordingFeature>
 
@@ -14,15 +14,15 @@ struct RecordingCompletionView: View {
         VStack(spacing: VMDesignTokens.Spacing.xl) {
             Spacer()
 
-            // チェックマーク
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 40))
-                .foregroundColor(.vmSuccess)
-                .scaleEffect(showContent ? 1 : 0.5)
+            // 温かいアイコン（吹き出し＋チェック）
+            Image(systemName: "bubble.left.fill")
+                .font(.system(size: 44))
+                .foregroundColor(.vmPrimary.opacity(0.8))
+                .scaleEffect(showContent ? 1 : 0.6)
                 .opacity(showContent ? 1 : 0)
 
-            // 「保存しました」
-            Text("保存しました")
+            // 温かいメッセージ
+            Text("ちゃんと残りました")
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextPrimary)
                 .opacity(showContent ? 1 : 0)
@@ -57,7 +57,7 @@ struct RecordingCompletionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.vmBackground.ignoresSafeArea())
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 showContent = true
             }
         }
