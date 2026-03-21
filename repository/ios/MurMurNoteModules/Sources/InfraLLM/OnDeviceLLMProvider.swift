@@ -104,6 +104,13 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         // 3. プロンプト構築
         let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: request.text, customDictionary: request.customDictionary)
         logger.debug("プロンプト構築完了: \(prompt.prefix(100))...")
+        #if DEBUG
+        if !request.customDictionary.isEmpty {
+            print("[LLM] カスタム辞書をプロンプトに注入: \(request.customDictionary.prefix(10))")
+        } else {
+            print("[LLM] カスタム辞書: なし")
+        }
+        #endif
 
         // 4. 推論実行
         let startTime = CFAbsoluteTimeGetCurrent()

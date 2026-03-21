@@ -32,7 +32,13 @@ public struct PromptTemplate: Sendable, Equatable {
             return ""
         }
         let list = words.prefix(30).joined(separator: "、")
-        return "\n固有名詞リスト（音声認識の誤変換を修正する際に参照）:\n\(list)"
+        return """
+
+        重要 - 固有名詞の修正:
+        以下はユーザーが登録した正しい固有名詞です。音声認識で似た音の別の漢字に誤変換されている場合、必ずこのリストの表記に修正してください。
+        例: 「鈴鹿」→「鈴香」、「宿待っている」→「城間という」
+        正しい固有名詞: \(list)
+        """
     }
 
     // MARK: - 定義済みテンプレート
