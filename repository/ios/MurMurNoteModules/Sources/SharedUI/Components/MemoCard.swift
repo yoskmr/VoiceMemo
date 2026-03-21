@@ -32,7 +32,7 @@ public struct MemoCardData: Equatable, Sendable {
 }
 
 /// メモカードコンポーネント
-/// 設計書 04-ui-design-system.md セクション4.2 準拠
+/// ミニマルデザイン: タイトル → プレビュー → 日付・時間のシンプルな3段構成
 public struct MemoCard: View {
     public let data: MemoCardData
 
@@ -42,47 +42,38 @@ public struct MemoCard: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            // ヘッダー: 日時 + 録音時間
-            HStack {
-                Label(formattedDate, systemImage: "calendar")
-                    .font(.vmCaption1)
-                    .foregroundColor(.vmTextSecondary)
-                Spacer()
-                Label(formattedDuration, systemImage: "mic.fill")
-                    .font(.vmCaption1)
-                    .foregroundColor(.vmTextTertiary)
-            }
-
-            // タイトル
+            // タイトル（最上部 — 最も重要な情報を先頭に）
             Text(data.title)
-                .font(.vmTitle3)
+                .font(.vmHeadline)
                 .foregroundColor(.vmTextPrimary)
                 .lineLimit(1)
 
             // プレビューテキスト（最大60文字、2行制限）
-            Text(previewText)
-                .font(.vmCallout)
-                .foregroundColor(.vmTextSecondary)
-                .lineLimit(2)
+            if !previewText.isEmpty {
+                Text(previewText)
+                    .font(.vmFootnote)
+                    .foregroundColor(.vmTextSecondary)
+                    .lineLimit(2)
+            }
 
-            // フッター: 感情バッジ + タグチップ
-            HStack(spacing: VMDesignTokens.Spacing.sm) {
-                if let emotion = data.emotion {
-                    EmotionBadge(emotion: emotion)
-                }
-                ForEach(data.tags.prefix(3), id: \.self) { tag in
-                    TagChip(text: tag)
-                }
+            // フッター: 日付とデュレーションをプレーンテキストで
+            HStack {
+                Text(formattedDate)
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+                Spacer()
+                Text(formattedDuration)
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
             }
         }
         .padding(VMDesignTokens.Spacing.lg)
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.03), radius: 4, y: 1)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(data.title), \(formattedDate), \(formattedDuration)の録音")
         .accessibilityHint("ダブルタップで詳細を表示します")
-        .accessibilityValue(data.emotion?.label ?? "感情分析なし")
     }
 
     // MARK: - Computed Properties
@@ -90,7 +81,7 @@ public struct MemoCard: View {
     private var formattedDate: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d HH:mm"
+        formatter.dateFormat = "M/d"
         return formatter.string(from: data.createdAt)
     }
 

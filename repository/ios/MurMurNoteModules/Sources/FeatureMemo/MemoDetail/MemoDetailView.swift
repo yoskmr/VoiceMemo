@@ -4,8 +4,7 @@ import SharedUI
 import SwiftUI
 
 /// メモ詳細画面
-/// TASK-0012: メモ詳細画面
-/// 設計書 04-ui-design-system.md セクション6.3 準拠
+/// ミニマルデザイン: 必要最小限の情報のみ表示、余白を活かしたシンプルなレイアウト
 public struct MemoDetailView: View {
     @Bindable public var store: StoreOf<MemoDetailReducer>
 
@@ -25,8 +24,13 @@ public struct MemoDetailView: View {
                         .font(.vmTitle2)
                         .foregroundColor(.vmTextPrimary)
 
-                    // AI要約カード（最上部に移動: UXレビュー指摘）
-                    // T10: 展開/折りたたみ + 再生成ボタン + 処理場所バッジ + 残回数表示
+                    // メタ情報（プレーンテキスト）
+                    MetaInfoRow(
+                        date: store.createdAt,
+                        duration: store.durationSeconds
+                    )
+
+                    // AI要約セクション（シンプル版）
                     AISummarySection(
                         summary: store.aiSummary,
                         aiProcessingStatus: store.aiProcessingStatus,
@@ -37,16 +41,10 @@ public struct MemoDetailView: View {
                         onTriggerAI: { store.send(.triggerAIProcessing) }
                     )
 
-                    // AI処理ステータスインジケーター（詳細化: Phase 3 UXレビュー）
+                    // AI処理中のみ小さなインジケーター表示
                     AIProcessingStatusView(
                         status: store.aiProcessingStatus,
                         onRetry: { store.send(.regenerateAISummary) }
-                    )
-
-                    // メタ情報
-                    MetaInfoRow(
-                        date: store.createdAt,
-                        duration: store.durationSeconds
                     )
 
                     // 音声プレイヤー
@@ -59,23 +57,15 @@ public struct MemoDetailView: View {
                         AudioPlayerPlaceholder()
                     }
 
-                    // 感情バッジ（大サイズ）
-                    if let emotion = store.emotion {
-                        EmotionDetailCard(emotion: emotion)
-                    }
-
-                    // タグ一覧（T10: AI生成タグのソースインジケーター付き）
+                    // タグ（インラインテキスト表示）
                     if !store.tags.isEmpty {
-                        AnimatedTagFlowLayout(tags: store.tags) { tagName in
+                        SimpleTagRow(tags: store.tags) { tagName in
                             store.send(.tagTapped(tagName))
                         }
                     }
 
-                    // 文字起こしセクション
+                    // 文字起こし（折りたたみ、デフォルト非表示）
                     TranscriptionSection(text: store.transcriptionText)
-
-                    // プライバシー表示
-                    PrivacyIndicator()
                 }
             }
             .padding(VMDesignTokens.Spacing.lg)
@@ -165,6 +155,12 @@ public struct MemoDetailView: View {
                 Image(systemName: "pencil")
             }
             Menu {
+                // 再生成をメニューに統合
+                if store.aiSummary != nil {
+                    Button { store.send(.regenerateAISummary) } label: {
+                        Label("AI再生成", systemImage: "arrow.clockwise")
+                    }
+                }
                 Button { store.send(.shareButtonTapped) } label: {
                     Label("共有", systemImage: "square.and.arrow.up")
                 }
@@ -192,26 +188,21 @@ private struct EditSheetIdentifier: Identifiable {
 
 // MARK: - Sub-components
 
-/// メタ情報行（日時 + 録音時間）
+/// メタ情報行（プレーンテキスト: 日付 · 録音時間）
 struct MetaInfoRow: View {
     let date: Date
     let duration: Double
 
     var body: some View {
-        HStack(spacing: VMDesignTokens.Spacing.lg) {
-            Label(formattedDate, systemImage: "calendar")
-                .font(.vmCaption1)
-                .foregroundColor(.vmTextSecondary)
-            Label(formattedDuration, systemImage: "mic.fill")
-                .font(.vmCaption1)
-                .foregroundColor(.vmTextTertiary)
-        }
+        Text("\(formattedDate) · \(formattedDuration)")
+            .font(.vmCaption1)
+            .foregroundColor(.vmTextTertiary)
     }
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy/M/d HH:mm"
+        formatter.dateFormat = "M/d HH:mm"
         return formatter
     }()
 
@@ -220,13 +211,33 @@ struct MetaInfoRow: View {
     }
 
     private var formattedDuration: String {
-        let minutes = Int(duration) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        let totalSeconds = Int(duration)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return "\(minutes)分\(seconds)秒"
     }
 }
 
-/// 感情詳細カード（大サイズバッジ + 説明テキスト）
+/// シンプルなタグ行（インラインテキスト表示）
+struct SimpleTagRow: View {
+    let tags: [MemoDetailReducer.State.TagItem]
+    let onTap: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: VMDesignTokens.Spacing.sm) {
+            ForEach(tags) { tag in
+                Text("#\(tag.name)")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+                    .onTapGesture {
+                        onTap(tag.name)
+                    }
+            }
+        }
+    }
+}
+
+/// 感情詳細カード（後方互換性のために残す — 詳細画面からは使用しない）
 /// 設計書 04-ui-design-system.md セクション4.3 準拠
 struct EmotionDetailCard: View {
     let emotion: MemoDetailReducer.State.EmotionState
@@ -273,9 +284,7 @@ struct TagFlowLayout: View {
     }
 }
 
-/// T10: タグアニメーション付き横並びレイアウト
-/// UX-PHASE3A-001 セクション2 準拠
-/// AI生成タグとユーザー手動タグを視覚的に区別する
+/// T10: タグアニメーション付き横並びレイアウト（後方互換性のために残す）
 struct AnimatedTagFlowLayout: View {
     let tags: [MemoDetailReducer.State.TagItem]
     let onTap: (String) -> Void
@@ -326,7 +335,6 @@ struct AnimatedTagFlowLayout: View {
     @ViewBuilder
     private func tagView(for tag: MemoDetailReducer.State.TagItem) -> some View {
         if tag.source == "ai" {
-            // AI生成タグ: sparklesアイコン + vmAccentLight背景
             HStack(spacing: 4) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 10))
@@ -340,7 +348,6 @@ struct AnimatedTagFlowLayout: View {
             .cornerRadius(VMDesignTokens.CornerRadius.small)
             .accessibilityLabel("AIが生成したタグ: \(tag.name)")
         } else {
-            // ユーザー手動タグ: アイコンなし + vmSurfaceVariant背景
             Text("#\(tag.name)")
                 .font(.vmCaption2)
                 .foregroundColor(.vmSecondaryDark)
@@ -353,150 +360,54 @@ struct AnimatedTagFlowLayout: View {
     }
 }
 
-/// AI処理ステータスインジケーター（詳細化: Phase 3 UXレビュー）
-/// processing: 進捗バー + 処理段階説明
-/// completed: 処理場所バッジ
-/// failed: エラー種別ごとのUI分岐
+/// AI処理ステータスインジケーター（ミニマル版）
+/// processing時のみ小さなインジケーター表示、completed/failedの大きなカードは削除
 struct AIProcessingStatusView: View {
     let status: AIProcessingStatus
     let onRetry: () -> Void
 
     var body: some View {
         switch status {
-        case .idle, .queued:
+        case .idle, .queued, .completed:
             EmptyView()
 
-        case let .processing(progress, description):
-            VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-                HStack(spacing: 8) {
-                    ProgressView().tint(.vmInfo)
-                    Text("AI分析中...")
-                        .font(.vmCallout)
-                        .foregroundColor(.vmTextSecondary)
-                }
-                ProgressView(value: progress, total: 1.0)
-                    .tint(.vmInfo)
+        case let .processing(_, description):
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.vmTextTertiary)
                 Text(description)
                     .font(.vmCaption1)
                     .foregroundColor(.vmTextTertiary)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.vmInfo.opacity(0.1))
-            .cornerRadius(12)
-
-        case let .completed(isOnDevice):
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.vmSuccess)
-                Text("AI分析完了")
-                    .font(.vmCallout)
-                    .foregroundColor(.vmTextSecondary)
-                Spacer()
-                Text(isOnDevice ? "オンデバイス" : "クラウド")
-                    .font(.vmCaption1)
-                    .foregroundColor(isOnDevice ? .vmSuccess : .vmInfo)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        (isOnDevice ? Color.vmSuccess : Color.vmInfo).opacity(0.1)
-                    )
-                    .cornerRadius(8)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity)
-            .background(Color.vmSuccess.opacity(0.05))
-            .cornerRadius(12)
 
         case let .failed(error):
-            switch error {
-            case let .quotaExceeded(remaining: _, resetDate: resetDate):
-                quotaExceededView(resetDate: resetDate)
-            case let .networkError(message):
-                networkErrorView(message: message)
-            case .processingFailed:
-                processingFailedView()
-            }
-        }
-    }
-
-    private func quotaExceededView(resetDate: Date) -> some View {
-        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
             HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.vmWarning)
-                Text("月間AI分析の上限に達しました")
-                    .font(.vmCallout)
-                    .foregroundColor(.vmTextPrimary)
-            }
-            Text("次回リセット: \(Self.dateFormatter.string(from: resetDate))")
-                .font(.vmCaption1)
-                .foregroundColor(.vmTextTertiary)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.vmWarning.opacity(0.1))
-        .cornerRadius(12)
-    }
-
-    private func networkErrorView(message: String) -> some View {
-        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            HStack(spacing: 8) {
-                Image(systemName: "wifi.slash")
-                    .foregroundColor(.vmError)
-                Text("ネットワークエラー")
-                    .font(.vmCallout)
-                    .foregroundColor(.vmTextPrimary)
-            }
-            Text(message)
-                .font(.vmCaption1)
-                .foregroundColor(.vmTextTertiary)
-            Text("オンデバイスAIで再試行できます")
-                .font(.vmCaption1)
-                .foregroundColor(.vmInfo)
-            Button {
-                onRetry()
-            } label: {
-                Text("オンデバイスで再試行")
+                Text(failedMessage(for: error))
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+                Spacer()
+                Button("リトライ") { onRetry() }
                     .font(.vmCaption1)
                     .foregroundColor(.vmPrimary)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.vmError.opacity(0.1))
-        .cornerRadius(12)
     }
 
-    private func processingFailedView() -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.vmError)
-            Text("AI分析に失敗しました")
-                .font(.vmCallout)
-                .foregroundColor(.vmTextSecondary)
-            Spacer()
-            Button("リトライ") { onRetry() }
-                .font(.vmCaption1)
-                .foregroundColor(.vmPrimary)
+    private func failedMessage(for error: AIProcessingError) -> String {
+        switch error {
+        case .quotaExceeded(remaining: _, resetDate: _):
+            return "月間AI分析の上限に達しました"
+        case .networkError(_):
+            return "ネットワークエラー"
+        case .processingFailed(_):
+            return "AI分析に失敗しました"
         }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(Color.vmError.opacity(0.1))
-        .cornerRadius(12)
     }
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日"
-        return formatter
-    }()
 }
 
-/// AI要約セクション（T10: 実データ対応版）
-/// 設計書 04-ui-design-system.md セクション4.5 準拠
-/// UX-PHASE3A-001 セクション1 準拠: 展開/折りたたみ + 再生成 + 処理場所バッジ
+/// AI要約セクション（ミニマル版）
+/// ヘッダーのアイコン・バッジ削除、テキストのみ表示
 struct AISummarySection: View {
     let summary: MemoDetailReducer.State.AISummaryState?
     var aiProcessingStatus: AIProcessingStatus = .idle
@@ -521,40 +432,25 @@ struct AISummarySection: View {
 
     private func summaryCard(summary: MemoDetailReducer.State.AISummaryState) -> some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            // ヘッダー: AI要約ラベル + 処理場所バッジ
-            HStack {
-                Label("AIメモ整理", systemImage: "sparkles")
-                    .font(.vmHeadline)
-                    .foregroundColor(.vmPrimary)
-                Spacer()
-                processingBadge(isOnDevice: summary.isOnDevice)
-            }
-
             // 要約テキスト（展開/折りたたみ対応）
             if isExpanded {
                 Text(summary.summaryText)
-                    .font(.vmCallout)
+                    .font(.vmBody())
                     .foregroundColor(.vmTextPrimary)
             } else {
                 Text(summary.summaryText)
-                    .font(.vmCallout)
+                    .font(.vmBody())
                     .foregroundColor(.vmTextPrimary)
                     .lineLimit(collapsedLineLimit)
             }
 
             // キーポイント（展開時のみ表示）
             if isExpanded, !summary.keyPoints.isEmpty {
-                Divider()
-                    .background(Color.vmDivider)
-
                 VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
-                    Text("キーポイント:")
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmTextSecondary)
                     ForEach(summary.keyPoints, id: \.self) { point in
                         HStack(alignment: .top, spacing: VMDesignTokens.Spacing.xs) {
                             Text("*")
-                                .foregroundColor(.vmPrimary)
+                                .foregroundColor(.vmTextTertiary)
                             Text(point)
                                 .font(.vmCallout)
                                 .foregroundColor(.vmTextSecondary)
@@ -565,52 +461,16 @@ struct AISummarySection: View {
 
             // 展開/折りたたみボタン
             if let onToggleExpand {
-                HStack {
-                    Spacer()
-                    Button {
-                        onToggleExpand()
-                    } label: {
-                        Text(isExpanded ? "閉じる" : "もっと見る")
-                            .font(.vmCaption1)
-                            .foregroundColor(.vmPrimary)
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10))
-                            .foregroundColor(.vmPrimary)
-                    }
+                Button {
+                    onToggleExpand()
+                } label: {
+                    Text(isExpanded ? "閉じる" : "もっと見る")
+                        .font(.vmCaption1)
+                        .foregroundColor(.vmTextTertiary)
                 }
-            }
-
-            // フッター: 再生成ボタン + 生成日時
-            Divider()
-                .background(Color.vmDivider)
-
-            HStack {
-                if let onRegenerate {
-                    Button {
-                        onRegenerate()
-                    } label: {
-                        Label("再生成", systemImage: "arrow.clockwise")
-                            .font(.vmCaption1)
-                            .foregroundColor(.vmPrimary)
-                    }
-                    .accessibilityLabel("AI要約を再生成")
-                }
-                Spacer()
-                Text("生成: \(Self.dateFormatter.string(from: summary.generatedAt))")
-                    .font(.vmCaption1)
-                    .foregroundColor(.vmTextTertiary)
             }
         }
-        .padding(VMDesignTokens.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.vmPrimaryLight.opacity(0.1))
-        .overlay(
-            Rectangle()
-                .fill(Color.vmPrimary)
-                .frame(width: 3),
-            alignment: .leading
-        )
-        .cornerRadius(VMDesignTokens.CornerRadius.medium)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("AI要約: \(summary.summaryText)")
     }
@@ -619,85 +479,46 @@ struct AISummarySection: View {
 
     private var placeholderCard: some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            Label("AIメモ整理", systemImage: "sparkles")
-                .font(.vmHeadline)
-                .foregroundColor(.vmTextTertiary)
             Text("AI要約はまだ生成されていません")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextTertiary)
 
             if let onTriggerAI {
-                HStack {
-                    Button {
-                        onTriggerAI()
-                    } label: {
-                        Text("AI分析を実行する")
-                            .font(.vmCallout)
-                            .foregroundColor(.vmPrimary)
-                    }
-                    .accessibilityLabel("AI分析を実行する")
-
-                    Text("(残り: \(remainingQuota)回)")
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmTextTertiary)
+                Button {
+                    onTriggerAI()
+                } label: {
+                    Text("AI分析を実行する")
+                        .font(.vmCallout)
+                        .foregroundColor(.vmPrimary)
                 }
+                .accessibilityLabel("AI分析を実行する")
             }
         }
-        .padding(VMDesignTokens.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.vmPrimaryLight.opacity(0.05))
-        .overlay(
-            Rectangle()
-                .fill(Color.vmTextTertiary.opacity(0.3))
-                .frame(width: 3),
-            alignment: .leading
-        )
-        .cornerRadius(VMDesignTokens.CornerRadius.medium)
     }
-
-    // MARK: - 処理場所バッジ
-
-    private func processingBadge(isOnDevice: Bool) -> some View {
-        Text(isOnDevice ? "オンデバイス処理" : "クラウド処理")
-            .font(.vmCaption1)
-            .foregroundColor(isOnDevice ? .vmSuccess : .vmInfo)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                (isOnDevice ? Color.vmSuccess : Color.vmInfo).opacity(0.1)
-            )
-            .cornerRadius(8)
-            .accessibilityLabel("処理場所: \(isOnDevice ? "オンデバイス" : "クラウド")")
-    }
-
-    // MARK: - Date Formatter
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy/M/d"
-        return formatter
-    }()
 }
 
-/// 文字起こしセクション
+/// 文字起こしセクション（折りたたみ式、デフォルト非表示）
 struct TranscriptionSection: View {
     let text: String
+    @State private var isExpanded: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            Text("文字起こし")
-                .font(.vmHeadline)
-                .foregroundColor(.vmTextSecondary)
-
-            Divider()
-                .background(Color.vmDivider)
-                .accessibilityHidden(true)
-
-            Text(text)
-                .font(.vmBody())
-                .foregroundColor(.vmTextPrimary)
-                .textSelection(.enabled)
+        if !text.isEmpty {
+            DisclosureGroup(
+                isExpanded: $isExpanded
+            ) {
+                Text(text)
+                    .font(.vmBody())
+                    .foregroundColor(.vmTextPrimary)
+                    .textSelection(.enabled)
+                    .padding(.top, VMDesignTokens.Spacing.sm)
+            } label: {
+                Text("文字起こし（元のテキスト）")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+            }
+            .tint(.vmTextTertiary)
         }
     }
 }
@@ -721,7 +542,7 @@ struct AudioPlayerPlaceholder: View {
     }
 }
 
-/// プライバシーインジケーター
+/// プライバシーインジケーター（後方互換性のために残す — 詳細画面からは使用しない）
 struct PrivacyIndicator: View {
     var body: some View {
         HStack(spacing: VMDesignTokens.Spacing.sm) {
@@ -747,12 +568,6 @@ struct MemoDetailAIOnboardingSheet: View {
         VStack(spacing: VMDesignTokens.Spacing.xl) {
             Spacer()
 
-            // ヘッダーアイコン
-            Image(systemName: "sparkles")
-                .font(.system(size: 48))
-                .foregroundColor(.vmPrimary)
-                .accessibilityHidden(true)
-
             // タイトル
             Text("AIメモ整理について")
                 .font(.vmTitle2)
@@ -765,24 +580,18 @@ struct MemoDetailAIOnboardingSheet: View {
             // 説明セクション
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
                 onboardingFeatureRow(
-                    icon: "doc.text.magnifyingglass",
                     text: "録音した言葉を、読みやすい日記風の文章に整理します"
                 )
 
                 onboardingFeatureRow(
-                    icon: "lock.shield",
                     text: "あなたの言葉はデバイスの中だけで処理されます。外部に送信されることはありません"
                 )
 
                 onboardingFeatureRow(
-                    icon: "gift",
                     text: "毎月15回まで無料でご利用いただけます"
                 )
             }
             .padding(.horizontal, VMDesignTokens.Spacing.xxl)
-
-            Divider()
-                .padding(.horizontal, VMDesignTokens.Spacing.xxl)
 
             Spacer()
 
@@ -806,18 +615,10 @@ struct MemoDetailAIOnboardingSheet: View {
         .accessibilityLabel("AI分析機能の説明")
     }
 
-    private func onboardingFeatureRow(icon: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: VMDesignTokens.Spacing.md) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(.vmPrimary)
-                .frame(width: 28, alignment: .center)
-                .accessibilityHidden(true)
-
-            Text(text)
-                .font(.vmBody())
-                .foregroundColor(.vmTextSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+    private func onboardingFeatureRow(text: String) -> some View {
+        Text(text)
+            .font(.vmBody())
+            .foregroundColor(.vmTextSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
