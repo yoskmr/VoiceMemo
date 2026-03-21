@@ -22,6 +22,7 @@ public enum ModelContainerConfiguration {
             UserSettingsModel.self,
             AIQuotaRecordModel.self,
             AIProcessingTaskModel.self,
+            CustomDictionaryEntryModel.self,
         ])
 
         let configuration = ModelConfiguration(
