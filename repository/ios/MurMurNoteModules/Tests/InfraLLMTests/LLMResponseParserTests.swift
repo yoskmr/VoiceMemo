@@ -196,6 +196,57 @@ final class LLMResponseParserTests: XCTestCase {
         XCTAssertNil(json)
     }
 
+    // MARK: - "cleaned" キー対応（v3.0.0）
+
+    func testParse_cleanedKey_success() throws {
+        let raw = """
+        {"title": "お出かけメモ", "cleaned": "これから着替えて、うるま市にある冒険の国に行く。", "tags": ["お出かけ"]}
+        """
+
+        let result = try parser.parse(raw, processingTimeMs: 100, provider: .onDeviceLlamaCpp)
+
+        XCTAssertEqual(result.summary?.title, "お出かけメモ")
+        XCTAssertEqual(result.summary?.brief, "これから着替えて、うるま市にある冒険の国に行く。")
+        XCTAssertEqual(result.tags.count, 1)
+        XCTAssertEqual(result.tags[0].label, "お出かけ")
+    }
+
+    func testParse_briefKey_backwardCompatibility() throws {
+        // v2.0.0以前の "brief" キーでも引き続きパースできることを確認
+        let raw = """
+        {"title": "会議の要約", "brief": "本日の会議内容のまとめ", "tags": ["会議"]}
+        """
+
+        let result = try parser.parse(raw, processingTimeMs: 100, provider: .onDeviceLlamaCpp)
+
+        XCTAssertEqual(result.summary?.title, "会議の要約")
+        XCTAssertEqual(result.summary?.brief, "本日の会議内容のまとめ")
+        XCTAssertEqual(result.tags.count, 1)
+    }
+
+    func testParse_cleanedKey_partialParse_success() throws {
+        // tags が欠落しているが cleaned キーがある場合の部分パース
+        let raw = """
+        {"title": "テスト", "cleaned": "清書されたテキスト"}
+        """
+
+        let result = try parser.parse(raw, processingTimeMs: 100, provider: .onDeviceLlamaCpp)
+
+        XCTAssertEqual(result.summary?.title, "テスト")
+        XCTAssertEqual(result.summary?.brief, "清書されたテキスト")
+    }
+
+    func testParse_cleanedKeyPrioritizedOverBrief() throws {
+        // both "cleaned" and "brief" がある場合は "cleaned" を優先
+        let raw = """
+        {"title": "テスト", "cleaned": "cleaned版テキスト", "brief": "brief版テキスト", "tags": []}
+        """
+
+        let result = try parser.parse(raw, processingTimeMs: 100, provider: .onDeviceLlamaCpp)
+
+        XCTAssertEqual(result.summary?.brief, "cleaned版テキスト")
+    }
+
     // MARK: - プロバイダ種別の透過テスト
 
     func testParse_cloudProvider_preservedInResponse() throws {

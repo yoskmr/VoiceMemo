@@ -6,7 +6,7 @@ final class PromptTemplateTests: XCTestCase {
     // MARK: - onDeviceSimple テンプレート
 
     func testOnDeviceSimple_version() {
-        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "2.0.0")
+        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.0.0")
     }
 
     func testOnDeviceSimple_containsPlaceholder() {
@@ -17,8 +17,20 @@ final class PromptTemplateTests: XCTestCase {
         let template = PromptTemplate.onDeviceSimple.userPromptTemplate
         XCTAssertTrue(template.contains("JSON形式"))
         XCTAssertTrue(template.contains("title"))
-        XCTAssertTrue(template.contains("brief"))
+        XCTAssertTrue(template.contains("cleaned"))
         XCTAssertTrue(template.contains("tags"))
+    }
+
+    func testOnDeviceSimple_containsCleaningInstructions() {
+        let template = PromptTemplate.onDeviceSimple.userPromptTemplate
+        XCTAssertTrue(template.contains("要約しない"))
+        XCTAssertTrue(template.contains("清書"))
+        XCTAssertTrue(template.contains("cleaned"))
+    }
+
+    func testOnDeviceSimple_doesNotContainBriefKey() {
+        let template = PromptTemplate.onDeviceSimple.userPromptTemplate
+        XCTAssertFalse(template.contains("\"brief\""))
     }
 
     // MARK: - buildUserPrompt テスト
@@ -55,7 +67,7 @@ final class PromptTemplateTests: XCTestCase {
 
     func testCustomTemplate_buildUserPrompt() {
         let template = PromptTemplate(
-            version: "2.0.0",
+            version: "3.0.0",
             userPromptTemplate: "Summarize: {transcribed_text}"
         )
 

@@ -6,8 +6,8 @@ final class PromptTemplateTests: XCTestCase {
 
     // MARK: - バージョン
 
-    func testOnDeviceSimple_version_is2_0_0() {
-        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "2.0.0")
+    func testOnDeviceSimple_version_is3_0_0() {
+        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.0.0")
     }
 
     // MARK: - プレースホルダー置換
@@ -35,11 +35,11 @@ final class PromptTemplateTests: XCTestCase {
 
     // MARK: - テンプレート内容の確認
 
-    func testOnDeviceSimple_containsJournalTone() {
+    func testOnDeviceSimple_containsNaturalToneInstruction() {
         let template = PromptTemplate.onDeviceSimple.userPromptTemplate
 
-        XCTAssertTrue(template.contains("日記"))
-        XCTAssertTrue(template.contains("温か"))
+        XCTAssertTrue(template.contains("自然なトーン"))
+        XCTAssertTrue(template.contains("雰囲気"))
     }
 
     func testOnDeviceSimple_containsJSONOutputInstruction() {
@@ -47,8 +47,22 @@ final class PromptTemplateTests: XCTestCase {
 
         XCTAssertTrue(template.contains("JSON形式"))
         XCTAssertTrue(template.contains("\"title\""))
-        XCTAssertTrue(template.contains("\"brief\""))
+        XCTAssertTrue(template.contains("\"cleaned\""))
         XCTAssertTrue(template.contains("\"tags\""))
+    }
+
+    func testOnDeviceSimple_containsCleaningInstructions() {
+        let template = PromptTemplate.onDeviceSimple.userPromptTemplate
+
+        XCTAssertTrue(template.contains("要約しない"))
+        XCTAssertTrue(template.contains("清書"))
+        XCTAssertTrue(template.contains("cleaned"))
+    }
+
+    func testOnDeviceSimple_doesNotContainBriefKey() {
+        let template = PromptTemplate.onDeviceSimple.userPromptTemplate
+
+        XCTAssertFalse(template.contains("\"brief\""))
     }
 
     func testOnDeviceSimple_containsTitleLengthConstraint() {

@@ -93,24 +93,74 @@ public final class MockLLMProvider: @unchecked Sendable {
         )
     }
 
+    // MARK: - フィラー除去・簡易清書
+
+    /// 除去対象のフィラーワード一覧
+    private static let fillerWords: [String] = [
+        "えっと", "えーっと", "えーと", "えっ", "えー",
+        "あの", "あのー", "あのう",
+        "まあ", "まぁ",
+        "なんか", "なんていうか",
+        "そのー", "その",
+        "うーん", "うん",
+        "ほら",
+    ]
+
+    /// テキストからフィラーワードを除去する
+    static func removeFillers(from text: String) -> String {
+        var result = text
+        for filler in fillerWords {
+            result = result.replacingOccurrences(of: filler, with: "")
+        }
+        // 連続する空白を1つにまとめ、前後の空白を除去
+        result = result.replacingOccurrences(
+            of: "\\s+",
+            with: " ",
+            options: .regularExpression
+        )
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// フィラー除去後のテキストから簡易タイトルを生成（先頭20文字）
+    static func generateTitle(from cleanedText: String) -> String {
+        let trimmed = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "無題のメモ" }
+        if trimmed.count <= 20 {
+            return trimmed
+        }
+        return String(trimmed.prefix(20))
+    }
+
+    /// 清書テキストを生成（フィラー除去 + 末尾句点補完）
+    static func generateCleanedText(from text: String) -> String {
+        let cleaned = removeFillers(from: text)
+        guard !cleaned.isEmpty else { return text }
+        // 末尾に句点がなければ追加
+        if !cleaned.hasSuffix("。") && !cleaned.hasSuffix("！") && !cleaned.hasSuffix("？") {
+            return cleaned + "。"
+        }
+        return cleaned
+    }
+
     // MARK: - デフォルトモックデータ
 
     /// リクエストに基づいたデフォルトのモックレスポンスを生成する
+    /// 入力テキストの内容に基づいて、簡易的な清書・タイトル生成を行う
     public static func defaultMockResponse(for request: LLMRequest) -> LLMResponse {
+        let inputText = request.text
+        let cleanedText = generateCleanedText(from: inputText)
+        let title = generateTitle(from: removeFillers(from: inputText))
+
         let summary: LLMSummaryResult? = request.tasks.contains(.summarize)
             ? LLMSummaryResult(
-                title: "会議メモの要約",
-                brief: "本日の会議で議論された主要なトピックのまとめです。",
+                title: title,
+                brief: cleanedText,
                 keyPoints: []
             )
             : nil
 
         let tags: [LLMTagResult] = request.tasks.contains(.tagging)
-            ? [
-                LLMTagResult(label: "会議", confidence: 0.9),
-                LLMTagResult(label: "議事録", confidence: 0.85),
-                LLMTagResult(label: "TODO", confidence: 0.7),
-            ]
+            ? generateSimpleTags(from: cleanedText)
             : []
 
         return LLMResponse(
@@ -119,5 +169,43 @@ public final class MockLLMProvider: @unchecked Sendable {
             processingTimeMs: 150,
             provider: .onDeviceLlamaCpp
         )
+    }
+
+    /// 入力テキストから簡易タグを生成する
+    private static func generateSimpleTags(from text: String) -> [LLMTagResult] {
+        var tags: [LLMTagResult] = []
+
+        let tagKeywords: [(keyword: String, tag: String)] = [
+            ("会議", "会議"),
+            ("ミーティング", "会議"),
+            ("買い物", "買い物"),
+            ("料理", "料理"),
+            ("出かけ", "お出かけ"),
+            ("行く", "お出かけ"),
+            ("勉強", "勉強"),
+            ("仕事", "仕事"),
+            ("TODO", "TODO"),
+            ("やること", "TODO"),
+            ("アイデア", "アイデア"),
+            ("思いつ", "アイデア"),
+            ("電話", "連絡"),
+            ("メール", "連絡"),
+        ]
+
+        var addedTags: Set<String> = []
+        for (keyword, tag) in tagKeywords {
+            if text.contains(keyword) && !addedTags.contains(tag) {
+                tags.append(LLMTagResult(label: tag, confidence: 0.8))
+                addedTags.insert(tag)
+                if tags.count >= 3 { break }
+            }
+        }
+
+        // タグが1つも見つからなければ「メモ」を返す
+        if tags.isEmpty {
+            tags.append(LLMTagResult(label: "メモ", confidence: 0.5))
+        }
+
+        return tags
     }
 }

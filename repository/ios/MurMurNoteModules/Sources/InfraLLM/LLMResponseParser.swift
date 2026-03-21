@@ -196,8 +196,26 @@ public struct LLMResponseParser: Sendable {
 // MARK: - 内部デコード用型
 
 /// オンデバイスLLMの出力JSON形式
+/// v3.0.0 では "cleaned" キー、v2.0.0以前では "brief" キーを使用
 struct OnDeviceLLMOutput: Decodable, Sendable {
     let title: String
+    /// 清書テキスト（v3.0.0: "cleaned", v2.0.0以前: "brief"）
     let brief: String
     let tags: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case title, cleaned, brief, tags
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decode(String.self, forKey: .title)
+        // "cleaned"（v3.0.0）を優先、なければ "brief"（v2.0.0以前）にフォールバック
+        if let cleaned = try container.decodeIfPresent(String.self, forKey: .cleaned) {
+            brief = cleaned
+        } else {
+            brief = try container.decode(String.self, forKey: .brief)
+        }
+        tags = try container.decode([String].self, forKey: .tags)
+    }
 }

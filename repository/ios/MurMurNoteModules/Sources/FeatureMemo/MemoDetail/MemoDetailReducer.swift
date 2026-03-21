@@ -440,7 +440,24 @@ public struct MemoDetailReducer {
                 return .none
 
             // T09: AI分析を手動トリガー（初回はオンボーディング表示）
+            // 手動実行専用: UIの「AI分析を実行する」ボタンからのみ呼ばれる。
+            // AppReducer.recordingSaved で自動enqueue済みの場合は重複実行しない。
             case .triggerAIProcessing:
+                // 既にAI処理中・キュー済み・完了済みなら何もしない（重複実行防止）
+                switch state.aiProcessingStatus {
+                case .queued, .processing:
+                    return .none
+                case .completed:
+                    return .none
+                case .idle, .failed:
+                    break
+                }
+
+                // AI要約が既に存在する場合も何もしない（再生成はregenerateAISummaryで行う）
+                if state.aiSummary != nil {
+                    return .none
+                }
+
                 // 初回オンボーディングチェック
                 let hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenAIOnboarding")
                 if !hasSeenOnboarding {
