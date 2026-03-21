@@ -54,8 +54,11 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         return .onDeviceLlamaCpp
     }
 
-    /// 最大入力文字数（オンデバイス制限: ~500日本語文字 ≈ 650トークン）
-    public let maxInputCharacters: Int = 500
+    /// 最大入力文字数
+    /// Apple Intelligence Foundation Models: 4096トークン対応（日本語約3000文字）
+    /// llama.cpp (Phi-3-mini): ~650トークン（日本語約500文字）
+    /// 現在はApple Intelligence優先のため3000文字に設定
+    public let maxInputCharacters: Int = 3000
 
     /// 最小入力文字数（短すぎるテキストはスキップ）
     public let minInputCharacters: Int = 10
