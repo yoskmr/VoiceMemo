@@ -19,6 +19,8 @@ final class RecordingFeatureTests: XCTestCase {
         } withDependencies: {
             $0.audioRecorder.startRecording = { (levels: AsyncStream<AudioLevelUpdate> { $0.finish() }, pcmBuffers: AsyncStream<AVAudioPCMBuffer> { $0.finish() }) }
             $0.sttEngine.startTranscription = { _, _ in AsyncStream<TranscriptionResult> { $0.finish() } }
+            $0.sttEngine.setCustomDictionary = { _ in }
+            $0.customDictionaryClient.getContextualStrings = { [] }
             $0.continuousClock = ImmediateClock()
         }
         // TODO: exhaustivity = .off を解消し、録音開始後のタイマー・STTストリーム等の全エフェクトを明示的に検証する
@@ -396,6 +398,8 @@ final class RecordingFeatureTests: XCTestCase {
         } withDependencies: {
             $0.audioRecorder.startRecording = { (levels: AsyncStream<AudioLevelUpdate> { $0.finish() }, pcmBuffers: AsyncStream<AVAudioPCMBuffer> { $0.finish() }) }
             $0.sttEngine.startTranscription = { _, _ in AsyncStream<TranscriptionResult> { $0.finish() } }
+            $0.sttEngine.setCustomDictionary = { _ in }
+            $0.customDictionaryClient.getContextualStrings = { [] }
             $0.continuousClock = ImmediateClock()
         }
         // TODO: exhaustivity = .off を解消し、権限許可後の自動録音開始エフェクトを明示的に検証する
@@ -446,6 +450,7 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.startRecording = { throw RecordingError.microphonePermissionDenied }
+            $0.customDictionaryClient.getContextualStrings = { [] }
             $0.continuousClock = ImmediateClock()
         }
         // TODO: exhaustivity = .off を解消し、録音開始失敗後のrecordingFailedアクション受信を完全に検証する

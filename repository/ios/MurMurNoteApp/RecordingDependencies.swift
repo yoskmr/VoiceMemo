@@ -40,7 +40,10 @@ extension STTEngineClient: DependencyKey {
             },
             finishTranscription: { try await engine.finishTranscription() },
             stopTranscription: { await engine.stopTranscription() },
-            isAvailable: { await engine.isAvailable() }
+            isAvailable: { await engine.isAvailable() },
+            setCustomDictionary: { dictionary in
+                await engine.setCustomDictionary(dictionary)
+            }
         )
     }()
 }

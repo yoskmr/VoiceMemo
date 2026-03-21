@@ -60,13 +60,70 @@ extension AIProcessingQueueClient: DependencyKey {
     }()
 }
 
-// MARK: CustomDictionaryClient → MVPスタブ実装（カスタム辞書は後で実装）
+// MARK: CustomDictionaryClient → UserDefaults永続化実装
+
+/// カスタム辞書エントリの UserDefaults 永続化キー
+private let customDictionaryUserDefaultsKey = "com.murmurnote.customDictionary.entries"
+
+/// UserDefaults に保存するためのCodable中間構造体
+private struct CodableDictionaryEntry: Codable {
+    let id: String
+    let reading: String
+    let display: String
+
+    init(from entry: DictionaryEntry) {
+        self.id = entry.id.uuidString
+        self.reading = entry.reading
+        self.display = entry.display
+    }
+
+    func toDomainEntry() -> DictionaryEntry? {
+        guard let uuid = UUID(uuidString: id) else { return nil }
+        return DictionaryEntry(id: uuid, reading: reading, display: display)
+    }
+}
 
 extension CustomDictionaryClient: DependencyKey {
-    public static let liveValue = CustomDictionaryClient(
-        loadEntries: { [] },
-        addEntry: { _ in },
-        deleteEntry: { _ in },
-        getContextualStrings: { [] }
-    )
+    public static let liveValue: CustomDictionaryClient = {
+        let defaults = UserDefaults.standard
+
+        /// UserDefaults からエントリ一覧をデコードする
+        func loadEntriesFromDefaults() -> [DictionaryEntry] {
+            guard let data = defaults.data(forKey: customDictionaryUserDefaultsKey) else {
+                return []
+            }
+            let decoder = JSONDecoder()
+            guard let codableEntries = try? decoder.decode([CodableDictionaryEntry].self, from: data) else {
+                return []
+            }
+            return codableEntries.compactMap { $0.toDomainEntry() }
+        }
+
+        /// エントリ一覧を UserDefaults にエンコードして保存する
+        func saveEntriesToDefaults(_ entries: [DictionaryEntry]) throws {
+            let codableEntries = entries.map { CodableDictionaryEntry(from: $0) }
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(codableEntries)
+            defaults.set(data, forKey: customDictionaryUserDefaultsKey)
+        }
+
+        return CustomDictionaryClient(
+            loadEntries: {
+                loadEntriesFromDefaults()
+            },
+            addEntry: { entry in
+                var entries = loadEntriesFromDefaults()
+                entries.append(entry)
+                try saveEntriesToDefaults(entries)
+            },
+            deleteEntry: { id in
+                var entries = loadEntriesFromDefaults()
+                entries.removeAll { $0.id == id }
+                try saveEntriesToDefaults(entries)
+            },
+            getContextualStrings: {
+                loadEntriesFromDefaults().map(\.display)
+            }
+        )
+    }()
 }

@@ -116,6 +116,7 @@ public struct RecordingFeature {
     @Dependency(\.sttEngine) var sttEngine
     @Dependency(\.saveRecordingUseCase) var saveRecordingUseCase
     @Dependency(\.continuousClock) var clock
+    @Dependency(\.customDictionaryClient) var customDictionaryClient
 
     // MARK: - Cancellation IDs
 
@@ -301,6 +302,14 @@ public struct RecordingFeature {
     private func startRecordingEffect() -> Effect<Action> {
         .run { send in
             let (levelStream, pcmStream) = try await audioRecorder.startRecording()
+
+            // カスタム辞書をSTTエンジンに反映（REQ-025: contextualStrings連携）
+            let contextualStrings = (try? await customDictionaryClient.getContextualStrings()) ?? []
+            if !contextualStrings.isEmpty {
+                // reading→display のマッピングとして辞書を構築
+                let dictionary = Dictionary(uniqueKeysWithValues: contextualStrings.map { ($0, $0) })
+                await sttEngine.setCustomDictionary(dictionary)
+            }
 
             // STTエンジン起動（PCMバッファを渡す）
             let transcriptionStream = sttEngine.startTranscription(pcmStream, "ja-JP")
