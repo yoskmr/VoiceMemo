@@ -109,9 +109,8 @@ public struct MemoListView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: VMDesignTokens.Spacing.md, pinnedViews: [.sectionHeaders]) {
-                        // AI分析クォータ表示（80%以上の時だけ表示）
-                        if store.aiQuotaLimit > 0,
-                           Double(store.aiQuotaUsed) / Double(store.aiQuotaLimit) >= 0.8 {
+                        // AI分析クォータ表示（1回以上使用時に表示）
+                        if store.aiQuotaLimit > 0, store.aiQuotaUsed > 0 {
                             AIQuotaProgressBar(
                                 used: store.aiQuotaUsed,
                                 limit: store.aiQuotaLimit,

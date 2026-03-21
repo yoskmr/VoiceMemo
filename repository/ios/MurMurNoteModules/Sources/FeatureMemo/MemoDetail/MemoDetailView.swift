@@ -432,47 +432,15 @@ struct AISummarySection: View {
 
     private func summaryCard(summary: MemoDetailReducer.State.AISummaryState) -> some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            // 要約テキスト（展開/折りたたみ対応）
-            if isExpanded {
-                Text(summary.summaryText)
-                    .font(.vmBody())
-                    .foregroundColor(.vmTextPrimary)
-            } else {
-                Text(summary.summaryText)
-                    .font(.vmBody())
-                    .foregroundColor(.vmTextPrimary)
-                    .lineLimit(collapsedLineLimit)
-            }
-
-            // キーポイント（展開時のみ表示）
-            if isExpanded, !summary.keyPoints.isEmpty {
-                VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
-                    ForEach(summary.keyPoints, id: \.self) { point in
-                        HStack(alignment: .top, spacing: VMDesignTokens.Spacing.xs) {
-                            Text("*")
-                                .foregroundColor(.vmTextTertiary)
-                            Text(point)
-                                .font(.vmCallout)
-                                .foregroundColor(.vmTextSecondary)
-                        }
-                    }
-                }
-            }
-
-            // 展開/折りたたみボタン
-            if let onToggleExpand {
-                Button {
-                    onToggleExpand()
-                } label: {
-                    Text(isExpanded ? "閉じる" : "もっと見る")
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmTextTertiary)
-                }
-            }
+            // 整理テキスト（全文表示）
+            Text(summary.summaryText)
+                .font(.vmBody())
+                .foregroundColor(.vmTextPrimary)
+                .lineSpacing(6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("AI要約: \(summary.summaryText)")
+        .accessibilityLabel(summary.summaryText)
     }
 
     // MARK: - AI要約未生成時のプレースホルダ
