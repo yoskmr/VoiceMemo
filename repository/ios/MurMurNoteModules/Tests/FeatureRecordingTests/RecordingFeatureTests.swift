@@ -490,7 +490,8 @@ final class RecordingFeatureTests: XCTestCase {
                 elapsedTime: 10.0,
                 partialTranscription: "テスト文字起こし",
                 confirmedTranscription: "テスト文字起こし",
-                isPermissionGranted: true
+                isPermissionGranted: true,
+                wasAutoStopped: true
             )
         ) {
             RecordingFeature()
@@ -502,6 +503,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.confirmedTranscription = ""
             $0.elapsedTime = 0
             $0.audioLevel = 0
+            $0.wasAutoStopped = false
         }
 
         await store.receive(.navigateToMemoDetail(memoID))
@@ -523,7 +525,8 @@ final class RecordingFeatureTests: XCTestCase {
                 elapsedTime: 5.0,
                 partialTranscription: "テスト",
                 confirmedTranscription: "テスト",
-                isPermissionGranted: true
+                isPermissionGranted: true,
+                wasAutoStopped: true
             )
         ) {
             RecordingFeature()
@@ -535,6 +538,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.confirmedTranscription = ""
             $0.elapsedTime = 0
             $0.audioLevel = 0
+            $0.wasAutoStopped = false
         }
     }
 
@@ -547,5 +551,43 @@ final class RecordingFeatureTests: XCTestCase {
         }
 
         await store.send(.viewMemoTapped)
+    }
+
+    // MARK: - 正常系: timerTicked → 最大時間到達で自動停止
+
+    /// 最大録音時間に到達した場合、wasAutoStoppedがtrueになりstopButtonTappedが送信される
+    func test_timerTicked_最大時間到達_wasAutoStoppedがtrueになりstopButtonTappedが送信される() async {
+        let recordingResult = RecordingResult(
+            fileURL: URL(fileURLWithPath: "/tmp/test.m4a"),
+            duration: 300.0,
+            format: .m4a
+        )
+
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingStatus: .recording,
+                elapsedTime: 299,
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        } withDependencies: {
+            $0.audioRecorder.stopRecording = { recordingResult }
+            $0.audioFileStore.moveToDocuments = { _, id in
+                URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
+            }
+            $0.audioFileStore.setFileProtection = { _ in }
+            $0.voiceMemoRepository.save = { _ in }
+            $0.temporaryRecordingStore.cleanup = { _ in }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off
+
+        await store.send(.timerTicked) {
+            $0.elapsedTime = 300
+            $0.wasAutoStopped = true
+        }
+
+        await store.receive(\.stopButtonTapped)
     }
 }

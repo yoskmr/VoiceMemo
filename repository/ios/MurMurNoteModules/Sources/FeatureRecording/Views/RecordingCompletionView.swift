@@ -50,6 +50,14 @@ struct RecordingCompletionView: View {
                     .transition(.opacity)
             }
 
+            // 自動停止メッセージ（5分に達した場合のみ）
+            if store.completionStage != .initial && store.wasAutoStopped {
+                Text("5分に達したので録音を終了しました")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+                    .transition(.opacity)
+            }
+
             // 文字起こしプレビュー（最大4行）
             if store.completionStage == .preview || store.completionStage == .cta {
                 Text(transcriptionPreview)

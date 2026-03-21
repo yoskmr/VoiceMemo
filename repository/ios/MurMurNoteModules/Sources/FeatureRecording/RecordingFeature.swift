@@ -37,6 +37,8 @@ public struct RecordingFeature {
         public var isPermissionGranted: Bool = false
         /// エラーメッセージ（nil = エラーなし）
         public var errorMessage: String?
+        /// 5分制限による自動停止が行われたかどうか
+        public var wasAutoStopped: Bool = false
         /// 完了画面の表示段階（Reducer駆動）
         public var completionStage: CompletionStage = .initial
 
@@ -50,6 +52,7 @@ public struct RecordingFeature {
             confidenceLevel: ConfidenceLevel = .high,
             isPermissionGranted: Bool = false,
             errorMessage: String? = nil,
+            wasAutoStopped: Bool = false,
             completionStage: CompletionStage = .initial
         ) {
             self.recordingID = recordingID
@@ -61,6 +64,7 @@ public struct RecordingFeature {
             self.confidenceLevel = confidenceLevel
             self.isPermissionGranted = isPermissionGranted
             self.errorMessage = errorMessage
+            self.wasAutoStopped = wasAutoStopped
             self.completionStage = completionStage
         }
 
@@ -156,6 +160,7 @@ public struct RecordingFeature {
                 state.partialTranscription = ""
                 state.confirmedTranscription = ""
                 state.errorMessage = nil
+                state.wasAutoStopped = false
                 return .merge(
                     startRecordingEffect(),
                     startTimerEffect()
@@ -219,6 +224,7 @@ public struct RecordingFeature {
                 state.elapsedTime += 1
                 // 最大録音時間に達したら自動停止
                 if state.elapsedTime >= RecordingFeature.maxRecordingDuration {
+                    state.wasAutoStopped = true
                     return .send(.stopButtonTapped)
                 }
                 return .none
@@ -282,6 +288,7 @@ public struct RecordingFeature {
                 state.confirmedTranscription = ""
                 state.elapsedTime = 0
                 state.audioLevel = 0
+                state.wasAutoStopped = false
                 state.completionStage = .initial
                 return .merge(
                     .cancel(id: CancelID.completionStage),
@@ -295,6 +302,7 @@ public struct RecordingFeature {
                 state.confirmedTranscription = ""
                 state.elapsedTime = 0
                 state.audioLevel = 0
+                state.wasAutoStopped = false
                 state.completionStage = .initial
                 return .cancel(id: CancelID.completionStage)
 
