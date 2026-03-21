@@ -22,7 +22,7 @@ struct RecordingCompletionView: View {
                 .opacity(showContent ? 1 : 0)
 
             // 温かいメッセージ
-            Text("ちゃんと残りました")
+            Text("書きとめました")
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextPrimary)
                 .opacity(showContent ? 1 : 0)
