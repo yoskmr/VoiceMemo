@@ -17,10 +17,22 @@ public struct PromptTemplate: Sendable, Equatable {
     }
 
     /// プレースホルダーをテキストで置換してプロンプトを構築する
-    /// - Parameter text: 文字起こしテキスト
+    /// - Parameters:
+    ///   - text: 文字起こしテキスト
+    ///   - customDictionary: カスタム辞書（固有名詞リスト）。空でなければプロンプトに注入
     /// - Returns: LLMに送信するプロンプト文字列
-    public func buildUserPrompt(text: String) -> String {
-        userPromptTemplate.replacingOccurrences(of: "{transcribed_text}", with: text)
+    public func buildUserPrompt(text: String, customDictionary: [String] = []) -> String {
+        var prompt = userPromptTemplate.replacingOccurrences(of: "{transcribed_text}", with: text)
+        prompt = prompt.replacingOccurrences(of: "{custom_dictionary}", with: formatDictionary(customDictionary))
+        return prompt
+    }
+
+    private func formatDictionary(_ words: [String]) -> String {
+        if words.isEmpty {
+            return ""
+        }
+        let list = words.prefix(30).joined(separator: "、")
+        return "\n固有名詞リスト（音声認識の誤変換を修正する際に参照）:\n\(list)"
     }
 
     // MARK: - 定義済みテンプレート
@@ -46,6 +58,8 @@ public struct PromptTemplate: Sendable, Equatable {
         - 句読点を適切に入れ、読みやすくする
         - 話者の言葉遣いや雰囲気はできるだけそのまま残す
         - 堅い文体にしない。話していた時の自然なトーンを大切にする
+        - タイトルは「音声メモの文字起こし」のような汎用的なものにせず、内容に基づいた具体的なものにする
+        {custom_dictionary}
 
         メモ: {transcribed_text}
 

@@ -54,7 +54,8 @@ extension AIProcessingQueueClient: DependencyKey {
             modelContainer: sharedAIModelContainer,
             llmProvider: LLMProviderClient.liveValue,
             aiQuota: AIQuotaClient.liveValue,
-            voiceMemoRepository: VoiceMemoRepositoryClient.liveValue
+            voiceMemoRepository: VoiceMemoRepositoryClient.liveValue,
+            customDictionaryClient: CustomDictionaryClient.liveValue
         )
         return queue.toClient()
     }()

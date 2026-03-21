@@ -27,6 +27,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     private let llmProvider: LLMProviderClient
     private let aiQuota: AIQuotaClient
     private let voiceMemoRepository: VoiceMemoRepositoryClient
+    private let customDictionaryClient: CustomDictionaryClient
 
     /// メモID → ステータス通知用の continuation マップ
     private var statusContinuations: [UUID: [UUID: AsyncStream<AIProcessingStatus>.Continuation]] = [:]
@@ -43,12 +44,16 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
         modelContainer: ModelContainer,
         llmProvider: LLMProviderClient,
         aiQuota: AIQuotaClient,
-        voiceMemoRepository: VoiceMemoRepositoryClient
+        voiceMemoRepository: VoiceMemoRepositoryClient,
+        customDictionaryClient: CustomDictionaryClient = CustomDictionaryClient(
+            loadEntries: { [] }, addEntry: { _ in }, deleteEntry: { _ in }, getContextualStrings: { [] }
+        )
     ) {
         self.modelContainer = modelContainer
         self.llmProvider = llmProvider
         self.aiQuota = aiQuota
         self.voiceMemoRepository = voiceMemoRepository
+        self.customDictionaryClient = customDictionaryClient
     }
 
     @MainActor
@@ -213,10 +218,14 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             // キャンセルチェック
             try Task.checkCancellation()
 
+            // カスタム辞書取得（固有名詞の誤変換修正用）
+            let customWords = (try? await customDictionaryClient.getContextualStrings()) ?? []
+
             // LLM推論リクエスト構築
             let request = LLMRequest(
                 text: transcriptionText,
-                tasks: [.summarize, .tagging]
+                tasks: [.summarize, .tagging],
+                customDictionary: customWords
             )
 
             // ステータス通知: processing (50%)

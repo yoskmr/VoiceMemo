@@ -330,8 +330,10 @@ public struct RecordingFeature {
 
             // カスタム辞書をSTTエンジンに反映（REQ-025: contextualStrings連携）
             let contextualStrings = (try? await customDictionaryClient.getContextualStrings()) ?? []
+            #if DEBUG
+            print("[Dict] カスタム辞書: \(contextualStrings.count)件 \(contextualStrings)")
+            #endif
             if !contextualStrings.isEmpty {
-                // reading→display のマッピングとして辞書を構築
                 let dictionary = Dictionary(uniqueKeysWithValues: contextualStrings.map { ($0, $0) })
                 await sttEngine.setCustomDictionary(dictionary)
             }

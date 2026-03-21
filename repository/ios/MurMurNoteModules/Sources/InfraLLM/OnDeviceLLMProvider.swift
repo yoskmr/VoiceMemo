@@ -102,7 +102,7 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         }
 
         // 3. プロンプト構築
-        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: request.text)
+        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: request.text, customDictionary: request.customDictionary)
         logger.debug("プロンプト構築完了: \(prompt.prefix(100))...")
 
         // 4. 推論実行

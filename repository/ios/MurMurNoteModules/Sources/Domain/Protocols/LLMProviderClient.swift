@@ -25,16 +25,20 @@ public struct LLMRequest: Sendable, Equatable {
     public let language: String
     /// 最大入力トークン数（オンデバイス制限）
     public let maxTokens: Int
+    /// カスタム辞書（固有名詞リスト、音声認識の誤変換修正に使用）
+    public let customDictionary: [String]
 
     public init(
         text: String,
         tasks: Set<LLMTask>,
         language: String = "ja",
-        maxTokens: Int = 650
+        maxTokens: Int = 650,
+        customDictionary: [String] = []
     ) {
         self.text = text
         self.tasks = tasks
         self.language = language
+        self.customDictionary = customDictionary
         self.maxTokens = maxTokens
     }
 }
