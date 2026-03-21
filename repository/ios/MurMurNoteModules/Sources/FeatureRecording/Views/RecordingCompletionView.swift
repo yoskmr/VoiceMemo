@@ -70,11 +70,11 @@ struct RecordingCompletionView: View {
                     HStack(spacing: VMDesignTokens.Spacing.sm) {
                         Image(systemName: "sparkles")
                             .foregroundColor(.vmInfo)
-                        Text("AI分析をバックグラウンドで実行中")
+                        Text("メモを整理しています")
                             .font(.vmCallout)
                             .foregroundColor(.vmTextSecondary)
                     }
-                    Text("要約・タグ付け・感情分析を自動で行います")
+                    Text("話した内容を読みやすい文章に整えています")
                         .font(.vmCaption1)
                         .foregroundColor(.vmTextTertiary)
                 }

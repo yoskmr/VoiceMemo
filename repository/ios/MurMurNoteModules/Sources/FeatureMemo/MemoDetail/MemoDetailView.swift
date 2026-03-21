@@ -508,7 +508,7 @@ struct AISummarySection: View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
             // ヘッダー: AI要約ラベル + 処理場所バッジ
             HStack {
-                Label("AI要約", systemImage: "sparkles")
+                Label("AIメモ整理", systemImage: "sparkles")
                     .font(.vmHeadline)
                     .foregroundColor(.vmPrimary)
                 Spacer()
@@ -604,7 +604,7 @@ struct AISummarySection: View {
 
     private var placeholderCard: some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            Label("AI要約", systemImage: "sparkles")
+            Label("AIメモ整理", systemImage: "sparkles")
                 .font(.vmHeadline)
                 .foregroundColor(.vmTextTertiary)
             Text("AI要約はまだ生成されていません")

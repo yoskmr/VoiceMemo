@@ -23,7 +23,7 @@ public struct AIOnboardingView: View {
                 .accessibilityHidden(true)
 
             // タイトル
-            Text("AI分析機能について")
+            Text("AIメモ整理について")
                 .font(.vmTitle2)
                 .foregroundColor(.vmTextPrimary)
                 .multilineTextAlignment(.center)
@@ -35,12 +35,12 @@ public struct AIOnboardingView: View {
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
                 featureRow(
                     icon: "doc.text.magnifyingglass",
-                    text: "録音内容をAIが自動で要約・タグ付けします"
+                    text: "録音した言葉を、読みやすい日記風の文章に整理します"
                 )
 
                 featureRow(
                     icon: "lock.shield",
-                    text: "この処理はお使いのデバイス上で行われます。テキストは外部に送信されません"
+                    text: "あなたの言葉はデバイスの中だけで処理されます。外部に送信されることはありません"
                 )
 
                 featureRow(
