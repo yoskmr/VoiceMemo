@@ -223,21 +223,32 @@ public struct LLMResponseParser: Sendable {
             }
         }
 
-        // "cleaned": "..." または "brief": "..." を抽出（最長マッチ）
+        // "cleaned": "..." または "brief": "..." を抽出
+        // 値の終端は次のJSONキー（"tags"等）の手前、または閉じ引用符+カンマ/ブレース
         for key in ["cleaned", "brief"] {
             let pattern = #""\#(key)"\s*:\s*""#
             if let keyRange = text.range(of: pattern, options: .regularExpression) {
                 let afterKey = text[keyRange.upperBound...]
-                // 次の "," や "}" や末尾の " を探す（ただし途中で切れている場合もある）
-                // 最後の引用符を探すか、テキスト末尾まで取得
                 var content = String(afterKey)
-                // 末尾の不完全部分を削除（", "} 等）
-                if let lastQuote = content.lastIndex(of: "\"") {
-                    content = String(content[content.startIndex..<lastQuote])
+
+                // 次のJSONキー（"tags" 等）の直前で切る
+                // パターン: 改行 + 空白 + "キー名" が来たらそこが区切り
+                let nextKeyPatterns = [#"\n\s*"tags""#, #"\n\s*"title""#, #",\s*\n\s*"tags""#]
+                for nextKeyPattern in nextKeyPatterns {
+                    if let nextKeyRange = content.range(of: nextKeyPattern, options: .regularExpression) {
+                        content = String(content[content.startIndex..<nextKeyRange.lowerBound])
+                        break
+                    }
                 }
-                // エスケープされた引用符を元に戻す
+
+                // 末尾の引用符・カンマ・空白・ブレースを除去
+                content = content
+                    .replacingOccurrences(of: #""\s*,?\s*$"#, with: "", options: .regularExpression)
+                    .replacingOccurrences(of: #""\s*\}?\s*$"#, with: "", options: .regularExpression)
+                // エスケープされた文字を復元
                 content = content.replacingOccurrences(of: "\\\"", with: "\"")
                     .replacingOccurrences(of: "\\n", with: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 if !content.isEmpty {
                     cleaned = content
                     break
