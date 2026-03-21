@@ -103,9 +103,14 @@ public final class DeviceCapabilityChecker: Sendable {
         return availableMemory > 2 * 1024 * 1024 * 1024  // 2GB以上
     }
 
-    /// 物理メモリ合計（GB）
+    /// 物理メモリ合計（GB、切り上げ）
+    /// 注意: OSがメモリの一部を予約するため、8GBデバイスでも physicalMemory が
+    /// 約7.7GBと報告される。切り上げで実際のハードウェア仕様に合わせる。
     public var totalMemoryGB: UInt64 {
-        environment.physicalMemory / (1024 * 1024 * 1024)
+        let bytes = environment.physicalMemory
+        let gb = bytes / (1024 * 1024 * 1024)
+        let remainder = bytes % (1024 * 1024 * 1024)
+        return remainder > 0 ? gb + 1 : gb
     }
 
     /// チップ世代番号（A16 -> 16, A17 -> 17 等）

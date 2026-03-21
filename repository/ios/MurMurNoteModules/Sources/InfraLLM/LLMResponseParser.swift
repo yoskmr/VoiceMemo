@@ -165,10 +165,11 @@ public struct LLMResponseParser: Sendable {
         }
 
         let title = (json["title"] as? String) ?? ""
-        let brief = (json["brief"] as? String) ?? ""
+        // "cleaned"（v3.0.0）と "brief"（v2.0.0以前）の両方に対応
+        let brief = (json["cleaned"] as? String) ?? (json["brief"] as? String) ?? ""
         let tags = (json["tags"] as? [String]) ?? []
 
-        // title と brief の両方が空なら部分パースも失敗とする
+        // title と cleaned/brief の両方が空なら部分パースも失敗とする
         if title.isEmpty && brief.isEmpty {
             return nil
         }

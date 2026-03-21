@@ -214,11 +214,18 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
     /// フォールバック時: MockLLMProvider に委譲
     private func internalProcess(_ request: LLMRequest, prompt: String) async throws -> LLMResponse {
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, macOS 26.0, *), capabilityChecker.supportsAppleIntelligence {
-            return try await processWithFoundationModels(request, prompt: prompt)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let aiSupported = capabilityChecker.supportsAppleIntelligence
+            logger.info("[LLM] canImport(FoundationModels)=true, supportsAppleIntelligence=\(aiSupported), chip=\(self.capabilityChecker.chipGeneration), mem=\(self.capabilityChecker.totalMemoryGB)GB")
+            if aiSupported {
+                return try await processWithFoundationModels(request, prompt: prompt)
+            }
         }
+        #else
+        logger.info("[LLM] canImport(FoundationModels)=false → Mockフォールバック")
         #endif
         // フォールバック: MockLLMProvider を使用
+        logger.info("[LLM] Mockフォールバックを使用")
         return try await mockProvider.process(request)
     }
 
