@@ -46,6 +46,7 @@ struct AppReducer {
     }
 
     @Dependency(\.fts5IndexManager) var fts5IndexManager
+    @Dependency(\.aiProcessingQueue) var aiProcessingQueue
 
     var body: some ReducerOf<Self> {
         Scope(state: \.recording, action: \.recording) {
@@ -63,32 +64,48 @@ struct AppReducer {
                 state.selectedTab = tab
                 return .none
 
-            // 録音完了 → FTS5インデックス更新（完了画面表示中にバックグラウンドで実行）
+            // 録音完了 → FTS5インデックス更新 + AI処理キュー追加（完了画面表示中にバックグラウンドで実行）
             case let .recording(.recordingSaved(memo)):
-                return .run { [fts5IndexManager] _ in
-                    // 保存されたメモのテキストをFTS5インデックスに追加
-                    let title = memo.title
-                    let text = memo.transcription?.fullText ?? ""
-                    #if DEBUG
-                    print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text_len=\(text.count)")
-                    #endif
-                    do {
-                        try fts5IndexManager.upsertIndex(
-                            memo.id.uuidString,
-                            title,
-                            text,
-                            memo.aiSummary?.summaryText ?? "",
-                            memo.tags.map(\.name).joined(separator: " ")
-                        )
+                return .merge(
+                    .run { [fts5IndexManager] _ in
+                        // 保存されたメモのテキストをFTS5インデックスに追加
+                        let title = memo.title
+                        let text = memo.transcription?.fullText ?? ""
                         #if DEBUG
-                        print("[FTS5] upsert 成功")
+                        print("[FTS5] upsert: id=\(memo.id.uuidString.prefix(8)), title='\(title.prefix(20))', text_len=\(text.count)")
                         #endif
-                    } catch {
-                        #if DEBUG
-                        print("[FTS5] upsert エラー: \(error)")
-                        #endif
+                        do {
+                            try fts5IndexManager.upsertIndex(
+                                memo.id.uuidString,
+                                title,
+                                text,
+                                memo.aiSummary?.summaryText ?? "",
+                                memo.tags.map(\.name).joined(separator: " ")
+                            )
+                            #if DEBUG
+                            print("[FTS5] upsert 成功")
+                            #endif
+                        } catch {
+                            #if DEBUG
+                            print("[FTS5] upsert エラー: \(error)")
+                            #endif
+                        }
+                    },
+                    // AI処理を自動実行（録音完了後にバックグラウンドで要約・タグ付けを開始）
+                    .run { [aiProcessingQueue] _ in
+                        do {
+                            try await aiProcessingQueue.enqueueProcessing(memo.id)
+                            #if DEBUG
+                            print("[AI] enqueueProcessing 成功: id=\(memo.id.uuidString.prefix(8))")
+                            #endif
+                        } catch {
+                            // Phase 3aではオンデバイスのみなので失敗してもアプリは続行
+                            #if DEBUG
+                            print("[AI] enqueueProcessing エラー（無視）: \(error)")
+                            #endif
+                        }
                     }
-                }
+                )
 
             // 「メモを見る」タップ → メモ一覧タブに切替 + リフレッシュ + メモ詳細遷移
             case let .recording(.navigateToMemoDetail(memoID)):

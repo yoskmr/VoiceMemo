@@ -31,15 +31,20 @@ public struct SettingsReducer {
         /// カスタム辞書のサブ State
         public var customDictionary = CustomDictionaryReducer.State()
 
+        /// UserDefaults キー: 感情分析オプトイン
+        static let emotionAnalysisKey = "emotionAnalysisEnabled"
+
         public init(
             showComingSoonAlert: Bool = false,
             comingSoonFeature: ComingSoonFeature? = nil,
-            emotionAnalysisEnabled: Bool = false,
+            emotionAnalysisEnabled: Bool? = nil,
             customDictionary: CustomDictionaryReducer.State = .init()
         ) {
             self.showComingSoonAlert = showComingSoonAlert
             self.comingSoonFeature = comingSoonFeature
+            // UserDefaults から読み込み（明示的な値が渡された場合はそちらを優先）
             self.emotionAnalysisEnabled = emotionAnalysisEnabled
+                ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
             self.customDictionary = customDictionary
         }
     }
@@ -79,8 +84,8 @@ public struct SettingsReducer {
 
             case let .emotionAnalysisToggled(isEnabled):
                 state.emotionAnalysisEnabled = isEnabled
-                // TODO: UserSettingsRepository 実装時に UserDefaults/@AppStorage 相当の永続化を追加する
-                // 現在はメモリ上のみで保持され、アプリ再起動時にリセットされる
+                // UserDefaults に永続化（アプリ再起動後も設定が保持される）
+                UserDefaults.standard.set(isEnabled, forKey: State.emotionAnalysisKey)
                 return .none
 
             case .customDictionary:

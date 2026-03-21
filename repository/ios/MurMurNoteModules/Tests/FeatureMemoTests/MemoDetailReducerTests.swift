@@ -457,6 +457,9 @@ final class MemoDetailReducerTests: XCTestCase {
     // MARK: - Test 13: T09 regenerateAISummary → AI処理キューに追加
 
     func test_regenerateAISummary_AI処理キューに追加() async {
+        UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+        defer { UserDefaults.standard.removeObject(forKey: "hasSeenAIOnboarding") }
+
         var enqueuedMemoID: UUID?
         let store = TestStore(
             initialState: MemoDetailReducer.State(memoID: testMemoID)
@@ -499,6 +502,9 @@ final class MemoDetailReducerTests: XCTestCase {
     // MARK: - Test 15: T09 triggerAIProcessing → AI処理キューに追加
 
     func test_triggerAIProcessing_AI処理をトリガー() async {
+        UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+        defer { UserDefaults.standard.removeObject(forKey: "hasSeenAIOnboarding") }
+
         var enqueuedMemoID: UUID?
         let store = TestStore(
             initialState: MemoDetailReducer.State(memoID: testMemoID)

@@ -17,6 +17,9 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
     // MARK: - Test 1: AI処理トリガー → ステータス変化 → 完了 → リロード → 要約表示
 
     func test_AIフルフロー_トリガーから要約表示まで() async {
+        UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+        defer { UserDefaults.standard.removeObject(forKey: "hasSeenAIOnboarding") }
+
         // 初期メモ（AI要約なし）
         let initialEntity = makeEntity(
             transcription: TranscriptionEntity(
@@ -132,6 +135,9 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
     // MARK: - Test 2: 月上限到達シナリオ
 
     func test_AI処理_月上限到達_quotaExceeded表示() async {
+        UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+        defer { UserDefaults.standard.removeObject(forKey: "hasSeenAIOnboarding") }
+
         let initialEntity = makeEntity(
             transcription: TranscriptionEntity(
                 fullText: "テスト用のメモテキストです。",
@@ -178,6 +184,9 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
     // MARK: - Test 3: regenerateAISummary → 再生成
 
     func test_AI再生成_既存要約がある状態から再生成() async {
+        UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+        defer { UserDefaults.standard.removeObject(forKey: "hasSeenAIOnboarding") }
+
         let summaryDate = Date(timeIntervalSince1970: 1_700_000_100)
         let initialEntity = makeEntity(
             transcription: TranscriptionEntity(
@@ -438,6 +447,9 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
     // MARK: - Test 9: triggerAIProcessing エラー時のフォールバック
 
     func test_triggerAIProcessing_エンキューエラー_failedステータス() async {
+        UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+        defer { UserDefaults.standard.removeObject(forKey: "hasSeenAIOnboarding") }
+
         let store = TestStore(
             initialState: MemoDetailReducer.State(memoID: testMemoID)
         ) {

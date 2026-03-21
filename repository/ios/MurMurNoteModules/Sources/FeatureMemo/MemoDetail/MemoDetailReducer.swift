@@ -49,6 +49,9 @@ public struct MemoDetailReducer {
         // AI要約 UI 状態（T10: AI要約・タグUI実体化）
         public var isSummaryExpanded: Bool = false
 
+        // AIオンボーディング表示フラグ
+        public var showAIOnboarding: Bool = false
+
         // UI状態
         public var isLoading: Bool = false
         public var errorMessage: String?
@@ -75,6 +78,7 @@ public struct MemoDetailReducer {
             remainingQuota: Int = 15,
             quotaLimit: Int = 15,
             isSummaryExpanded: Bool = false,
+            showAIOnboarding: Bool = false,
             isLoading: Bool = false,
             errorMessage: String? = nil,
             showDeleteConfirmation: Bool = false
@@ -99,6 +103,7 @@ public struct MemoDetailReducer {
             self.remainingQuota = remainingQuota
             self.quotaLimit = quotaLimit
             self.isSummaryExpanded = isSummaryExpanded
+            self.showAIOnboarding = showAIOnboarding
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.showDeleteConfirmation = showDeleteConfirmation
@@ -174,6 +179,8 @@ public struct MemoDetailReducer {
         case toggleSummaryExpanded
         /// AI分析を手動トリガーする（未生成時のプレースホルダからの呼び出し）
         case triggerAIProcessing
+        /// AIオンボーディングを閉じた → フラグ保存 → AI処理実行
+        case aiOnboardingDismissed
         /// クォータ情報の受信（T09）
         case _quotaInfoLoaded(remaining: Int, limit: Int)
 
@@ -408,8 +415,15 @@ public struct MemoDetailReducer {
                 }
                 return .none
 
-            // T09: AI要約の再生成（AIProcessingQueueClient.enqueueProcessing呼び出し）
+            // T09: AI要約の再生成（初回はオンボーディング表示）
             case .regenerateAISummary:
+                // 初回オンボーディングチェック
+                let hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenAIOnboarding")
+                if !hasSeenOnboarding {
+                    state.showAIOnboarding = true
+                    return .none
+                }
+
                 state.aiProcessingStatus = .queued
                 let memoID = state.memoID
                 return .run { send in
@@ -425,8 +439,15 @@ public struct MemoDetailReducer {
                 state.isSummaryExpanded.toggle()
                 return .none
 
-            // T09: AI分析を手動トリガー
+            // T09: AI分析を手動トリガー（初回はオンボーディング表示）
             case .triggerAIProcessing:
+                // 初回オンボーディングチェック
+                let hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenAIOnboarding")
+                if !hasSeenOnboarding {
+                    state.showAIOnboarding = true
+                    return .none
+                }
+
                 state.aiProcessingStatus = .queued
                 let memoID = state.memoID
                 return .run { send in
@@ -436,6 +457,13 @@ public struct MemoDetailReducer {
                         .failed(.processingFailed(error.localizedDescription))
                     ))
                 }
+
+            // AIオンボーディング閉じ → フラグ保存 → AI処理実行
+            case .aiOnboardingDismissed:
+                state.showAIOnboarding = false
+                UserDefaults.standard.set(true, forKey: "hasSeenAIOnboarding")
+                // オンボーディング完了後にAI処理を実行
+                return .send(.triggerAIProcessing)
 
             // T09: クォータ情報受信
             case let ._quotaInfoLoaded(remaining, limit):
