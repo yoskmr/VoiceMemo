@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Domain
 import Foundation
 
 /// 設定画面のTCA Reducer
@@ -30,6 +31,12 @@ public struct SettingsReducer {
         public var emotionAnalysisEnabled: Bool = false
         /// カスタム辞書のサブ State
         public var customDictionary = CustomDictionaryReducer.State()
+        /// AI処理回数リセット確認ダイアログ表示フラグ
+        public var showResetQuotaConfirmation: Bool = false
+        /// 今月のAI処理使用回数
+        public var aiQuotaUsed: Int = 0
+        /// AI処理月次上限
+        public var aiQuotaLimit: Int = 15
 
         /// UserDefaults キー: 感情分析オプトイン
         static let emotionAnalysisKey = "emotionAnalysisEnabled"
@@ -38,7 +45,10 @@ public struct SettingsReducer {
             showComingSoonAlert: Bool = false,
             comingSoonFeature: ComingSoonFeature? = nil,
             emotionAnalysisEnabled: Bool? = nil,
-            customDictionary: CustomDictionaryReducer.State = .init()
+            customDictionary: CustomDictionaryReducer.State = .init(),
+            showResetQuotaConfirmation: Bool = false,
+            aiQuotaUsed: Int = 0,
+            aiQuotaLimit: Int = 15
         ) {
             self.showComingSoonAlert = showComingSoonAlert
             self.comingSoonFeature = comingSoonFeature
@@ -46,6 +56,9 @@ public struct SettingsReducer {
             self.emotionAnalysisEnabled = emotionAnalysisEnabled
                 ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
             self.customDictionary = customDictionary
+            self.showResetQuotaConfirmation = showResetQuotaConfirmation
+            self.aiQuotaUsed = aiQuotaUsed
+            self.aiQuotaLimit = aiQuotaLimit
         }
     }
 
@@ -60,9 +73,23 @@ public struct SettingsReducer {
         case emotionAnalysisToggled(Bool)
         /// カスタム辞書のサブ Action
         case customDictionary(CustomDictionaryReducer.Action)
+        /// 画面表示時
+        case onAppear
+        /// AI処理回数の取得結果
+        case aiQuotaLoaded(used: Int, limit: Int)
+        /// AI処理回数リセットボタンタップ
+        case resetQuotaTapped
+        /// リセット確認ダイアログで「リセット」を選択
+        case resetQuotaConfirmed
+        /// リセット確認ダイアログで「キャンセル」
+        case resetQuotaDismissed
+        /// リセット完了
+        case resetQuotaCompleted
     }
 
     // MARK: - Reducer Body
+
+    @Dependency(\.aiQuota) var aiQuota
 
     public init() {}
 
@@ -89,6 +116,37 @@ public struct SettingsReducer {
                 return .none
 
             case .customDictionary:
+                return .none
+
+            case .onAppear:
+                return .run { [aiQuota] send in
+                    let used = try await aiQuota.currentUsage()
+                    let limit = aiQuota.monthlyLimit()
+                    await send(.aiQuotaLoaded(used: used, limit: limit))
+                }
+
+            case let .aiQuotaLoaded(used, limit):
+                state.aiQuotaUsed = used
+                state.aiQuotaLimit = limit
+                return .none
+
+            case .resetQuotaTapped:
+                state.showResetQuotaConfirmation = true
+                return .none
+
+            case .resetQuotaConfirmed:
+                state.showResetQuotaConfirmation = false
+                return .run { [aiQuota] send in
+                    try await aiQuota.resetUsage()
+                    await send(.resetQuotaCompleted)
+                }
+
+            case .resetQuotaDismissed:
+                state.showResetQuotaConfirmation = false
+                return .none
+
+            case .resetQuotaCompleted:
+                state.aiQuotaUsed = 0
                 return .none
             }
         }

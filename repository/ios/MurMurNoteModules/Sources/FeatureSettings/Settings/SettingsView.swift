@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import SharedUI
+import SharedUtil
 import SwiftUI
 
 /// 設定画面
@@ -98,6 +99,24 @@ public struct SettingsView: View {
                 } header: {
                     Text("その他")
                 }
+
+                // MARK: - デバッグセクション
+                if AppEnvironment.current.isDebugMenuEnabled {
+                    Section {
+                        Button(role: .destructive) {
+                            store.send(.resetQuotaTapped)
+                        } label: {
+                            HStack {
+                                Text("AI処理回数をリセット")
+                                Spacer()
+                                Text("\(store.aiQuotaUsed)/\(store.aiQuotaLimit)")
+                                    .foregroundColor(.vmTextTertiary)
+                            }
+                        }
+                    } header: {
+                        Text("デバッグ（\(AppEnvironment.current == .development ? "Development" : "Staging")）")
+                    }
+                }
             }
             #if os(iOS)
             .listStyle(.insetGrouped)
@@ -106,6 +125,9 @@ public struct SettingsView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
+            .onAppear {
+                store.send(.onAppear)
+            }
             .alert(
                 store.comingSoonFeature?.displayName ?? "",
                 isPresented: Binding(
@@ -116,6 +138,20 @@ public struct SettingsView: View {
                 Button("OK") {}
             } message: {
                 Text("この機能は今後のアップデートで追加予定です")
+            }
+            .alert(
+                "AI処理回数をリセット",
+                isPresented: Binding(
+                    get: { store.showResetQuotaConfirmation },
+                    set: { if !$0 { store.send(.resetQuotaDismissed) } }
+                )
+            ) {
+                Button("リセット", role: .destructive) {
+                    store.send(.resetQuotaConfirmed)
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("今月のAI処理回数を0にリセットします")
             }
         }
     }

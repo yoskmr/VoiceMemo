@@ -17,6 +17,8 @@ public struct AIQuotaClient: Sendable {
     public var nextResetDate: @Sendable () -> Date
     /// 残り回数を取得
     public var remainingCount: @Sendable () async throws -> Int
+    /// 今月の使用回数をリセット（デバッグ用）
+    public var resetUsage: @Sendable () async throws -> Void
 
     public init(
         canProcess: @escaping @Sendable () async throws -> Bool,
@@ -24,7 +26,8 @@ public struct AIQuotaClient: Sendable {
         currentUsage: @escaping @Sendable () async throws -> Int,
         monthlyLimit: @escaping @Sendable () -> Int = { 15 },
         nextResetDate: @escaping @Sendable () -> Date,
-        remainingCount: @escaping @Sendable () async throws -> Int
+        remainingCount: @escaping @Sendable () async throws -> Int,
+        resetUsage: @escaping @Sendable () async throws -> Void = { }
     ) {
         self.canProcess = canProcess
         self.recordUsage = recordUsage
@@ -32,6 +35,7 @@ public struct AIQuotaClient: Sendable {
         self.monthlyLimit = monthlyLimit
         self.nextResetDate = nextResetDate
         self.remainingCount = remainingCount
+        self.resetUsage = resetUsage
     }
 }
 
@@ -44,7 +48,8 @@ extension AIQuotaClient: TestDependencyKey {
         currentUsage: unimplemented("AIQuotaClient.currentUsage", placeholder: 0),
         monthlyLimit: { 15 },
         nextResetDate: unimplemented("AIQuotaClient.nextResetDate", placeholder: Date()),
-        remainingCount: unimplemented("AIQuotaClient.remainingCount", placeholder: 15)
+        remainingCount: unimplemented("AIQuotaClient.remainingCount", placeholder: 15),
+        resetUsage: unimplemented("AIQuotaClient.resetUsage")
     )
 }
 

@@ -89,6 +89,21 @@ public final class AIQuotaRepository: @unchecked Sendable {
         return max(0, limit - usage)
     }
 
+    /// 今月の使用回数をリセット（デバッグ用）
+    public func resetUsage() async throws {
+        let currentMonthKey = currentYearMonthKey()
+        try await MainActor.run {
+            let descriptor = FetchDescriptor<AIQuotaRecordModel>(
+                predicate: #Predicate { $0.yearMonth == currentMonthKey }
+            )
+            let records = try context.fetch(descriptor)
+            for record in records {
+                context.delete(record)
+            }
+            try context.save()
+        }
+    }
+
     // MARK: - Private Helpers
 
     /// 現在のJST年月キーを取得
@@ -109,7 +124,8 @@ extension AIQuotaRepository {
             currentUsage: { [self] in try await self.currentUsage() },
             monthlyLimit: { [self] in self.monthlyLimit() },
             nextResetDate: { [self] in self.nextResetDate() },
-            remainingCount: { [self] in try await self.remainingCount() }
+            remainingCount: { [self] in try await self.remainingCount() },
+            resetUsage: { [self] in try await self.resetUsage() }
         )
     }
 }

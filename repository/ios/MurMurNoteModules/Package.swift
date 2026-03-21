@@ -145,6 +145,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUI",
+                "SharedUtil",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
