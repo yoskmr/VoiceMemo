@@ -397,11 +397,11 @@ struct AIProcessingStatusView: View {
     private func failedMessage(for error: AIProcessingError) -> String {
         switch error {
         case .quotaExceeded(remaining: _, resetDate: _):
-            return "月間AI分析の上限に達しました"
+            return "月間AI整理の上限に達しました"
         case .networkError(_):
             return "ネットワークエラー"
         case .processingFailed(_):
-            return "AI分析に失敗しました"
+            return "AI整理に失敗しました"
         }
     }
 }
@@ -455,11 +455,11 @@ struct AISummarySection: View {
                 Button {
                     onTriggerAI()
                 } label: {
-                    Text("AI分析を実行する")
+                    Text("AI整理を実行する")
                         .font(.vmCallout)
                         .foregroundColor(.vmPrimary)
                 }
-                .accessibilityLabel("AI分析を実行する")
+                .accessibilityLabel("AI整理を実行する")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

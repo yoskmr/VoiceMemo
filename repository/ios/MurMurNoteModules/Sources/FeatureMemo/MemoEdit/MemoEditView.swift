@@ -23,17 +23,13 @@ public struct MemoEditView: View {
         VStack(spacing: 0) {
             // 保存成功メッセージ
             if let message = store.saveSuccessMessage {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.vmSuccess)
-                    Text(message)
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmSuccess)
-                }
-                .padding(8)
-                .frame(maxWidth: .infinity)
-                .background(Color.vmSuccess.opacity(0.1))
-                .transition(.move(edge: .top).combined(with: .opacity))
+                Text(message)
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+                    .padding(8)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.vmPrimaryLight.opacity(0.1))
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             ScrollView {

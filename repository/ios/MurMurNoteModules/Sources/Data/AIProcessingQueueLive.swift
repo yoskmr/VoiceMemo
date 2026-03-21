@@ -229,7 +229,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             )
 
             // ステータス通知: processing (50%)
-            notifyStatus(memoId: memoId, status: .processing(progress: 0.5, description: "AI分析を実行中..."))
+            notifyStatus(memoId: memoId, status: .processing(progress: 0.5, description: "メモを整理中..."))
 
             // LLM推論実行（リトライ付き）
             let response = try await executeWithRetry(
@@ -317,7 +317,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
                     memoId: memoId,
                     status: .processing(
                         progress: 0.5,
-                        description: "再分析中... (リトライ\(attempt + 1)/\(maxRetries))"
+                        description: "再整理中... (リトライ\(attempt + 1)/\(maxRetries))"
                     )
                 )
             } catch {

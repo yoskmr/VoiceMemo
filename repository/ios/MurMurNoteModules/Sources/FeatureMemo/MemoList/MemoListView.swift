@@ -333,15 +333,15 @@ struct AIQuotaProgressBar: View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
             HStack {
                 if isExceeded {
-                    Text("AI分析の上限に達しました")
+                    Text("AI整理の上限に達しました")
                         .font(.vmCaption1)
                         .foregroundColor(.vmError)
                 } else if remaining == 1 {
-                    Text("AI分析はあと1回です")
+                    Text("AI整理はあと1回です")
                         .font(.vmCaption1)
                         .foregroundColor(.vmWarning)
                 } else {
-                    Text("AI分析 残り\(remaining)回")
+                    Text("AI整理 残り\(remaining)回")
                         .font(.vmCaption1)
                         .foregroundColor(.vmWarning)
                 }

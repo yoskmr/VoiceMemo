@@ -321,9 +321,9 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
 
         // ステータス更新: processing 50%
         await store.send(.aiProcessingStatusUpdated(
-            .processing(progress: 0.5, description: "AI分析を実行中...")
+            .processing(progress: 0.5, description: "メモを整理中...")
         )) {
-            $0.aiProcessingStatus = .processing(progress: 0.5, description: "AI分析を実行中...")
+            $0.aiProcessingStatus = .processing(progress: 0.5, description: "メモを整理中...")
         }
 
         // ステータス更新: processing 80%

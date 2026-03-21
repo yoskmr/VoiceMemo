@@ -46,9 +46,9 @@ final class AIProcessingReducerTests: XCTestCase {
         }
 
         // ステータス更新: processing
-        statusStream.continuation.yield(.processing(progress: 0.5, description: "AI分析を実行中..."))
-        await store.receive(.statusUpdated(.processing(progress: 0.5, description: "AI分析を実行中..."))) {
-            $0.processingStatus = .processing(progress: 0.5, description: "AI分析を実行中...")
+        statusStream.continuation.yield(.processing(progress: 0.5, description: "メモを整理中..."))
+        await store.receive(.statusUpdated(.processing(progress: 0.5, description: "メモを整理中..."))) {
+            $0.processingStatus = .processing(progress: 0.5, description: "メモを整理中...")
         }
 
         // ステータス更新: completed
