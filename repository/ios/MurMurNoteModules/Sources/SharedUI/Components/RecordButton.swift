@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// 録音ボタンコンポーネント
-/// 3状態（idle: 赤円、recording: 赤正方形、paused: 角丸正方形 cornerRadius:16）
+/// つぶやきボタンコンポーネント
+/// 3状態（idle: 暖色円+吹き出し、recording: 赤正方形、paused: 角丸正方形 cornerRadius:16）
 /// 設計書 04-ui-design-system.md セクション4.1 準拠
 public struct RecordButton: View {
 
@@ -50,12 +50,12 @@ public struct RecordButton: View {
     private var innerShape: some View {
         switch status {
         case .idle:
-            // 赤い円 + マイクアイコン（録音開始ボタン）
+            // 暖色円 + 吹き出しアイコン（つぶやき開始ボタン）
             Circle()
                 .fill(Color.vmPrimary)
                 .frame(width: innerCircleSize, height: innerCircleSize)
                 .overlay {
-                    Image(systemName: "mic.fill")
+                    Image(systemName: "bubble.left.fill")
                         .font(.system(size: micIconSize, weight: .medium))
                         .foregroundColor(.white)
                 }
@@ -97,22 +97,22 @@ public struct RecordButton: View {
     private var accessibilityLabel: String {
         switch status {
         case .idle:
-            return "録音開始"
+            return "話す"
         case .recording:
-            return "録音停止"
+            return "完了"
         case .paused:
-            return "録音再開"
+            return "続ける"
         }
     }
 
     private var accessibilityHint: String {
         switch status {
         case .idle:
-            return "タップして録音を開始します"
+            return "タップして話し始めます"
         case .recording:
-            return "タップして録音を停止します"
+            return "タップして完了します"
         case .paused:
-            return "タップして録音を再開します"
+            return "タップして続けます"
         }
     }
 }

@@ -94,13 +94,13 @@ public struct MemoListView: View {
                 // 空状態ビュー
                 VStack(spacing: 16) {
                     Spacer()
-                    Image(systemName: "mic.badge.plus")
+                    Image(systemName: "plus.bubble.fill")
                         .font(.system(size: 48))
                         .foregroundColor(.vmTextTertiary)
                     Text("メモがありません")
                         .font(.vmTitle3)
                         .foregroundColor(.vmTextPrimary)
-                    Text("録音タブでメモを作成しましょう")
+                    Text("つぶやきタブでメモを作成しましょう")
                         .font(.vmSubheadline)
                         .foregroundColor(.vmTextSecondary)
                     Spacer()

@@ -142,7 +142,7 @@ struct AppView: View {
                 )
                 .navigationTitle("つぶやき")
             }
-            .tabItem { Label("録音", systemImage: "mic.fill") }
+            .tabItem { Label("つぶやき", systemImage: "bubble.left.fill") }
             .tag(AppReducer.State.Tab.home)
 
             // メモ一覧タブ

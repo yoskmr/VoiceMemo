@@ -35,7 +35,7 @@ public struct AIOnboardingView: View {
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
                 featureRow(
                     icon: "doc.text.magnifyingglass",
-                    text: "録音した言葉を、読みやすい日記風の文章に整理します"
+                    text: "話した内容を、読みやすい日記風の文章に整理します"
                 )
 
                 featureRow(
