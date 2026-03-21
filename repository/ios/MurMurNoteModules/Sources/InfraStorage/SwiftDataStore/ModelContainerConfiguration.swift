@@ -21,6 +21,7 @@ public enum ModelContainerConfiguration {
             EmotionAnalysisModel.self,
             UserSettingsModel.self,
             AIQuotaRecordModel.self,
+            AIProcessingTaskModel.self,
         ])
 
         let configuration = ModelConfiguration(
