@@ -114,10 +114,15 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
 
         // 4. 推論実行
         let startTime = CFAbsoluteTimeGetCurrent()
-        let response = try await internalProcess(request, prompt: prompt)
+        var response = try await internalProcess(request, prompt: prompt)
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
 
         logger.info("LLM推論完了: \(Int(elapsed * 1000))ms")
+
+        // 5. カスタム辞書による後処理（LLMが修正しきれなかった固有名詞を置換）
+        if !request.customDictionary.isEmpty {
+            response = applyDictionaryPostProcessing(response, dictionary: request.customDictionary)
+        }
 
         return response
     }
@@ -150,6 +155,63 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         isModelLoaded = false
         await mockProvider.unloadModel()
         logger.info("LLMモデルをアンロードしました")
+    }
+
+    // MARK: - カスタム辞書による後処理
+
+    /// LLMが修正しきれなかった固有名詞をカスタム辞書で置換する
+    ///
+    /// カスタム辞書の各語句について、テキスト中に「読みが似ているが異なる漢字」で
+    /// 書かれている箇所を検出し、正しい表記に置換する。
+    ///
+    /// 方針: 辞書の各語句のひらがな読みを生成し、テキスト中の同じ読みの箇所を置換
+    /// ただしオンデバイスで読み変換は重いため、よくある誤変換パターンをハードコードで対応
+    private func applyDictionaryPostProcessing(_ response: LLMResponse, dictionary: [String]) -> LLMResponse {
+        guard let summary = response.summary else { return response }
+        var text = summary.brief
+        var title = summary.title
+
+        // 辞書の各語句がテキストに含まれていない場合、
+        // 似た文字列（部分一致）を辞書の正しい表記に置換
+        for word in dictionary {
+            // 既にテキストに含まれていればスキップ
+            if text.contains(word) { continue }
+
+            // 辞書語句の各文字を含む別の単語を探して置換
+            // 例: 辞書「城間」→テキスト中の「城島」「城区」「城待」を「城間」に
+            if word.count >= 2 {
+                let firstChar = String(word.prefix(1))
+                // テキスト中に先頭文字が含まれ、かつ辞書語句と同じ長さの別表記を検出
+                let wordLen = word.count
+                var searchStart = text.startIndex
+                while let range = text.range(of: firstChar, range: searchStart..<text.endIndex) {
+                    let endIdx = text.index(range.lowerBound, offsetBy: wordLen, limitedBy: text.endIndex) ?? text.endIndex
+                    if endIdx <= text.endIndex {
+                        let candidate = String(text[range.lowerBound..<endIdx])
+                        // 先頭文字が同じで、長さが同じで、辞書語句と異なる場合に置換
+                        if candidate != word && candidate.count == word.count {
+                            text = text.replacingOccurrences(of: candidate, with: word)
+                            title = title.replacingOccurrences(of: candidate, with: word)
+                            break
+                        }
+                    }
+                    searchStart = range.upperBound
+                }
+            }
+        }
+
+        let updatedSummary = LLMSummaryResult(
+            title: title,
+            brief: text,
+            keyPoints: summary.keyPoints
+        )
+
+        return LLMResponse(
+            summary: updatedSummary,
+            tags: response.tags,
+            processingTimeMs: response.processingTimeMs,
+            provider: response.provider
+        )
     }
 
     // MARK: - LLMProviderClient 変換
