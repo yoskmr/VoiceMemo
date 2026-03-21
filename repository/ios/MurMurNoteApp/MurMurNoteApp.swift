@@ -15,7 +15,7 @@ struct MurMurNoteApp: App {
                     AppReducer()
                 }
             )
-            .preferredColorScheme(.light)
+
         }
     }
 }
