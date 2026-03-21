@@ -88,5 +88,25 @@ public final class VoiceMemoModel {
         audioFormat = entity.audioFormat
         status = entity.status
         isFavorite = entity.isFavorite
+
+        // Transcription の更新
+        if let entityTranscription = entity.transcription {
+            if let existing = transcription {
+                existing.fullText = entityTranscription.fullText
+                existing.language = entityTranscription.language
+                existing.confidence = entityTranscription.confidence
+            } else {
+                let newModel = TranscriptionModel(
+                    id: entityTranscription.id,
+                    fullText: entityTranscription.fullText,
+                    language: entityTranscription.language,
+                    engineType: entityTranscription.engineType,
+                    confidence: entityTranscription.confidence,
+                    processedAt: entityTranscription.processedAt
+                )
+                newModel.memo = self
+                transcription = newModel
+            }
+        }
     }
 }
