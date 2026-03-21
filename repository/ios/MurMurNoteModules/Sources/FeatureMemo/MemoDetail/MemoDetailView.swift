@@ -580,7 +580,7 @@ struct MemoDetailAIOnboardingSheet: View {
             // 説明セクション
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
                 onboardingFeatureRow(
-                    text: "録音した言葉を、読みやすい日記風の文章に整理します"
+                    text: "話した内容を、読みやすい日記風の文章に整理します"
                 )
 
                 onboardingFeatureRow(

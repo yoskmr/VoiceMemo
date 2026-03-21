@@ -60,7 +60,7 @@ public struct EmotionTrendView: View {
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextPrimary)
 
-            Text("録音にAI感情分析を適用すると、\nここに感情の推移が表示されます")
+            Text("メモにAI感情分析を適用すると、\nここに感情の推移が表示されます")
                 .font(.vmSubheadline)
                 .foregroundColor(.vmTextSecondary)
                 .multilineTextAlignment(.center)

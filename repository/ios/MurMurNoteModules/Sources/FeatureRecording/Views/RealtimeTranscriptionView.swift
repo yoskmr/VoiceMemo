@@ -30,6 +30,6 @@ struct RealtimeTranscriptionView: View {
     }
 
     private var displayText: String {
-        text.isEmpty ? "録音を開始すると文字起こしが表示されます..." : text
+        text.isEmpty ? "話し始めると文字が表示されます..." : text
     }
 }

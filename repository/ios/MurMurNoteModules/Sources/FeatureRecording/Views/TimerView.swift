@@ -24,7 +24,7 @@ struct TimerView: View {
                     .monospacedDigit()
             }
         }
-        .accessibilityLabel("録音時間 \(formattedTime)")
+        .accessibilityLabel("\(formattedTime)")
     }
 
     /// 経過時間をMM:SS形式でフォーマット

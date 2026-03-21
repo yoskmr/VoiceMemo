@@ -72,7 +72,7 @@ public struct MemoCard: View {
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
         .shadow(color: .black.opacity(0.03), radius: 4, y: 1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(data.title), \(formattedDate), \(formattedDuration)の録音")
+        .accessibilityLabel("\(data.title), \(formattedDate), \(formattedDuration)")
         .accessibilityHint("ダブルタップで詳細を表示します")
     }
 
