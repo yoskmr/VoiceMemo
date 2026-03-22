@@ -208,6 +208,23 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
+        // STTエンジン用の16kHz Mono変換セットアップ
+        let sttFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Self.pcmSampleRate,
+            channels: Self.pcmChannels,
+            interleaved: false
+        )!
+        let needsConversion = inputFormat.sampleRate != Self.pcmSampleRate
+            || inputFormat.channelCount != Self.pcmChannels
+        let sttConverter: AVAudioConverter? = needsConversion
+            ? AVAudioConverter(from: inputFormat, to: sttFormat)
+            : nil
+
+        #if DEBUG
+        print("[Recorder] 入力: \(inputFormat.sampleRate)Hz \(inputFormat.channelCount)ch → STT: \(Self.pcmSampleRate)Hz (変換\(needsConversion ? "あり" : "なし"))")
+        #endif
+
         // レベルストリームを作成
         let levelStream = AsyncStream<AudioLevelUpdate> { [weak self] continuation in
             self?.withLock { state in
@@ -226,7 +243,7 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
         let bufferSize: AVAudioFrameCount = 1024
         // TODO: os_unfair_lock への移行を検討（RTスレッドでの NSLock オーバーヘッド軽減）
         inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) {
-            [weak self] buffer, _ in
+            [weak self, sttConverter, sttFormat] buffer, _ in
             guard let self = self else { return }
 
             // ロック取得を1回に統合: isRecording/isPaused判定 + state値取得を一括で行う
@@ -261,7 +278,39 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
             )
 
             snapshot.levelCont?.yield(update)
-            snapshot.pcmCont?.yield(buffer)
+
+            // STTエンジンへ16kHz Mono変換済みバッファを送信
+            if let converter = sttConverter {
+                let ratio = sttFormat.sampleRate / converter.inputFormat.sampleRate
+                let outputFrameCount = AVAudioFrameCount(Double(buffer.frameLength) * ratio)
+                guard outputFrameCount > 0,
+                      let outputBuffer = AVAudioPCMBuffer(
+                          pcmFormat: sttFormat,
+                          frameCapacity: outputFrameCount
+                      ) else { return }
+
+                var error: NSError?
+                var hasData = true
+                converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+                    if hasData {
+                        hasData = false
+                        outStatus.pointee = .haveData
+                        return buffer
+                    }
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+
+                if let error {
+                    #if DEBUG
+                    print("[Recorder] サンプルレート変換失敗: \(error.localizedDescription)")
+                    #endif
+                } else {
+                    snapshot.pcmCont?.yield(outputBuffer)
+                }
+            } else {
+                snapshot.pcmCont?.yield(buffer)
+            }
 
             // AAC ファイルに書き込み
             do {

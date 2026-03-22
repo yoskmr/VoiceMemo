@@ -291,10 +291,21 @@ extension WhisperKitEngine {
         whisperKit: WhisperKit
     ) async -> Domain.TranscriptionResult? {
         do {
+            let currentInitialPrompt = withLock { self.initialPrompt }
+            let promptTokens: [Int]? = if currentInitialPrompt.isEmpty {
+                nil
+            } else {
+                whisperKit.tokenizer?.encode(text: currentInitialPrompt)
+            }
+
             let options = DecodingOptions(
+                task: .transcribe,
                 language: language,
+                temperatureFallbackCount: 3,
                 detectLanguage: false,
-                wordTimestamps: true
+                wordTimestamps: true,
+                promptTokens: promptTokens,
+                suppressBlank: true
             )
 
             // whisperKit.transcribe の戻り値型は WhisperKit モジュールの [TranscriptionResult]
