@@ -29,11 +29,21 @@ extension AudioRecorderClient: DependencyKey {
     }()
 }
 
-// MARK: STTEngineClient → AppleSpeechEngine
+// MARK: STTEngineClient → WhisperKit (base) with Apple Speech fallback
 
 extension STTEngineClient: DependencyKey {
     public static let liveValue: STTEngineClient = {
-        let engine = AppleSpeechEngine()
+        let whisperEngine = WhisperKitEngine(modelName: "openai_whisper-base")
+        let appleEngine = AppleSpeechEngine()
+
+        // モデルがダウンロード済みならWhisperKit、なければApple Speechにフォールバック
+        let useWhisper = whisperEngine.isModelDownloaded()
+        let engine: any STTEngineProtocol = useWhisper ? whisperEngine : appleEngine
+
+        #if DEBUG
+        print("[STT] エンジン選択: \(useWhisper ? "WhisperKit (base)" : "Apple Speech（フォールバック）")")
+        #endif
+
         return STTEngineClient(
             startTranscription: { audioStream, language in
                 engine.startTranscription(audioStream: audioStream, language: language)

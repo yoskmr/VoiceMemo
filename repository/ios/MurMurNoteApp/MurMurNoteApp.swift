@@ -8,14 +8,21 @@ import SwiftUI
 
 @main
 struct MurMurNoteApp: App {
+    @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
+
     var body: some Scene {
         WindowGroup {
-            AppView(
-                store: Store(initialState: AppReducer.State()) {
-                    AppReducer()
+            if hasCompletedSetup {
+                AppView(
+                    store: Store(initialState: AppReducer.State()) {
+                        AppReducer()
+                    }
+                )
+            } else {
+                WelcomeView {
+                    hasCompletedSetup = true
                 }
-            )
-
+            }
         }
     }
 }

@@ -36,6 +36,12 @@ public struct SettingsView: View {
 
                 // MARK: - 一般セクション
                 Section {
+                    HStack {
+                        Label("文字起こし", systemImage: "waveform")
+                        Spacer()
+                        Text(Self.isWhisperKitModelDownloaded ? "高精度" : "標準")
+                            .foregroundColor(.vmTextTertiary)
+                    }
                     NavigationLink {
                         CustomDictionaryView(
                             store: store.scope(
@@ -154,6 +160,22 @@ public struct SettingsView: View {
                 Text("今月のAI処理回数を0にリセットします")
             }
         }
+    }
+
+    // MARK: - WhisperKit Model Check
+
+    /// WhisperKit モデルがダウンロード済みかを FileManager で確認する
+    /// Feature層からInfra層への直接依存を避けるため、ファイルパスで判定する
+    private static var isWhisperKitModelDownloaded: Bool {
+        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        guard let modelPath = cachesDir?
+            .appendingPathComponent("Models")
+            .appendingPathComponent("whisperkit")
+            .appendingPathComponent("openai_whisper-base")
+            .path else {
+            return false
+        }
+        return FileManager.default.fileExists(atPath: modelPath)
     }
 
     // MARK: - Private Helpers

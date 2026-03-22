@@ -59,6 +59,7 @@
 		9C24DAC8FA6239E82569859B /* STTEngineProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8479D77EF00EC0EABA9EEFB5 /* STTEngineProtocolTests.swift */; };
 		9C76FA5C685CD79B30CF8C52 /* MemoDetailReducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B458FCD6103F1F19D0543A2 /* MemoDetailReducerTests.swift */; };
 		A3F4384A3857B45031137817 /* MurMurNoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A399BFF5EF22DBB7CCB93CF5 /* MurMurNoteApp.swift */; };
+		A3F4384A3857B45031137818 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A399BFF5EF22DBB7CCB93CF6 /* WelcomeView.swift */; };
 		A81DBCC8619AAA2625201566 /* SaveRecordingUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA666CE7CB6130DDCFF59C3 /* SaveRecordingUseCaseTests.swift */; };
 		A9B6CF39F912CBD1B4689CDA /* STTEngineSelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A91591EEFA3D58B03777F8E /* STTEngineSelectorTests.swift */; };
 		AE995F9D2BB3039AA264A90C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 45D68F982C60C00F13601E60 /* PrivacyInfo.xcprivacy */; };
@@ -128,6 +129,7 @@
 		9A2B793B9315A78BB869D74B /* SwiftDataVoiceMemoRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataVoiceMemoRepositoryTests.swift; sourceTree = "<group>"; };
 		A145E706E7142EA5210AE4E6 /* UserSettingsEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettingsEntityTests.swift; sourceTree = "<group>"; };
 		A399BFF5EF22DBB7CCB93CF5 /* MurMurNoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MurMurNoteApp.swift; sourceTree = "<group>"; };
+		A399BFF5EF22DBB7CCB93CF6 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		AA3B34FE78EDADC7CAD8A371 /* VoiceMemoEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceMemoEntityTests.swift; sourceTree = "<group>"; };
 		AD3BCED186EE051E34959DE5 /* MurMurNoteTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MurMurNoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B269A534F2F9E62C8A35F993 /* FeatureAITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureAITests.swift; sourceTree = "<group>"; };
@@ -268,6 +270,7 @@
 				DCD1846E0F3EC47B4C4408C1 /* RecordingDependencies.swift */,
 				DCD1846E0F3EC47B4C4408C4 /* SettingsDependencies.swift */,
 				DCD1846E0F3EC47B4C4408C2 /* StorageDependencies.swift */,
+				A399BFF5EF22DBB7CCB93CF6 /* WelcomeView.swift */,
 			);
 			path = MurMurNoteApp;
 			sourceTree = "<group>";
@@ -471,6 +474,7 @@
 			files = (
 				A3F4384A3857B45031137817 /* MurMurNoteApp.swift in Sources */,
 				835FFA8311D5470A624886A3 /* PlayerDependencies.swift in Sources */,
+				A3F4384A3857B45031137818 /* WelcomeView.swift in Sources */,
 				835FFA8311D5470A624886A1 /* RecordingDependencies.swift in Sources */,
 				835FFA8311D5470A624886A4 /* SettingsDependencies.swift in Sources */,
 				835FFA8311D5470A624886A2 /* StorageDependencies.swift in Sources */,

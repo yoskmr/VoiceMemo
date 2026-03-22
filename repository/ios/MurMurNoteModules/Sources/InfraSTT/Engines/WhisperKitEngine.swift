@@ -7,7 +7,7 @@ import Foundation
 /// 統合仕様書 INT-SPEC-001 セクション3.1 準拠
 /// WhisperKit (whisper.cpp Swift wrapper) によるリアルタイムストリーミング認識
 ///
-/// - Whisper Small モデル（約600MB）のダウンロード/ロード管理
+/// - Whisper Base モデル（約140MB）のダウンロード/ロード管理
 /// - モデル保存先: Library/Caches/Models/whisperkit/
 /// - AsyncStreamベースのリアルタイム認識（STTEngineProtocol準拠）
 /// - 日本語(ja)デフォルト対応
@@ -47,10 +47,10 @@ public final class WhisperKitEngine: @unchecked Sendable {
     /// WhisperKit エンジンを初期化する
     /// - Parameters:
     ///   - modelDirectory: モデル保存先ディレクトリ（デフォルト: Library/Caches/Models/whisperkit/）
-    ///   - modelName: 使用するモデル名（デフォルト: "openai_whisper-small"）
+    ///   - modelName: 使用するモデル名（デフォルト: "openai_whisper-base"）
     public init(
         modelDirectory: URL? = nil,
-        modelName: String = "openai_whisper-small"
+        modelName: String = "openai_whisper-base"
     ) {
         self.modelDirectoryURL = modelDirectory ?? Self.defaultModelDirectory()
         self.modelName = modelName
@@ -332,6 +332,17 @@ extension WhisperKitEngine {
     /// モデルがロード済みかどうか
     public var isModelLoaded: Bool {
         withLock { whisperKit != nil }
+    }
+
+    /// モデルのダウンロード+ロード（ウェルカム画面から呼び出し用）
+    /// WhisperKitConfig の download: true により自動ダウンロード → ロードが一括で行われる。
+    /// 進捗取得はWhisperKit APIの制約上難しいため、完了時に1.0を通知する。
+    /// - Parameter progress: ダウンロード進捗コールバック（0.0〜1.0）
+    /// - Throws: モデルのダウンロード/ロードに失敗した場合
+    public func downloadModel(progress: @escaping @Sendable (Double) -> Void) async throws {
+        progress(0.0)
+        try await loadModel()
+        progress(1.0)
     }
 
     /// モデルのロード
