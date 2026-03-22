@@ -152,11 +152,14 @@ extension WhisperKitEngine: STTEngineProtocol {
         audioStream: AsyncStream<AVAudioPCMBuffer>,
         language: String
     ) -> AsyncStream<Domain.TranscriptionResult> {
+        // WhisperKitはISO 639-1（"ja"）を要求。"ja-JP"等のロケール形式を変換
+        let whisperLanguage = String(language.prefix(2))
+
         // 既存の認識があればクリーンアップ
         withLock {
             cleanupTranscription()
             lastResult = nil
-            currentLanguage = language
+            currentLanguage = whisperLanguage
         }
 
         return AsyncStream<Domain.TranscriptionResult> { continuation in
