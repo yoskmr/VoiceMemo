@@ -76,6 +76,45 @@ Infra層        InfraSTT / InfraStorage / InfraLLM / InfraNetwork
 - エンティティ変更は Domain 層の `VoiceMemoEntity` で行い、SwiftData モデルは InfraStorage 層のみ
 - 設計書（`docs/spec/`）に準拠して実装する。乖離を見つけたら報告すること
 
+### TCA Reducer 規約（tca-pro スキル使用時の追加制約）
+
+Reducer のセクション順序（`RecordingFeature.swift` を正規パターンとする）:
+1. `// MARK: - Constants` — 定数定義
+2. `// MARK: - State` — `@ObservableState public struct State: Equatable`、`public init` は全パラメータにデフォルト値
+3. `// MARK: - Action` — `public enum Action: Equatable, Sendable`、ユーザー操作は `xxxButtonTapped`、内部は `xxxLoaded/xxxFailed/xxxUpdated`
+4. `// MARK: - Dependencies` — `@Dependency(\.xxx) var xxx`
+5. `// MARK: - Cancellation IDs` — `private enum CancelID { case xxx }`
+6. `// MARK: - Reducer Body` — `public init() {}` + `public var body: some ReducerOf<Self>`
+7. `// MARK: - Effects` — `private func xxxEffect() -> Effect<Action>` + `.cancellable(id:)`
+
+必須ルール:
+- Doc comment に設計書参照を記載（例: `/// 設計書01-system-architecture.md セクション2.2 準拠`）
+- Result ハンドリング: `.success` / `.failure(EquatableError)`
+- ナビゲーション: `@Presents` + `.ifLet`
+- Feature 層から Infra 層への直接依存禁止（Package.swift で制約済み）
+
+### テスト規約（swift-testing-pro スキル使用時の追加制約）
+
+- テスト命名: `test_アクション名_条件_期待結果()` 日本語（例: `test_recordButtonTapped_権限許可済み_recordingに遷移する`）
+- `@MainActor` 必須
+- TestStore セットアップ: `withDependencies` クロージャで依存を明示スタブ
+- DependencyClient の `testValue` は `unimplemented()` — テストで使う依存は全て明示的にスタブする
+- `store.exhaustivity = .off` は TODO コメント付きで限定使用
+- `ImmediateClock()` でクロック差し替え
+- ヘルパーメソッド: `makeMemoItem(...)`, `makeEntity(...)` デフォルトパラメータ付き
+- テストファイル配置: `Tests/FeatureXxxTests/` でソース構造をミラー
+
+### SharedUI 規約（swiftui-pro スキル使用時の追加制約）
+
+- カラートークン: `vmPrimary`, `vmSecondary`, `vmAccent`（暖色 HSB色相20-40）等を使用 — 生の `Color` 値使用禁止
+- フォント: `VMFonts.swift` のトークンを使用
+- スペーシング: `VMSpacing.swift` のトークンを使用
+- 感情カラー: `EmotionCategoryColor.swift` を使用
+- 再利用コンポーネント: `MemoCard`, `TagChip`, `WaveformView`, `EmotionBadge`, `RecordButton`
+- ダーク/ライトモード: `vmAdaptive(light:dark:)` パターン
+- View バインディング: `@Bindable var store: StoreOf<XxxReducer>` パターン
+- NFR-012: 暖色系パレット要件に準拠
+
 ## 現在の実装状況
 
 ### 動作確認済み
