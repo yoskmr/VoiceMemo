@@ -172,18 +172,10 @@ public struct SettingsView: View {
 
     // MARK: - WhisperKit Model Check
 
-    /// WhisperKit モデルがダウンロード済みかを FileManager で確認する
-    /// Feature層からInfra層への直接依存を避けるため、ファイルパスで判定する
+    /// WhisperKit モデルがダウンロード済みかを UserDefaults フラグで確認する
+    /// WhisperKitEngine.loadModel() 成功時に永続化されるフラグを参照
     private static var isWhisperKitModelDownloaded: Bool {
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-        guard let modelPath = cachesDir?
-            .appendingPathComponent("Models")
-            .appendingPathComponent("whisperkit")
-            .appendingPathComponent("openai_whisper-base")
-            .path else {
-            return false
-        }
-        return FileManager.default.fileExists(atPath: modelPath)
+        UserDefaults.standard.bool(forKey: "whisperkit_model_downloaded")
     }
 
     // MARK: - Private Helpers
