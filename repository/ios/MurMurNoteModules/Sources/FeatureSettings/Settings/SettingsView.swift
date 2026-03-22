@@ -119,6 +119,13 @@ public struct SettingsView: View {
                                     .foregroundColor(.vmTextTertiary)
                             }
                         }
+
+                        Button {
+                            UserDefaults.standard.set(false, forKey: "hasCompletedSetup")
+                            UserDefaults.standard.set(false, forKey: "hasSeenAIOnboarding")
+                        } label: {
+                            Text("ウェルカム画面・オンボーディングをリセット")
+                        }
                     } header: {
                         Text("デバッグ（\(AppEnvironment.current == .development ? "Development" : "Staging")）")
                     }
