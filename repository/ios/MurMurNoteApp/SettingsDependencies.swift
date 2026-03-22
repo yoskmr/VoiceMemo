@@ -55,7 +55,8 @@ extension AIProcessingQueueClient: DependencyKey {
             llmProvider: LLMProviderClient.liveValue,
             aiQuota: AIQuotaClient.liveValue,
             voiceMemoRepository: VoiceMemoRepositoryClient.liveValue,
-            customDictionaryClient: CustomDictionaryClient.liveValue
+            customDictionaryClient: CustomDictionaryClient.liveValue,
+            fts5IndexManager: FTS5IndexManagerClient.liveValue
         )
         return queue.toClient()
     }()

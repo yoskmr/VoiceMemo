@@ -28,6 +28,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     private let aiQuota: AIQuotaClient
     private let voiceMemoRepository: VoiceMemoRepositoryClient
     private let customDictionaryClient: CustomDictionaryClient
+    private let fts5IndexManager: FTS5IndexManagerClient
 
     /// メモID → ステータス通知用の continuation マップ
     private var statusContinuations: [UUID: [UUID: AsyncStream<AIProcessingStatus>.Continuation]] = [:]
@@ -47,6 +48,10 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
         voiceMemoRepository: VoiceMemoRepositoryClient,
         customDictionaryClient: CustomDictionaryClient = CustomDictionaryClient(
             loadEntries: { [] }, addEntry: { _ in }, deleteEntry: { _ in }, getContextualStrings: { [] }
+        ),
+        fts5IndexManager: FTS5IndexManagerClient = FTS5IndexManagerClient(
+            createIndex: {}, upsertIndex: { _, _, _, _, _ in }, removeIndex: { _ in },
+            search: { _ in [] }, searchWithSnippets: { _, _, _ in [] }
         )
     ) {
         self.modelContainer = modelContainer
@@ -54,6 +59,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
         self.aiQuota = aiQuota
         self.voiceMemoRepository = voiceMemoRepository
         self.customDictionaryClient = customDictionaryClient
+        self.fts5IndexManager = fts5IndexManager
     }
 
     @MainActor
@@ -265,6 +271,17 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             let isOnDevice = response.provider == .onDeviceLlamaCpp
                 || response.provider == .onDeviceAppleIntelligence
             notifyStatus(memoId: memoId, status: .completed(isOnDevice: isOnDevice))
+
+            // FTS5インデックスにAI整理テキストを反映（検索でヒットするように）
+            if let memo = try? await voiceMemoRepository.fetchByID(memoId) {
+                try? fts5IndexManager.upsertIndex(
+                    memoId.uuidString,
+                    memo.title,
+                    memo.transcription?.fullText ?? "",
+                    memo.aiSummary?.summaryText ?? "",
+                    memo.tags.map(\.name).joined(separator: " ")
+                )
+            }
 
             logger.info("AI処理完了: memoId=\(memoId), provider=\(response.provider.rawValue), time=\(response.processingTimeMs)ms")
 

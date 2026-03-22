@@ -431,16 +431,61 @@ struct AISummarySection: View {
     // MARK: - AI要約が存在する場合のカード
 
     private func summaryCard(summary: MemoDetailReducer.State.AISummaryState) -> some View {
-        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            // 整理テキスト（全文表示）
-            Text(summary.summaryText)
-                .font(.vmBody())
-                .foregroundColor(.vmTextPrimary)
-                .lineSpacing(6)
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            // Markdown見出し（## ）をパースして構造化表示
+            ForEach(Array(Self.parseStructuredText(summary.summaryText).enumerated()), id: \.offset) { _, block in
+                if block.isHeading {
+                    Text(block.text)
+                        .font(.vmHeadline)
+                        .foregroundColor(.vmTextPrimary)
+                        .padding(.top, VMDesignTokens.Spacing.sm)
+                } else {
+                    Text(block.text)
+                        .font(.vmBody())
+                        .foregroundColor(.vmTextPrimary)
+                        .lineSpacing(6)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(summary.summaryText)
+    }
+
+    /// Markdownの「## 見出し」をパースして構造化ブロックに分割
+    private struct TextBlock {
+        let text: String
+        let isHeading: Bool
+    }
+
+    private static func parseStructuredText(_ text: String) -> [TextBlock] {
+        let lines = text.components(separatedBy: "\n")
+        var blocks: [TextBlock] = []
+        var currentBody = ""
+
+        for line in lines {
+            if line.hasPrefix("## ") {
+                // 溜まった本文を先に追加
+                let trimmed = currentBody.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    blocks.append(TextBlock(text: trimmed, isHeading: false))
+                }
+                currentBody = ""
+                // 見出しを追加
+                let heading = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                blocks.append(TextBlock(text: heading, isHeading: true))
+            } else {
+                currentBody += (currentBody.isEmpty ? "" : "\n") + line
+            }
+        }
+
+        // 残りの本文
+        let trimmed = currentBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            blocks.append(TextBlock(text: trimmed, isHeading: false))
+        }
+
+        return blocks
     }
 
     // MARK: - AI要約未生成時のプレースホルダ
