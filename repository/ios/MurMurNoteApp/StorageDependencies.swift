@@ -50,11 +50,14 @@ extension VoiceMemoRepositoryClient: DependencyKey {
             updateMemoText: { id, title, text in
                 if var memo = try await repo.fetchByID(id) {
                     memo.title = title
-                    if var transcription = memo.transcription {
+                    // AI整理テキストがある場合はそちらを更新、なければ文字起こしを更新
+                    if var summary = memo.aiSummary {
+                        summary.summaryText = text
+                        memo.aiSummary = summary
+                    } else if var transcription = memo.transcription {
                         transcription.fullText = text
                         memo.transcription = transcription
                     } else if !text.isEmpty {
-                        // transcription が nil の場合、新規作成して fullText を設定
                         memo.transcription = TranscriptionEntity(fullText: text)
                     }
                     memo.updatedAt = Date()

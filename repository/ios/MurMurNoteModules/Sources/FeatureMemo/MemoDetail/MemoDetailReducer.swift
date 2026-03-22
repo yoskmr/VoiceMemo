@@ -319,13 +319,15 @@ public struct MemoDetailReducer {
                 return .none
 
             // MARK: - 編集ボタン → MemoEditView をシート表示
+            // 編集対象はAI整理テキスト（あれば）、なければ元の文字起こし
             case .editButtonTapped:
+                let editText = state.aiSummary?.summaryText ?? state.transcriptionText
                 state.editState = MemoEditReducer.State(
                     memoID: state.memoID,
                     title: state.title,
-                    transcriptionText: state.transcriptionText,
+                    transcriptionText: editText,
                     originalTitle: state.title,
-                    originalTranscriptionText: state.transcriptionText
+                    originalTranscriptionText: editText
                 )
                 return .none
 
@@ -342,7 +344,12 @@ public struct MemoDetailReducer {
             case .edit(.saveCompleted(.success)):
                 if let editState = state.editState {
                     state.title = editState.title
-                    state.transcriptionText = editState.transcriptionText
+                    // AI整理テキストがある場合はそちらを更新
+                    if state.aiSummary != nil {
+                        state.aiSummary?.summaryText = editState.transcriptionText
+                    } else {
+                        state.transcriptionText = editState.transcriptionText
+                    }
                 }
                 return .send(._editSavedAndReload)
 

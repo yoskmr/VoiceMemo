@@ -108,5 +108,13 @@ public final class VoiceMemoModel {
                 transcription = newModel
             }
         }
+
+        // AISummary の更新
+        if let entitySummary = entity.aiSummary {
+            if let existing = aiSummary {
+                existing.summaryText = entitySummary.summaryText
+                existing.title = entitySummary.title
+            }
+        }
     }
 }

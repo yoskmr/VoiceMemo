@@ -53,9 +53,9 @@ public struct MemoEditView: View {
                         .background(Color.vmDivider)
                         .accessibilityHidden(true)
 
-                    // 文字起こしテキスト編集
+                    // メモテキスト編集
                     VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
-                        Text("文字起こし")
+                        Text("メモ")
                             .font(.vmSubheadline)
                             .foregroundColor(.vmTextSecondary)
                         TextEditor(
