@@ -372,6 +372,8 @@ extension WhisperKitEngine {
             withLock {
                 self.whisperKit = kit
             }
+            // ダウンロード成功フラグを永続化（別インスタンスからも参照可能に）
+            UserDefaults.standard.set(true, forKey: "whisperkit_model_downloaded")
             #if DEBUG
             print("[WhisperKit] loadModel成功")
             #endif
@@ -393,17 +395,9 @@ extension WhisperKitEngine {
     }
 
     /// モデルがダウンロード済みか確認
-    /// WhisperKitのデフォルトダウンロード先と自前ディレクトリの両方を確認
     public func isModelDownloaded() -> Bool {
-        // 自前ディレクトリ
-        let customPath = modelDirectoryURL.appendingPathComponent(modelName)
-        if FileManager.default.fileExists(atPath: customPath.path) {
-            return true
-        }
-        // WhisperKitデフォルトパス（huggingface/models/argmaxinc/whisperkit-coreml/）
-        let defaultBase = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml")
-        if let defaultBase, FileManager.default.fileExists(atPath: defaultBase.appendingPathComponent(modelName).path) {
+        // UserDefaultsフラグ（loadModel成功時に保存）
+        if UserDefaults.standard.bool(forKey: "whisperkit_model_downloaded") {
             return true
         }
         // isModelLoaded でも判定（既にロード済みの場合）
