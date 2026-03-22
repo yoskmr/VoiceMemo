@@ -356,10 +356,14 @@ extension WhisperKitEngine {
             )
         }
 
+        #if DEBUG
+        print("[WhisperKit] loadModel開始: model=\(modelName), modelDir=\(modelDirectoryURL.path)")
+        #endif
+
         let config = WhisperKitConfig(
             model: modelName,
-            verbose: false,
-            logLevel: .none,
+            verbose: true,
+            logLevel: .debug,
             download: true
         )
 
@@ -368,7 +372,13 @@ extension WhisperKitEngine {
             withLock {
                 self.whisperKit = kit
             }
+            #if DEBUG
+            print("[WhisperKit] loadModel成功")
+            #endif
         } catch {
+            #if DEBUG
+            print("[WhisperKit] loadModel失敗: \(error)")
+            #endif
             throw STTError.recognitionFailed(
                 "WhisperKit model load failed: \(error.localizedDescription)"
             )

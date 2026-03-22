@@ -32,27 +32,29 @@ extension AudioRecorderClient: DependencyKey {
 // MARK: STTEngineClient → WhisperKit (base) with Apple Speech fallback
 
 extension STTEngineClient: DependencyKey {
-    public static let liveValue: STTEngineClient = {
-        let whisperEngine = WhisperKitEngine(modelName: "openai_whisper-base")
-        let appleEngine = AppleSpeechEngine()
+    // エンジンインスタンスを保持（遅延初期化）
+    private static let whisperEngine = WhisperKitEngine(modelName: "openai_whisper-base")
+    private static let appleEngine = AppleSpeechEngine()
 
-        // モデルがダウンロード済みならWhisperKit、なければApple Speechにフォールバック
+    /// 呼び出し時に動的にエンジンを選択（ウェルカム画面でダウンロード完了後に切り替わる）
+    private static func resolveEngine() -> any STTEngineProtocol {
         let useWhisper = whisperEngine.isModelDownloaded()
-        let engine: any STTEngineProtocol = useWhisper ? whisperEngine : appleEngine
-
         #if DEBUG
-        print("[STT] エンジン選択: \(useWhisper ? "WhisperKit (base)" : "Apple Speech（フォールバック）")")
+        print("[STT] エンジン選択: \(useWhisper ? "WhisperKit (base)" : "Apple Speech")")
         #endif
+        return useWhisper ? whisperEngine : appleEngine
+    }
 
+    public static let liveValue: STTEngineClient = {
         return STTEngineClient(
             startTranscription: { audioStream, language in
-                engine.startTranscription(audioStream: audioStream, language: language)
+                resolveEngine().startTranscription(audioStream: audioStream, language: language)
             },
-            finishTranscription: { try await engine.finishTranscription() },
-            stopTranscription: { await engine.stopTranscription() },
-            isAvailable: { await engine.isAvailable() },
+            finishTranscription: { try await resolveEngine().finishTranscription() },
+            stopTranscription: { await resolveEngine().stopTranscription() },
+            isAvailable: { await resolveEngine().isAvailable() },
             setCustomDictionary: { dictionary in
-                await engine.setCustomDictionary(dictionary)
+                await resolveEngine().setCustomDictionary(dictionary)
             }
         )
     }()
