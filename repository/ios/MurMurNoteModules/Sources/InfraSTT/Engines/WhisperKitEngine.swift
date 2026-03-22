@@ -37,10 +37,25 @@ public final class WhisperKitEngine: @unchecked Sendable {
 
     // MARK: - Constants
 
-    /// チャンク処理の秒数
-    private static let chunkDurationSeconds: Double = 3.0
+    /// 認識を実行するストライド（この間隔で認識が走る）
+    private static let strideDurationSeconds: Double = 3.0
+    /// 認識ウィンドウの最大長（Whisper推奨30秒）
+    private static let windowMaxDurationSeconds: Double = 30.0
     /// サンプルレート（WhisperKit標準: 16kHz）
     private static let sampleRate: Int = 16000
+
+    /// Whisperモデルの既知hallucination パターン（日本語）
+    // WORKAROUND: [WhisperKit/Whisper-base] hallucinationフィルタリング
+    private static let hallucinationPatterns: Set<String> = [
+        "(笑)", "(音楽)", "(拍手)", "(歌)",
+        "[音楽]", "[笑]", "[拍手]",
+        "ご視聴ありがとうございました",
+        "チャンネル登録", "高評価",
+    ]
+
+    /// 信頼度閾値（avgLogprobがこの値未満のセグメントは除外）
+    // WORKAROUND: [WhisperKit/Whisper-base] 低確信度セグメント除外
+    private static let confidenceThreshold: Float = -1.0
 
     // MARK: - Init
 
@@ -184,9 +199,10 @@ extension WhisperKitEngine: STTEngineProtocol {
                     return
                 }
 
-                // 音声バッファを蓄積して3秒間隔でチャンク認識
+                // 音声バッファを蓄積してストライド間隔でスライディングウィンドウ認識
                 var audioBuffer: [Float] = []
-                let chunkSize = Int(Self.chunkDurationSeconds) * Self.sampleRate
+                let strideSize = Int(Self.strideDurationSeconds) * Self.sampleRate
+                let windowMaxSize = Int(Self.windowMaxDurationSeconds) * Self.sampleRate
 
                 for await pcmBuffer in audioStream {
                     guard !Task.isCancelled else { break }
@@ -194,8 +210,8 @@ extension WhisperKitEngine: STTEngineProtocol {
                     let floatData = self.extractFloatData(from: pcmBuffer)
                     audioBuffer.append(contentsOf: floatData)
 
-                    // チャンクサイズ分溜まったら認識実行
-                    if audioBuffer.count >= chunkSize {
+                    // ストライド分溜まったら認識実行（ウィンドウ全体を渡す）
+                    if audioBuffer.count >= strideSize {
                         if let domainResult = await self.processChunk(
                             audioBuffer,
                             language: whisperLanguage,
@@ -205,7 +221,11 @@ extension WhisperKitEngine: STTEngineProtocol {
                             self.withLock { self.lastResult = domainResult }
                             continuation.yield(domainResult)
                         }
-                        audioBuffer.removeAll()
+
+                        // ウィンドウがmaxを超えたら先頭を削除してスライド
+                        if audioBuffer.count > windowMaxSize {
+                            audioBuffer.removeFirst(audioBuffer.count - windowMaxSize)
+                        }
                     }
                 }
 
@@ -320,13 +340,39 @@ extension WhisperKitEngine {
             // WhisperKit の TranscriptionResult から必要なプロパティを抽出
             let text: String = first.text
             let segments = first.segments
-            let segTexts = segments.map(\.text)
-            let segStarts = segments.map(\.start)
-            let segEnds = segments.map(\.end)
-            let segLogprobs = segments.map(\.avgLogprob)
+
+            // WORKAROUND: [WhisperKit/Whisper-base] hallucinationフィルタリング
+            let filteredSegments = segments.filter { segment in
+                guard segment.avgLogprob >= Self.confidenceThreshold else {
+                    #if DEBUG
+                    print("[WhisperKit] 低確信度除外: \"\(segment.text)\" (avgLogprob: \(segment.avgLogprob))")
+                    #endif
+                    return false
+                }
+                return true
+            }
+
+            let segTexts = filteredSegments.map(\.text)
+            let segStarts = filteredSegments.map(\.start)
+            let segEnds = filteredSegments.map(\.end)
+            let segLogprobs = filteredSegments.map(\.avgLogprob)
+
+            // hallucinationパターンをテキストから除去
+            var filteredText = text
+            for pattern in Self.hallucinationPatterns {
+                filteredText = filteredText.replacingOccurrences(of: pattern, with: "")
+            }
+            filteredText = filteredText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !filteredText.isEmpty else {
+                #if DEBUG
+                print("[WhisperKit] hallucination除去後テキスト空: 元=\"\(text)\"")
+                #endif
+                return nil
+            }
 
             return toDomainResult(
-                text: text,
+                text: filteredText,
                 segmentTexts: segTexts,
                 segmentStarts: segStarts,
                 segmentEnds: segEnds,
