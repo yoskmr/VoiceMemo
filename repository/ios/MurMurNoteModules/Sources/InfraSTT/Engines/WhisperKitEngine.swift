@@ -201,6 +201,7 @@ extension WhisperKitEngine: STTEngineProtocol {
 
                 // 音声バッファを蓄積してストライド間隔でスライディングウィンドウ認識
                 var audioBuffer: [Float] = []
+                var pendingSamples = 0
                 let strideSize = Int(Self.strideDurationSeconds) * Self.sampleRate
                 let windowMaxSize = Int(Self.windowMaxDurationSeconds) * Self.sampleRate
 
@@ -209,9 +210,11 @@ extension WhisperKitEngine: STTEngineProtocol {
 
                     let floatData = self.extractFloatData(from: pcmBuffer)
                     audioBuffer.append(contentsOf: floatData)
+                    pendingSamples += floatData.count
 
-                    // ストライド分溜まったら認識実行（ウィンドウ全体を渡す）
-                    if audioBuffer.count >= strideSize {
+                    // ストライド分の新データが溜まったら認識実行（ウィンドウ全体を渡す）
+                    if pendingSamples >= strideSize {
+                        pendingSamples = 0
                         if let domainResult = await self.processChunk(
                             audioBuffer,
                             language: whisperLanguage,
@@ -311,20 +314,14 @@ extension WhisperKitEngine {
         whisperKit: WhisperKit
     ) async -> Domain.TranscriptionResult? {
         do {
-            let currentInitialPrompt = withLock { self.initialPrompt }
-            let promptTokens: [Int]? = if currentInitialPrompt.isEmpty {
-                nil
-            } else {
-                whisperKit.tokenizer?.encode(text: currentInitialPrompt)
-            }
-
+            // NOTE: カスタム辞書のpromptTokens注入は whisper-base のコンテキスト上限
+            // (224トークン) を圧迫するため無効化。whisper-large 以上で再有効化を検討
             let options = DecodingOptions(
                 task: .transcribe,
                 language: language,
                 temperatureFallbackCount: 3,
                 detectLanguage: false,
                 wordTimestamps: true,
-                promptTokens: promptTokens,
                 suppressBlank: true
             )
 
