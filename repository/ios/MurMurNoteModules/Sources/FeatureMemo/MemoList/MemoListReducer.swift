@@ -489,7 +489,7 @@ public struct MemoListReducer {
                 title: entity.title,
                 createdAt: entity.createdAt,
                 durationSeconds: entity.durationSeconds,
-                transcriptPreview: String((entity.transcription?.fullText ?? "").prefix(60)),
+                transcriptPreview: String((entity.aiSummary?.summaryText ?? entity.transcription?.fullText ?? "").prefix(60)),
                 emotion: entity.emotionAnalysis?.primaryEmotion,
                 tags: entity.tags.map(\.name),
                 audioFilePath: entity.audioFilePath
