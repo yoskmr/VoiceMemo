@@ -36,12 +36,6 @@ public struct SettingsView: View {
 
                 // MARK: - 一般セクション
                 Section {
-                    HStack {
-                        Label("文字起こし", systemImage: "waveform")
-                        Spacer()
-                        Text(Self.isWhisperKitModelDownloaded ? "高精度" : "標準")
-                            .foregroundColor(.vmTextTertiary)
-                    }
                     NavigationLink {
                         CustomDictionaryView(
                             store: store.scope(
@@ -125,6 +119,13 @@ public struct SettingsView: View {
                             UserDefaults.standard.set(false, forKey: "hasSeenAIOnboarding")
                         } label: {
                             Text("ウェルカム画面・オンボーディングをリセット")
+                        }
+
+                        HStack {
+                            Text("STTエンジン")
+                            Spacer()
+                            Text(Self.isWhisperKitModelDownloaded ? "WhisperKit (base)" : "Apple Speech")
+                                .foregroundColor(.vmTextTertiary)
                         }
                     } header: {
                         Text("デバッグ（\(AppEnvironment.current == .development ? "Development" : "Staging")）")

@@ -358,7 +358,6 @@ extension WhisperKitEngine {
 
         let config = WhisperKitConfig(
             model: modelName,
-            modelFolder: modelDirectoryURL.path,
             verbose: false,
             logLevel: .none,
             download: true
@@ -384,9 +383,21 @@ extension WhisperKitEngine {
     }
 
     /// モデルがダウンロード済みか確認
+    /// WhisperKitのデフォルトダウンロード先と自前ディレクトリの両方を確認
     public func isModelDownloaded() -> Bool {
-        let modelPath = modelDirectoryURL.appendingPathComponent(modelName)
-        return FileManager.default.fileExists(atPath: modelPath.path)
+        // 自前ディレクトリ
+        let customPath = modelDirectoryURL.appendingPathComponent(modelName)
+        if FileManager.default.fileExists(atPath: customPath.path) {
+            return true
+        }
+        // WhisperKitデフォルトパス（huggingface/models/argmaxinc/whisperkit-coreml/）
+        let defaultBase = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml")
+        if let defaultBase, FileManager.default.fileExists(atPath: defaultBase.appendingPathComponent(modelName).path) {
+            return true
+        }
+        // isModelLoaded でも判定（既にロード済みの場合）
+        return isModelLoaded
     }
 
     /// モデルファイルの削除
