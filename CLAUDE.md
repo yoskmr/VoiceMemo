@@ -75,6 +75,12 @@ Infra層        InfraSTT / InfraStorage / InfraLLM / InfraNetwork
 - テストは `TestStore` を使い、exhaustivity を適切に設定
 - エンティティ変更は Domain 層の `VoiceMemoEntity` で行い、SwiftData モデルは InfraStorage 層のみ
 - 設計書（`docs/spec/`）に準拠して実装する。乖離を見つけたら報告すること
+- 日本語テキストの行間は必ず `VMDesignTokens.LineSpacing` トークンを使用する:
+  - 本文（17pt）: `.lineSpacing(VMDesignTokens.LineSpacing.body)` = 12pt（1.7倍）
+  - 見出し（22pt）: `.lineSpacing(VMDesignTokens.LineSpacing.heading)` = 9pt（1.4倍）
+  - キャプション（12pt）: `.lineSpacing(VMDesignTokens.LineSpacing.caption)` = 6pt（1.5倍）
+  - マジックナンバーの `.lineSpacing(6)` 等は禁止
+- ユーザー向けテキストに「録音」「AI分析」を使わない。「つぶやき」「AI整理」を使うこと
 
 ### TCA Reducer 規約（tca-pro スキル使用時の追加制約）
 
