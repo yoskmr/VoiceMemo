@@ -180,6 +180,13 @@ import FoundationModels
 
 10. **プロンプト行数の追跡**: PromptTemplate の各バージョンのプロンプト文字数を記録し、バージョン間で増減を追跡する。増加傾向が続く場合は簡素化レビューを実施する。
 
+## ガードレール（禁止事項）
+
+- **管轄外モジュールの変更禁止**: InfraSTT / InfraLLM / FeatureAI / FeatureRecording 以外のモジュールを直接変更しない。tech-lead に依頼する
+- **STT+LLM同時実行の禁止**: メモリ制約により、STTエンジンとLLMエンジンを同時にメモリ上に保持するコードを書かない
+- **評価セットなしのプロンプト変更禁止**: PromptTemplate のマイナー/メジャーバージョン変更時、works/eval-sets/ での評価セット再実行なしにマージしない
+- **コスト最適化の早期実施禁止**: Phase 3 では精度を最優先。より小さいモデルへの切替やプロンプト圧縮は Phase 4 以降に行う
+
 ## Phase 3 拡張予定
 
 - オンデバイスLLM（llama.cpp / Phi-3-mini）統合

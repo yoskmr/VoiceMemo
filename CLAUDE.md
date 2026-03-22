@@ -70,56 +70,12 @@ Infra層        InfraSTT / InfraStorage / InfraLLM / InfraNetwork
 
 ## コーディング規約
 
-- TCA の Reducer は `@Reducer` マクロ + `@ObservableState` を使用
-- Dependency 注入は `@Dependency(\.xxx)` + `DependencyKey` 準拠
-- テストは `TestStore` を使い、exhaustivity を適切に設定
-- エンティティ変更は Domain 層の `VoiceMemoEntity` で行い、SwiftData モデルは InfraStorage 層のみ
-- 設計書（`docs/spec/`）に準拠して実装する。乖離を見つけたら報告すること
-- 日本語テキストの行間は必ず `VMDesignTokens.LineSpacing` トークンを使用する:
-  - 本文（17pt）: `.lineSpacing(VMDesignTokens.LineSpacing.body)` = 12pt（1.7倍）
-  - 見出し（22pt）: `.lineSpacing(VMDesignTokens.LineSpacing.heading)` = 9pt（1.4倍）
-  - キャプション（12pt）: `.lineSpacing(VMDesignTokens.LineSpacing.caption)` = 6pt（1.5倍）
-  - マジックナンバーの `.lineSpacing(6)` 等は禁止
-- ユーザー向けテキストに「録音」「AI分析」を使わない。「つぶやき」「AI整理」を使うこと
-
-### TCA Reducer 規約（tca-pro スキル使用時の追加制約）
-
-Reducer のセクション順序（`RecordingFeature.swift` を正規パターンとする）:
-1. `// MARK: - Constants` — 定数定義
-2. `// MARK: - State` — `@ObservableState public struct State: Equatable`、`public init` は全パラメータにデフォルト値
-3. `// MARK: - Action` — `public enum Action: Equatable, Sendable`、ユーザー操作は `xxxButtonTapped`、内部は `xxxLoaded/xxxFailed/xxxUpdated`
-4. `// MARK: - Dependencies` — `@Dependency(\.xxx) var xxx`
-5. `// MARK: - Cancellation IDs` — `private enum CancelID { case xxx }`
-6. `// MARK: - Reducer Body` — `public init() {}` + `public var body: some ReducerOf<Self>`
-7. `// MARK: - Effects` — `private func xxxEffect() -> Effect<Action>` + `.cancellable(id:)`
-
-必須ルール:
-- Doc comment に設計書参照を記載（例: `/// 設計書01-system-architecture.md セクション2.2 準拠`）
-- Result ハンドリング: `.success` / `.failure(EquatableError)`
-- ナビゲーション: `@Presents` + `.ifLet`
-- Feature 層から Infra 層への直接依存禁止（Package.swift で制約済み）
-
-### テスト規約（swift-testing-pro スキル使用時の追加制約）
-
-- テスト命名: `test_アクション名_条件_期待結果()` 日本語（例: `test_recordButtonTapped_権限許可済み_recordingに遷移する`）
-- `@MainActor` 必須
-- TestStore セットアップ: `withDependencies` クロージャで依存を明示スタブ
-- DependencyClient の `testValue` は `unimplemented()` — テストで使う依存は全て明示的にスタブする
-- `store.exhaustivity = .off` は TODO コメント付きで限定使用
-- `ImmediateClock()` でクロック差し替え
-- ヘルパーメソッド: `makeMemoItem(...)`, `makeEntity(...)` デフォルトパラメータ付き
-- テストファイル配置: `Tests/FeatureXxxTests/` でソース構造をミラー
-
-### SharedUI 規約（swiftui-pro スキル使用時の追加制約）
-
-- カラートークン: `vmPrimary`, `vmSecondary`, `vmAccent`（暖色 HSB色相20-40）等を使用 — 生の `Color` 値使用禁止
-- フォント: `VMFonts.swift` のトークンを使用
-- スペーシング: `VMSpacing.swift` のトークンを使用
-- 感情カラー: `EmotionCategoryColor.swift` を使用
-- 再利用コンポーネント: `MemoCard`, `TagChip`, `WaveformView`, `EmotionBadge`, `RecordButton`
-- ダーク/ライトモード: `vmAdaptive(light:dark:)` パターン
-- View バインディング: `@Bindable var store: StoreOf<XxxReducer>` パターン
-- NFR-012: 暖色系パレット要件に準拠
+詳細は `.claude/rules/` 配下のルールファイルを参照（ファイルパターンに応じて自動ロード）:
+- `coding-conventions.md` — 汎用規約（`**/*.swift`）
+- `tca-reducer.md` — TCA Reducer 規約（`**/*Feature*.swift`, `**/*Reducer*.swift`）
+- `swift-testing.md` — テスト規約（`**/Tests/**/*.swift`）
+- `shared-ui.md` — SharedUI・行間トークン規約（`**/SharedUI/**/*.swift`, `**/*View*.swift`）
+- `terminology.md` — 用語ルール（`**/*.swift`）
 
 ## 現在の実装状況
 
@@ -187,6 +143,23 @@ development
 - 各ワークツリーで独立した Claude Code セッションを起動
 - ブランチごとにチーム構成を変えることが可能
 - PR 作成前に spec-gate（新規spawn）でブランチ検証
+
+### UI実装後のスクリーンショット残し
+
+SwiftUI View の変更を含む実装完了後、以下を実施する:
+
+- Xcode MCP（`xcode-mcp-workflow` スキル）または Simulator でビルド・実行し、変更画面のスクリーンショットを取得
+- スクリーンショットを `works/screenshots/[TASK-XXXX]/` に保存
+- spec-gate のチェック依頼時にスクリーンショットのパスを含める
+- **目的**: 人間のレビュー負荷を軽減し、UI/UX の視覚的な確認を可能にする
+
+### Hooks による自動化
+
+以下の処理は Hooks（settings.json）で自動実行される:
+
+- **pre-commit**: SwiftLint による自動フォーマット・リント（Xcode Build Phase で設定済み）
+- **実装完了後**: `/simplify` による簡潔化レビュー（CLAUDE.md グローバルルール準拠）
+- **コード変更後**: `codex-code-reviewer` スキルによるレビュー（CLAUDE.md グローバルルール準拠）
 
 ## 3レイヤーシミュレーション設計
 
