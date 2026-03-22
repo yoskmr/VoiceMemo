@@ -41,6 +41,19 @@ public enum VMDesignTokens {
         public static let slow: Double = 0.4
     }
 
+    // MARK: - Line Spacing（日本語テキスト用）
+    // 日本語は漢字・ひらがな・カタカナ混在で文字が正方形に近いため、
+    // 英語より広い行間が必要。以下を全Viewで統一すること。
+
+    public enum LineSpacing {
+        /// 見出し（22pt前後）: 1.4倍
+        public static let heading: CGFloat = 9
+        /// 本文（17pt前後）: 1.7倍
+        public static let body: CGFloat = 12
+        /// キャプション（12pt前後）: 1.5倍
+        public static let caption: CGFloat = 6
+    }
+
     // MARK: - Touch Target（Apple HIG準拠）
 
     public enum TouchTarget {

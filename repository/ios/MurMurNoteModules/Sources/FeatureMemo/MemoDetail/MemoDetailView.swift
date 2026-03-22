@@ -443,7 +443,7 @@ struct AISummarySection: View {
                     Text(block.text)
                         .font(.vmBody())
                         .foregroundColor(.vmTextPrimary)
-                        .lineSpacing(6)
+                        .lineSpacing(VMDesignTokens.LineSpacing.body)
                 }
             }
         }
