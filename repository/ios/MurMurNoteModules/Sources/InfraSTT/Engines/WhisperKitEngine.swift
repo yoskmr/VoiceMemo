@@ -198,7 +198,7 @@ extension WhisperKitEngine: STTEngineProtocol {
                     if audioBuffer.count >= chunkSize {
                         if let domainResult = await self.processChunk(
                             audioBuffer,
-                            language: language,
+                            language: whisperLanguage,
                             isFinal: false,
                             whisperKit: whisperKit
                         ) {
@@ -213,7 +213,7 @@ extension WhisperKitEngine: STTEngineProtocol {
                 if !audioBuffer.isEmpty, !Task.isCancelled {
                     if let domainResult = await self.processChunk(
                         audioBuffer,
-                        language: language,
+                        language: whisperLanguage,
                         isFinal: true,
                         whisperKit: whisperKit
                     ) {
