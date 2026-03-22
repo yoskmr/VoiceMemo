@@ -290,6 +290,7 @@ extension WhisperKitEngine {
         do {
             let options = DecodingOptions(
                 language: language,
+                detectLanguage: false,
                 wordTimestamps: true
             )
 
