@@ -29,20 +29,25 @@ extension AudioRecorderClient: DependencyKey {
     }()
 }
 
-// MARK: STTEngineClient → WhisperKit (base) with Apple Speech fallback
+// MARK: STTEngineClient → SpeechAnalyzer (iOS 26+) via Factory
 
 extension STTEngineClient: DependencyKey {
-    // エンジンインスタンスを保持（遅延初期化）
-    private static let whisperEngine = WhisperKitEngine(modelName: "openai_whisper-base")
-    private static let appleEngine = AppleSpeechEngine()
+    private static let factory = STTEngineFactory()
 
-    /// 呼び出し時に動的にエンジンを選択（ウェルカム画面でダウンロード完了後に切り替わる）
     private static func resolveEngine() -> any STTEngineProtocol {
-        let useWhisper = whisperEngine.isModelDownloaded()
-        #if DEBUG
-        print("[STT] エンジン選択: \(useWhisper ? "WhisperKit (base)" : "Apple Speech")")
-        #endif
-        return useWhisper ? whisperEngine : appleEngine
+        if #available(iOS 26.0, *) {
+            let engine = SpeechAnalyzerEngine()
+            #if DEBUG
+            print("[STT] エンジン選択: SpeechAnalyzer")
+            #endif
+            return engine
+        } else {
+            let engine = AppleSpeechEngine()
+            #if DEBUG
+            print("[STT] エンジン選択: Apple Speech (フォールバック)")
+            #endif
+            return engine
+        }
     }
 
     public static let liveValue: STTEngineClient = {

@@ -3,22 +3,13 @@ import SharedUI
 import SwiftUI
 
 /// 初回起動時のウェルカム画面
-/// WhisperKit モデルのダウンロードをバックグラウンドで行い、
-/// 完了後に自動でメイン画面へ遷移する。
-/// ダウンロード失敗時は Apple Speech にフォールバック（ユーザーには見せない）。
+/// SpeechAnalyzer の言語パックを準備し、完了後にメイン画面へ遷移する。
 struct WelcomeView: View {
-    /// ダウンロード進捗（0.0〜1.0）
     @State private var downloadProgress: Double = 0
-    /// モデル準備完了フラグ
     @State private var isReady: Bool = false
-    /// 準備中テキストのアニメーション用
     @State private var showProgress: Bool = false
 
-    /// 初回セットアップ完了時のコールバック
     var onSetupComplete: () -> Void
-
-    /// WhisperKit base モデルの概算サイズ（バイト）
-    private static let estimatedModelSize: Double = 140_000_000
 
     var body: some View {
         VStack(spacing: VMDesignTokens.Spacing.lg) {
@@ -40,7 +31,6 @@ struct WelcomeView: View {
 
             Spacer()
 
-            // プログレスバー（準備中のみ表示）
             if showProgress && !isReady {
                 VStack(spacing: VMDesignTokens.Spacing.sm) {
                     ProgressView(value: downloadProgress)
@@ -60,89 +50,47 @@ struct WelcomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.vmBackground.ignoresSafeArea())
         .onAppear {
-            startModelDownload()
+            prepareSTTEngine()
         }
     }
 
     // MARK: - Private
 
-    private func startModelDownload() {
+    private func prepareSTTEngine() {
         withAnimation(.easeIn(duration: 0.5).delay(0.3)) {
             showProgress = true
         }
 
         Task {
-            let engine = WhisperKitEngine(modelName: "openai_whisper-base")
+            if #available(iOS 26.0, *) {
+                let engine = SpeechAnalyzerEngine()
 
-            // 既にダウンロード済みならすぐに完了
-            if engine.isModelDownloaded() {
-                await MainActor.run { downloadProgress = 1.0 }
-                await completeSetup()
-                return
-            }
-
-            // 進捗監視タスク: ダウンロードフォルダのサイズを定期チェック
-            let progressTask = Task {
-                await monitorDownloadProgress()
-            }
-
-            do {
-                try await engine.downloadModel { _ in }
-                progressTask.cancel()
-                await MainActor.run { downloadProgress = 1.0 }
-                await completeSetup()
-            } catch {
-                progressTask.cancel()
-                #if DEBUG
-                print("[Welcome] WhisperKit モデルダウンロード失敗（Apple Speechにフォールバック）: \(error)")
-                #endif
-                await MainActor.run { downloadProgress = 1.0 }
-                await completeSetup()
-            }
-        }
-    }
-
-    /// ダウンロードフォルダのサイズを監視して擬似プログレスを更新
-    private func monitorDownloadProgress() async {
-        let fm = FileManager.default
-        // WhisperKitのデフォルトダウンロード先
-        let possiblePaths = [
-            fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-                .appendingPathComponent("huggingface"),
-            fm.urls(for: .cachesDirectory, in: .userDomainMask).first?
-                .appendingPathComponent("Models")
-        ].compactMap { $0 }
-
-        while !Task.isCancelled {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒ごと
-
-            var totalSize: Double = 0
-            for basePath in possiblePaths {
-                totalSize += Self.directorySize(at: basePath)
-            }
-
-            let progress = min(totalSize / Self.estimatedModelSize, 0.95) // 95%まで
-            await MainActor.run {
-                withAnimation(.linear(duration: 0.3)) {
-                    downloadProgress = progress
+                // 言語パックが利用可能か確認
+                if await engine.isAvailable() {
+                    await MainActor.run { downloadProgress = 1.0 }
+                    await completeSetup()
+                    return
                 }
-            }
-        }
-    }
 
-    /// ディレクトリの合計サイズを再帰的に計算
-    private static func directorySize(at url: URL) -> Double {
-        let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey]) else {
-            return 0
-        }
-        var size: Double = 0
-        for case let fileURL as URL in enumerator {
-            if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                size += Double(fileSize)
+                // 言語パックをダウンロード
+                do {
+                    await MainActor.run { downloadProgress = 0.3 }
+                    try await engine.downloadLanguagePack(locale: Locale(identifier: "ja-JP"))
+                    await MainActor.run { downloadProgress = 1.0 }
+                    await completeSetup()
+                } catch {
+                    #if DEBUG
+                    print("[Welcome] 言語パックDL失敗（Apple Speechにフォールバック）: \(error)")
+                    #endif
+                    await MainActor.run { downloadProgress = 1.0 }
+                    await completeSetup()
+                }
+            } else {
+                // iOS 26未満: すぐに完了
+                await MainActor.run { downloadProgress = 1.0 }
+                await completeSetup()
             }
         }
-        return size
     }
 
     @MainActor

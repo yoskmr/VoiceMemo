@@ -208,18 +208,8 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        // STTエンジン用の16kHz Monoダウンサンプリング設定
-        let sttFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: Self.pcmSampleRate,
-            channels: Self.pcmChannels,
-            interleaved: false
-        )!
-        let decimationFactor = Int(inputFormat.sampleRate / Self.pcmSampleRate) // 48kHz/16kHz = 3
-        let needsConversion = decimationFactor > 1
-
         #if DEBUG
-        print("[Recorder] 入力: \(inputFormat.sampleRate)Hz \(inputFormat.channelCount)ch → STT: \(Self.pcmSampleRate)Hz (デシメーション x\(decimationFactor))")
+        print("[Recorder] 入力: \(inputFormat.sampleRate)Hz \(inputFormat.channelCount)ch（ネイティブフォーマットでSTTへ送信）")
         #endif
 
         // レベルストリームを作成
@@ -240,7 +230,7 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
         let bufferSize: AVAudioFrameCount = 1024
         // TODO: os_unfair_lock への移行を検討（RTスレッドでの NSLock オーバーヘッド軽減）
         inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) {
-            [weak self, sttFormat, decimationFactor, needsConversion] buffer, _ in
+            [weak self] buffer, _ in
             guard let self = self else { return }
 
             // ロック取得を1回に統合: isRecording/isPaused判定 + state値取得を一括で行う
@@ -276,27 +266,8 @@ extension AVAudioEngineRecorder: AudioRecorderProtocol {
 
             snapshot.levelCont?.yield(update)
 
-            // STTエンジンへ16kHz Monoダウンサンプリング済みバッファを送信
-            if needsConversion {
-                guard let channelData = buffer.floatChannelData else { return }
-                let frameLength = Int(buffer.frameLength)
-                let outputLength = frameLength / decimationFactor
-                guard outputLength > 0,
-                      let outputBuffer = AVAudioPCMBuffer(
-                          pcmFormat: sttFormat,
-                          frameCapacity: AVAudioFrameCount(outputLength)
-                      ),
-                      let outputPtr = outputBuffer.floatChannelData?[0] else { return }
-
-                let inputPtr = channelData[0]
-                for i in 0..<outputLength {
-                    outputPtr[i] = inputPtr[i * decimationFactor]
-                }
-                outputBuffer.frameLength = AVAudioFrameCount(outputLength)
-                snapshot.pcmCont?.yield(outputBuffer)
-            } else {
-                snapshot.pcmCont?.yield(buffer)
-            }
+            // ネイティブフォーマットのPCMバッファをSTTエンジンへ送信
+            snapshot.pcmCont?.yield(buffer)
 
             // AAC ファイルに書き込み
             do {

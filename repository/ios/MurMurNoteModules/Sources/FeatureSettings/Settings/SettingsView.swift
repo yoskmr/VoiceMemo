@@ -124,7 +124,7 @@ public struct SettingsView: View {
                         HStack {
                             Text("STTエンジン")
                             Spacer()
-                            Text(Self.isWhisperKitModelDownloaded ? "WhisperKit (base)" : "Apple Speech")
+                            Text("SpeechAnalyzer")
                                 .foregroundColor(.vmTextTertiary)
                         }
                     } header: {
@@ -168,14 +168,6 @@ public struct SettingsView: View {
                 Text("今月のAI処理回数を0にリセットします")
             }
         }
-    }
-
-    // MARK: - WhisperKit Model Check
-
-    /// WhisperKit モデルがダウンロード済みかを UserDefaults フラグで確認する
-    /// WhisperKitEngine.loadModel() 成功時に永続化されるフラグを参照
-    private static var isWhisperKitModelDownloaded: Bool {
-        UserDefaults.standard.bool(forKey: "whisperkit_model_downloaded")
     }
 
     // MARK: - Private Helpers

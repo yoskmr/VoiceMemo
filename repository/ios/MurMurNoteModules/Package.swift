@@ -30,10 +30,6 @@ let package = Package(
             url: "https://github.com/pointfreeco/swift-dependencies",
             from: "1.6.0"
         ),
-        .package(
-            url: "https://github.com/argmaxinc/WhisperKit",
-            from: "0.9.0"
-        ),
         // SwiftLint: Xcode Build Phase で別途実行（SPMプラグインは互換性問題あり）
     ],
     targets: [
@@ -65,7 +61,6 @@ let package = Package(
             name: "InfraSTT",
             dependencies: [
                 "Domain",
-                .product(name: "WhisperKit", package: "WhisperKit"),
             ],
             plugins: []
         ),

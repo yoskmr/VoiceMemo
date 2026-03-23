@@ -3,7 +3,7 @@ import Foundation
 
 /// STTエンジンのファクトリ実装
 /// 01-Arch セクション4.2: STTエンジン切替フロー準拠
-/// STTEngineSelector による自動選択 + フォールバックチェーンを提供する
+/// iOS 26+ では SpeechAnalyzer を主エンジンとして使用する
 public final class STTEngineFactory: STTEngineFactoryProtocol, @unchecked Sendable {
 
     private let selector: STTEngineSelector
@@ -17,13 +17,12 @@ public final class STTEngineFactory: STTEngineFactoryProtocol, @unchecked Sendab
 
     public func createEngine(type: STTEngineType) -> any STTEngineProtocol {
         switch type {
-        case .speechAnalyzer:
-            return AppleSpeechEngine()
-        case .whisperKit:
-            return WhisperKitEngine()
-        case .cloudSTT:
-            // クラウドSTTは将来実装。現時点ではAppleSpeechEngineにフォールバック
-            return AppleSpeechEngine()
+        case .speechAnalyzer, .whisperKit, .cloudSTT:
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return SpeechAnalyzerEngine()
+            } else {
+                return AppleSpeechEngine()
+            }
         }
     }
 
@@ -31,31 +30,15 @@ public final class STTEngineFactory: STTEngineFactoryProtocol, @unchecked Sendab
         context: STTEngineSelectionContext
     ) async -> (engine: any STTEngineProtocol, actualType: STTEngineType)? {
         let preferredType = selector.selectEngine(context: context)
-        return await resolveEngineWithFallback(preferredType: preferredType)
-    }
-
-    // MARK: - Fallback Chain
-
-    /// 優先エンジンを試行し、利用不可の場合はフォールバックチェーンを辿る
-    /// フォールバック順: whisperKit -> speechAnalyzer
-    private func resolveEngineWithFallback(
-        preferredType: STTEngineType
-    ) async -> (engine: any STTEngineProtocol, actualType: STTEngineType)? {
-        // 優先エンジンを試行
-        let preferred = createEngine(type: preferredType)
-        if await preferred.isAvailable() {
-            return (preferred, preferredType)
+        let engine = createEngine(type: preferredType)
+        if await engine.isAvailable() {
+            return (engine, .speechAnalyzer)
         }
-
-        // フォールバックチェーン
-        let fallbackOrder: [STTEngineType] = [.whisperKit, .speechAnalyzer]
-        for type in fallbackOrder where type != preferredType {
-            let engine = createEngine(type: type)
-            if await engine.isAvailable() {
-                return (engine, type)
-            }
+        // フォールバック: AppleSpeechEngine
+        let fallback = AppleSpeechEngine()
+        if await fallback.isAvailable() {
+            return (fallback, .speechAnalyzer)
         }
-
-        return nil // 全エンジン利用不可
+        return nil
     }
 }
