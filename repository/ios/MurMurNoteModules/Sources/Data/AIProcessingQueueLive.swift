@@ -224,15 +224,14 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             // キャンセルチェック
             try Task.checkCancellation()
 
-            // カスタム辞書取得（固有名詞の誤変換修正用）
-            // NOTE: 読みペア形式はLLMが読み注釈をテキストに挿入してしまうため、
-            // display名のみを渡す（シンプルな方が整理品質が高い）
-            let customWords = (try? await customDictionaryClient.getContextualStrings()) ?? []
-
+            // カスタム辞書: SpeechAnalyzerの認識精度が十分高いため、
+            // LLMプロンプトへの辞書注入は無効化。オンデバイスLLM（~3B）が
+            // 51件の辞書を過剰適用し、正しいテキストを破壊する問題があった。
+            // 将来的にLLMの品質向上に伴い再有効化を検討。
             let request = LLMRequest(
                 text: transcriptionText,
                 tasks: [.summarize, .tagging],
-                customDictionary: customWords
+                customDictionary: []
             )
 
             // ステータス通知: processing (50%)
