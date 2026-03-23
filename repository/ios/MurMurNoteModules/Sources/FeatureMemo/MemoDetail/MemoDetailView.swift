@@ -488,11 +488,15 @@ struct AISummarySection: View {
         return blocks
     }
 
-    // MARK: - AI要約未生成時のプレースホルダ
+    // MARK: - AI整理の待機中プレースホルダ
 
     private var placeholderCard: some View {
-        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
-            Text("AI要約はまだ生成されていません")
+        VStack(spacing: VMDesignTokens.Spacing.md) {
+            // パルスアニメーション付きアイコン
+            PulsingDotView()
+                .frame(height: 32)
+
+            Text("メモを整理しています...")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextTertiary)
 
@@ -507,7 +511,8 @@ struct AISummarySection: View {
                 .accessibilityLabel("AI整理を実行する")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, VMDesignTokens.Spacing.lg)
     }
 }
 
