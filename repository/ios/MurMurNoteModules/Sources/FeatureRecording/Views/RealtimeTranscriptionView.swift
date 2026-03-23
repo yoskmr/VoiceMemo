@@ -9,14 +9,27 @@ struct RealtimeTranscriptionView: View {
     let confidenceLevel: ConfidenceLevel
 
     var body: some View {
-        ScrollView {
-            Text(displayText)
-                .font(.vmBody())
-                .foregroundColor(text.isEmpty ? .vmTextTertiary : .vmTextPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(VMDesignTokens.Spacing.lg)
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(displayText)
+                    .font(.vmBody())
+                    .foregroundColor(text.isEmpty ? .vmTextTertiary : .vmTextPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(VMDesignTokens.Spacing.lg)
+
+                // スクロール先アンカー
+                Color.clear
+                    .frame(height: 1)
+                    .id("bottom")
+            }
+            .onChange(of: text) {
+                // テキスト更新時に最下部へ自動スクロール
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
         }
-        .frame(maxHeight: 200)
+        .frame(maxHeight: 300)
         .background(Color.vmSurfaceVariant)
         .clipShape(RoundedRectangle(cornerRadius: VMDesignTokens.CornerRadius.small))
         .overlay(alignment: .topTrailing) {
