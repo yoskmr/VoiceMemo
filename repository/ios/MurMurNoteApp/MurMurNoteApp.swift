@@ -156,7 +156,7 @@ struct AppView: View {
             MemoListView(
                 store: store.scope(state: \.memoList, action: \.memoList)
             )
-            .tabItem { Label("メモ", systemImage: "doc.text.fill") }
+            .tabItem { Label("きおく", systemImage: "book.fill") }
             .tag(AppReducer.State.Tab.memoList)
 
             // 設定タブ

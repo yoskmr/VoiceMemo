@@ -23,10 +23,10 @@ public struct MemoListView: View {
                 }
             }
             .background(Color.vmBackground)
-            .navigationTitle("メモ")
+            .navigationTitle("きおく")
             .searchable(
                 text: $store.searchQuery.sending(\.searchQueryChanged),
-                prompt: "メモを検索..."
+                prompt: "きおくを検索..."
             )
             .toolbar {
                 #if os(iOS)
@@ -54,7 +54,7 @@ public struct MemoListView: View {
             }
             // スワイプ削除確認ダイアログ
             .alert(
-                "メモを削除",
+                "きおくを削除",
                 isPresented: $store.showDeleteConfirmation.sending(\.deleteConfirmationPresented)
             ) {
                 Button("削除", role: .destructive) {
@@ -64,7 +64,7 @@ public struct MemoListView: View {
                     store.send(.deleteCancelled)
                 }
             } message: {
-                Text("このメモを完全に削除しますか？\nこの操作は取り消せません。")
+                Text("このきおくを完全に削除しますか？\nこの操作は取り消せません。")
             }
             // T11: 月上限到達時のダイアログ
             .alert(
@@ -97,10 +97,10 @@ public struct MemoListView: View {
                     Image(systemName: "plus.bubble.fill")
                         .font(.system(size: 48))
                         .foregroundColor(.vmTextTertiary)
-                    Text("メモがありません")
+                    Text("きおくがありません")
                         .font(.vmTitle3)
                         .foregroundColor(.vmTextPrimary)
-                    Text("つぶやきタブでメモを作成しましょう")
+                    Text("つぶやきタブできおくを作成しましょう")
                         .font(.vmSubheadline)
                         .foregroundColor(.vmTextSecondary)
                     Spacer()
@@ -153,7 +153,7 @@ public struct MemoListView: View {
                         }
 
                         if store.isLoading {
-                            ProgressView("メモを読み込み中...")
+                            ProgressView("きおくを読み込み中...")
                                 .padding()
                         }
                     }
