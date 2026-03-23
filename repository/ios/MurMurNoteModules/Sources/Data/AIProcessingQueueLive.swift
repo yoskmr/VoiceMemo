@@ -224,12 +224,14 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             // キャンセルチェック
             try Task.checkCancellation()
 
-            // カスタム辞書: SpeechAnalyzerの認識精度が十分高いため、
-            // LLMプロンプトへの辞書注入は無効化。オンデバイスLLM（~3B）が
-            // 51件の辞書を過剰適用し、正しいテキストを破壊する問題があった。
-            // 将来的にLLMの品質向上に伴い再有効化を検討。
+            // カスタム辞書: ルールベース後処理でSTTテキストを補正してからLLMに渡す
+            // LLMプロンプトへの辞書注入は無効化（過剰適用でテキスト破壊の問題あり）
+            let dictionaryPairs = (try? await customDictionaryClient.getDictionaryPairs()) ?? []
+            let postProcessor = DictionaryPostProcessor()
+            let correctedText = postProcessor.apply(text: transcriptionText, entries: dictionaryPairs)
+
             let request = LLMRequest(
-                text: transcriptionText,
+                text: correctedText,
                 tasks: [.summarize, .tagging],
                 customDictionary: []
             )
