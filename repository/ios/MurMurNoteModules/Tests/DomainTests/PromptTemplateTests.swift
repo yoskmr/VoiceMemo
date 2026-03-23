@@ -6,7 +6,7 @@ final class PromptTemplateTests: XCTestCase {
     // MARK: - onDeviceSimple テンプレート
 
     func testOnDeviceSimple_version() {
-        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.0.0")
+        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.1.0")
     }
 
     func testOnDeviceSimple_containsPlaceholder() {

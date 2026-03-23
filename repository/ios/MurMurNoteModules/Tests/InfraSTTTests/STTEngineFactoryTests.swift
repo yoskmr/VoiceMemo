@@ -20,10 +20,11 @@ final class STTEngineFactoryTests: XCTestCase {
         XCTAssertEqual(engine.engineType, .speechAnalyzer)
     }
 
-    func test_createEngine_whisperKit_returns_whisperKitEngine() {
+    func test_createEngine_whisperKit_falls_back_to_speechAnalyzer() {
+        // WhisperKit削除後はSpeechAnalyzerにフォールバック
         let factory = STTEngineFactory()
         let engine = factory.createEngine(type: .whisperKit)
-        XCTAssertEqual(engine.engineType, .whisperKit)
+        XCTAssertEqual(engine.engineType, .speechAnalyzer)
     }
 
     func test_createEngine_cloudSTT_falls_back_to_appleSpeech() {
