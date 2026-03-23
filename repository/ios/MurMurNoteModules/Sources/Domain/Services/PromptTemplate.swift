@@ -27,10 +27,15 @@ public struct PromptTemplate: Sendable, Equatable {
         return prompt
     }
 
+    /// 読みペア付きカスタム辞書でプロンプトを構築する（SpeechAnalyzer後処理用）
+    public func buildUserPrompt(text: String, dictionaryPairs: [(reading: String, display: String)]) -> String {
+        var prompt = userPromptTemplate.replacingOccurrences(of: "{transcribed_text}", with: text)
+        prompt = prompt.replacingOccurrences(of: "{custom_dictionary}", with: formatDictionaryPairs(dictionaryPairs))
+        return prompt
+    }
+
     private func formatDictionary(_ words: [String]) -> String {
-        if words.isEmpty {
-            return ""
-        }
+        if words.isEmpty { return "" }
         let list = words.prefix(30).joined(separator: "、")
         return """
 
@@ -38,6 +43,17 @@ public struct PromptTemplate: Sendable, Equatable {
         以下はユーザーが登録した正しい固有名詞です。音声認識で似た音の別の漢字に誤変換されている場合、必ずこのリストの表記に修正してください。
         例: 「鈴鹿」→「鈴香」、「宿待っている」→「城間という」
         正しい固有名詞: \(list)
+        """
+    }
+
+    private func formatDictionaryPairs(_ pairs: [(reading: String, display: String)]) -> String {
+        if pairs.isEmpty { return "" }
+        let pairList = pairs.prefix(30).map { "\($0.display)（\($0.reading)）" }.joined(separator: "、")
+        return """
+
+        重要 - 固有名詞の修正:
+        以下はユーザーが登録した正しい固有名詞です。読みを参考に、音声認識で似た音の別の漢字に誤変換されている箇所を必ず修正してください。
+        正しい固有名詞（読み）: \(pairList)
         """
     }
 

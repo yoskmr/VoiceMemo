@@ -225,9 +225,10 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             try Task.checkCancellation()
 
             // カスタム辞書取得（固有名詞の誤変換修正用）
+            // NOTE: 読みペア形式はLLMが読み注釈をテキストに挿入してしまうため、
+            // display名のみを渡す（シンプルな方が整理品質が高い）
             let customWords = (try? await customDictionaryClient.getContextualStrings()) ?? []
 
-            // LLM推論リクエスト構築
             let request = LLMRequest(
                 text: transcriptionText,
                 tasks: [.summarize, .tagging],

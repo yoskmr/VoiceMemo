@@ -27,17 +27,21 @@ public struct CustomDictionaryClient: Sendable {
     public var deleteEntry: @Sendable (UUID) async throws -> Void
     /// STTエンジンに渡す contextualStrings を生成
     public var getContextualStrings: @Sendable () async throws -> [String]
+    /// 読み→表記ペアを取得（LLM後処理の固有名詞補正用）
+    public var getDictionaryPairs: @Sendable () async throws -> [(reading: String, display: String)]
 
     public init(
         loadEntries: @escaping @Sendable () async throws -> [DictionaryEntry],
         addEntry: @escaping @Sendable (DictionaryEntry) async throws -> Void,
         deleteEntry: @escaping @Sendable (UUID) async throws -> Void,
-        getContextualStrings: @escaping @Sendable () async throws -> [String]
+        getContextualStrings: @escaping @Sendable () async throws -> [String],
+        getDictionaryPairs: @escaping @Sendable () async throws -> [(reading: String, display: String)] = { [] }
     ) {
         self.loadEntries = loadEntries
         self.addEntry = addEntry
         self.deleteEntry = deleteEntry
         self.getContextualStrings = getContextualStrings
+        self.getDictionaryPairs = getDictionaryPairs
     }
 }
 
@@ -48,7 +52,8 @@ extension CustomDictionaryClient: TestDependencyKey {
         loadEntries: unimplemented("CustomDictionaryClient.loadEntries"),
         addEntry: unimplemented("CustomDictionaryClient.addEntry"),
         deleteEntry: unimplemented("CustomDictionaryClient.deleteEntry"),
-        getContextualStrings: unimplemented("CustomDictionaryClient.getContextualStrings")
+        getContextualStrings: unimplemented("CustomDictionaryClient.getContextualStrings"),
+        getDictionaryPairs: unimplemented("CustomDictionaryClient.getDictionaryPairs")
     )
 }
 

@@ -105,6 +105,12 @@ extension CustomDictionaryClient: DependencyKey {
                 let descriptor = FetchDescriptor<CustomDictionaryEntryModel>()
                 let models = try context.fetch(descriptor)
                 return models.map(\.display)
+            },
+            getDictionaryPairs: {
+                let context = ModelContext(container)
+                let descriptor = FetchDescriptor<CustomDictionaryEntryModel>()
+                let models = try context.fetch(descriptor)
+                return models.map { (reading: $0.reading, display: $0.display) }
             }
         )
     }()
