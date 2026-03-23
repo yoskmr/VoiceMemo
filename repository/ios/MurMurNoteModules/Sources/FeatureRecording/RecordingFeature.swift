@@ -334,7 +334,7 @@ public struct RecordingFeature {
             print("[Dict] カスタム辞書: \(contextualStrings.count)件 \(contextualStrings)")
             #endif
             if !contextualStrings.isEmpty {
-                let dictionary = Dictionary(uniqueKeysWithValues: contextualStrings.map { ($0, $0) })
+                let dictionary = Dictionary(contextualStrings.map { ($0, $0) }, uniquingKeysWith: { first, _ in first })
                 await sttEngine.setCustomDictionary(dictionary)
             }
 
