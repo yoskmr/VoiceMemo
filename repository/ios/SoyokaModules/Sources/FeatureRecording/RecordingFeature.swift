@@ -74,7 +74,7 @@ public struct RecordingFeature {
         }
 
         /// 完了画面の表示段階
-        public enum CompletionStage: Equatable, Sendable {
+        public enum CompletionStage: Comparable, Equatable, Sendable {
             /// 初期（何も表示しない）
             case initial
             /// チェックマーク表示

@@ -610,6 +610,18 @@ final class RecordingFeatureTests: XCTestCase {
 
     // MARK: - 正常系: timerTicked → 最大時間到達で自動停止
 
+    // MARK: - CompletionStage Comparable
+
+    /// CompletionStageの順序がinitial < checkmark < preview < ctaであること
+    func test_completionStage_順序がinitial_checkmark_preview_ctaであること() {
+        let stages: [RecordingFeature.State.CompletionStage] = [.initial, .checkmark, .preview, .cta]
+        for i in 0..<stages.count - 1 {
+            XCTAssertLessThan(stages[i], stages[i + 1])
+        }
+    }
+
+    // MARK: - 正常系: timerTicked → 最大時間到達で自動停止
+
     /// 最大録音時間に到達した場合、wasAutoStoppedがtrueになりstopButtonTappedが送信される
     func test_timerTicked_最大時間到達_wasAutoStoppedがtrueになりstopButtonTappedが送信される() async {
         let recordingResult = RecordingResult(

@@ -8,31 +8,37 @@ import SwiftUI
 struct RecordingCompletionView: View {
     let store: StoreOf<RecordingFeature>
 
-    @State private var showContent = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let stage = store.completionStage
+        let animation: Animation? = reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.8)
+
         VStack(spacing: VMDesignTokens.Spacing.xl) {
             Spacer()
 
-            // 温かいアイコン（吹き出し＋チェック）
+            // 温かいアイコン（吹き出し + チェック）
             Image(systemName: "bubble.left.fill")
                 .font(.system(size: 44))
                 .foregroundColor(.vmPrimary.opacity(0.8))
-                .scaleEffect(showContent ? 1 : 0.6)
-                .opacity(showContent ? 1 : 0)
+                .scaleEffect(stage >= .checkmark ? 1 : 0.6)
+                .opacity(stage >= .checkmark ? 1 : 0)
+                .animation(animation, value: stage)
 
             // 温かいメッセージ
             Text("書きとめました")
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextPrimary)
-                .opacity(showContent ? 1 : 0)
+                .opacity(stage >= .preview ? 1 : 0)
+                .animation(animation, value: stage)
 
             // 自動停止メッセージ
             if store.wasAutoStopped {
                 Text("5分に達したので終了しました")
                     .font(.vmCaption1)
                     .foregroundColor(.vmTextTertiary)
-                    .opacity(showContent ? 1 : 0)
+                    .opacity(stage >= .preview ? 1 : 0)
+                    .animation(animation, value: stage)
             }
 
             Spacer()
@@ -51,15 +57,11 @@ struct RecordingCompletionView: View {
                         .foregroundColor(.vmTextTertiary)
                 }
             }
-            .opacity(showContent ? 1 : 0)
+            .opacity(stage >= .cta ? 1 : 0)
+            .animation(animation, value: stage)
             .padding(.bottom, VMDesignTokens.Spacing.xxxl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.vmBackground.ignoresSafeArea())
-        .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                showContent = true
-            }
-        }
     }
 }
