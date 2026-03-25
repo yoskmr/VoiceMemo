@@ -1,15 +1,15 @@
 # CLAUDE.md
 
-MurMurNote（AI音声メモアプリ）の開発ガイド。
+Soyoka（AI音声メモアプリ）の開発ガイド。
 
 ## プロジェクト概要
 
-- **アプリ名**: MurMurNote
+- **アプリ名**: Soyoka
 - **プラットフォーム**: iOS 17+
 - **言語**: Swift 6.2 / SwiftUI
 - **アーキテクチャ**: TCA (The Composable Architecture) + Clean Architecture
-- **Xcodeプロジェクト**: `repository/ios/MurMurNote.xcodeproj`
-- **SPMパッケージ**: `repository/ios/MurMurNoteModules/`（マルチモジュール構成）
+- **Xcodeプロジェクト**: `repository/ios/Soyoka.xcodeproj`
+- **SPMパッケージ**: `repository/ios/SoyokaModules/`（マルチモジュール構成）
 
 ## 開発環境
 
@@ -23,11 +23,11 @@ VoiceMemo/
 ├── CLAUDE.md                    # ← このファイル
 ├── repository/                  # ソースコード（git管理）
 │   ├── ios/                     # iOSアプリ
-│   │   ├── MurMurNote.xcodeproj # Xcode プロジェクト
-│   │   ├── MurMurNoteApp/       # アプリターゲット（エントリポイント + DI）
-│   │   │   ├── MurMurNoteApp.swift  # @main, AppReducer, AppView
+│   │   ├── Soyoka.xcodeproj # Xcode プロジェクト
+│   │   ├── SoyokaApp/       # アプリターゲット（エントリポイント + DI）
+│   │   │   ├── SoyokaApp.swift  # @main, AppReducer, AppView
 │   │   │   └── LiveDependencies.swift  # 本番 Dependency 接続
-│   │   └── MurMurNoteModules/   # Swift Package（全モジュール）
+│   │   └── SoyokaModules/   # Swift Package（全モジュール）
 │   │       ├── Package.swift
 │   │       ├── Sources/         # 99ファイル / 8,400行
 │   │       └── Tests/           # 44ファイル / 369テスト全パス

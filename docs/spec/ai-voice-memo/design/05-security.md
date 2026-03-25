@@ -462,7 +462,7 @@ enum KeychainKey: String {
 }
 
 struct SecureKeychain {
-    private static let service = "io.murmurnote.app"
+    private static let service = "app.soyoka.app"
 
     static func save(key: KeychainKey, data: Data) throws { ... }
     static func load(key: KeychainKey) -> Data? { ... }
@@ -806,7 +806,7 @@ sequenceDiagram
     App->>Proxy: POST /auth/apple/verify<br/>{identityToken, authorizationCode, device_id}
 
     Proxy->>Apple: JWKSエンドポイントから公開鍵取得<br/>https://appleid.apple.com/auth/keys
-    Proxy->>Proxy: identityToken（JWT）の署名検証<br/>iss: appleid.apple.com<br/>aud: io.murmurnote.app
+    Proxy->>Proxy: identityToken（JWT）の署名検証<br/>iss: appleid.apple.com<br/>aud: app.soyoka.app
 
     Proxy->>Apple: POST /auth/token<br/>{authorizationCode → refresh_token取得}
 
