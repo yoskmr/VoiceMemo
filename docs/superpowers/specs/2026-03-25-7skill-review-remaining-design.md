@@ -2,29 +2,33 @@
 
 ## 概要
 
-Phase 2.5完了後の7スキル統合レビュー（SwiftUI Pro / Performance / Concurrency / Security / Architecture / Accessibility / Testing）で検出された全39件の指摘のうち、未対応の6件を完了させ、Phase 2をクローズする。
+Phase 2.5完了後の7スキル統合レビュー（SwiftUI Pro / Performance / Concurrency / Security / Architecture / Accessibility / Testing）で検出された全39件の指摘のうち、未対応の5件を完了させ、Phase 2をクローズする。
 
 ## 背景
 
 - 元プラン: `.claude/plans/20260320232916_7スキル統合レビュー指摘_全39件対応プラン.md`
-- 対応済み: 33件（84%）
-- 残件: 6件（本設計書の対象）
-- 対応不要と判定: B-3（MainActor軽減・iOS制約で限界）、F-2（エラーパステスト・実装済み）
+- 対応済み: 34件（87%） — C-3含む（EmotionCategoryColor.swiftに実装済み）
+- 残件: 5件（本設計書の対象）
+- 対応不要と判定:
+  - B-3（MainActor軽減）: TODO追加済み、iOS 17のSwiftData制約で限界
+  - F-2（エラーパステスト）: 複数モジュール（InfraSTT, InfraLLM, FeatureRecording等）で実装済み
+  - C-3（EmotionCategory.color一元化）: `SharedUI/DesignTokens/EmotionCategoryColor.swift` に実装済み。Domain層はSwiftUI非依存のため、SharedUI層での色定義が正しい設計
+  - C-5（highlightedTextキャッシュ化）: `MemoListView.swift` L244-277で `parseSnippet()` → `[(String, Bool)]` タプル配列方式で実装済み。元プランの「init内1回実行」ではなくView描画時に呼び出す形だが、`parseSnippet`は軽量な文字列分割のみでパフォーマンス上許容可能
 
 ## チーム体制
 
 ```
-Team 1: UI/Performance + Accessibility（3件）
-  C-1, C-2+E-2, C-3
-  → RecordingCompletionView.swift の変更が重なるため1チームで
+Team 1: UI/Performance + Accessibility（2件）
+  C-1, C-2+E-2
+  → RecordingCompletionView.swift と WaveformView.swift を担当
 
 Team 2: Architecture（2件）
   D-2, F-3
-  → Reducer層で完結
+  → MemoListReducer.swift + MemoListView.swift + MemoListReducerTests.swift + MemoDetailView.swift
 
 Team 3: Testing（1件）← Team 1,2 完了後
   F-1
-  → 修正後コードに対して正確なテストを書くため後発
+  → D-2のState変更後にMemoListReducerTests.swiftを書き直す必要があるため後発
 ```
 
 ---
@@ -35,13 +39,13 @@ Team 3: Testing（1件）← Team 1,2 完了後
 
 **ファイル**: `Sources/SharedUI/Components/WaveformView.swift`
 
-**現状**: `barHeight(for:)` が毎フレーム（30fps）× 40バー = 毎秒1,200回呼ばれる。audioLevelが変化しない間は無駄な再計算。
+**現状**: `barHeight(for:)` が毎フレーム（30fps）× 40バー = 毎秒1,200回呼ばれる。`lastAudioLevel`（L16）は導入済みだが、`ForEach`内（L36）は依然として`barHeight(for:)`を直接呼び出しており、`wavePhase`変化（毎フレーム）のたびに全バーが再計算される。
 
 **変更内容**:
-1. `@State private var cachedHeights: [CGFloat]` を追加（初期値: 40個の最小高さ）
-2. `onChange(of: audioLevel)` で `recalculateHeights()` を呼び出し、cachedHeightsを更新
-3. `ForEach` 内で `barHeight(for:)` → `cachedHeights[index]` に置換
-4. `recalculateHeights()` 内で既存の `barHeight(for:)` ロジックを使用
+1. `@State private var cachedHeights: [CGFloat]` を追加（初期値: `Array(repeating: VMDesignTokens.Spacing.xs, count: 40)`）
+2. 既存の `onChange(of: timeline.date)` ブロック内で、audioLevel変化時のみ `recalculateHeights()` を呼び出し cachedHeights を更新（`wavePhase` 変化のみの場合はスキップ）
+3. `ForEach` 内で `barHeight(for: index)` → `cachedHeights[index]` に置換
+4. `recalculateHeights()` は既存の `barHeight(for:)` ロジックを使用し、全40バー分を一括計算
 
 **受入基準**:
 - audioLevel未変化時にbarHeight計算が走らないこと
@@ -55,7 +59,7 @@ Team 3: Testing（1件）← Team 1,2 完了後
 **現状**:
 - Reducer側（RecordingFeature.swift）に `CompletionStage` enum + 段階的遷移ロジックは実装済み
 - View側は `@State private var showContent = false` で独自アニメーション制御のまま → Reducer状態と乖離
-- reduceMotion未対応
+- reduceMotion未対応（※ RecordingView.swift は reduceMotion 対応済み。本件は RecordingCompletionView.swift のみが対象）
 
 **変更内容**:
 1. `@State private var showContent = false` を削除
@@ -73,30 +77,16 @@ Team 3: Testing（1件）← Team 1,2 完了後
 - reduceMotion有効時にアニメーションがスキップされること
 - RecordingFeatureTests の completionStage テストがパスすること
 
-### C-3. EmotionCategory.color プロパティ一元化（🟡 Architecture）
-
-**ファイル**: `Sources/Domain/ValueObjects/EmotionCategoryUI.swift`
-
-**現状**: `EmotionCategoryUI.swift` に `label` / `iconName` は定義済み。`color` プロパティの定義場所を確認し、未定義なら追加。EmotionBadge.swift が `emotion.color` を参照しているため、どこかに定義が存在する可能性あり。
-
-**変更内容**:
-1. `EmotionCategoryUI.swift` に `color` プロパティが未定義の場合:
-   - `import SwiftUI` を追加
-   - `public var color: Color` を switch 文で8カテゴリ分定義
-   - EmotionBadge.swift / MemoDetailView.swift の重複色定義があれば削除
-2. 既に定義済みの場合: 確認のみ（対応不要）
-
-**受入基準**:
-- EmotionCategory.color が1箇所のみで定義されていること
-- EmotionBadge、MemoDetailView から正しく参照できること
-
 ---
 
 ## Team 2: Architecture
 
 ### D-2. MemoListReducer.State 分割（🟡 Architecture）
 
-**ファイル**: `Sources/FeatureMemo/MemoList/MemoListReducer.swift`
+**ファイル**:
+- `Sources/FeatureMemo/MemoList/MemoListReducer.swift`（主変更）
+- `Sources/FeatureMemo/MemoList/MemoListView.swift`（参照更新）
+- `Tests/FeatureMemoTests/MemoListReducerTests.swift`（State生成更新）
 
 **現状**: State に26プロパティが平坦に並ぶ。TODO コメント（L14-16）で分割が示唆済み。
 
@@ -120,7 +110,7 @@ Team 3: Testing（1件）← Team 1,2 完了後
 3. State本体の `searchQuery`/`searchResults`/`isSearching` → `search: SearchState` に置換
 4. State本体の `pendingDeleteID`/`showDeleteConfirmation` → `deletion: DeletionState` に置換
 5. Reducer body 内の参照を `state.search.query` / `state.deletion.pendingID` 等に更新
-6. MemoListView.swift の参照も更新
+6. MemoListView.swift の参照を更新（特に `$store.searchQuery.sending(\.searchQueryChanged)` → `$store.search.query.sending(\.searchQueryChanged)`、`store.isSearchActive` → `store.search.isActive` 等）
 7. MemoListReducerTests.swift の State 生成を更新
 8. TODO コメント（L14-16）を削除
 9. init パラメータを更新（子State をまとめて受け取る形式）
@@ -171,11 +161,11 @@ Team 3: Testing（1件）← Team 1,2 完了後
 
 ```
 Phase 1（並列）:
-├── Team 1: C-1 → C-2+E-2 → C-3
+├── Team 1: C-1 → C-2+E-2
 └── Team 2: D-2 → F-3
 
 Phase 2（Team 1,2完了後）:
-└── Team 3: F-1
+└── Team 3: F-1（D-2のState変更がMemoListReducerTests.swiftに波及するため）
 ```
 
 ## 検証方法
