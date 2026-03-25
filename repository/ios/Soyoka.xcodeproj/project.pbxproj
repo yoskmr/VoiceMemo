@@ -156,17 +156,17 @@
 		A2ACF1605967A4945E26636E /* InfraSTTTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfraSTTTests.swift; sourceTree = "<group>"; };
 		A36F51D6EA037EF7C84614FF /* SoyokaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyokaApp.swift; sourceTree = "<group>"; };
 		A455B8A76E734D4323819925 /* TagEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagEntityTests.swift; sourceTree = "<group>"; };
-		A6310CC7EC1F36C436C9A961 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A6310CC7EC1F36C436C9A961 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BC324E33E483D2324933BE5B /* STTEngineFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTEngineFactoryTests.swift; sourceTree = "<group>"; };
 		BC4F9C0FC364169A4B6EAE12 /* SwiftDataVoiceMemoRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataVoiceMemoRepositoryTests.swift; sourceTree = "<group>"; };
 		BD63715C70F1133D3BA4715A /* SaveRecordingUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveRecordingUseCaseTests.swift; sourceTree = "<group>"; };
-		BFEFF4C94E3BB138DEF0BE9B /* SoyokaModules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SoyokaModules; path = SoyokaModules; sourceTree = SOURCE_ROOT; };
+		BFEFF4C94E3BB138DEF0BE9B /* SoyokaModules */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SoyokaModules; sourceTree = SOURCE_ROOT; };
 		D1DB72A4F950EB25D13B14F6 /* STTEngineSelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTEngineSelectorTests.swift; sourceTree = "<group>"; };
 		D4BB45E9AA22D42563CC124A /* OnDeviceLLMProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceLLMProviderTests.swift; sourceTree = "<group>"; };
 		D82BBDA0DAE1973BA1798605 /* InfraLLMTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfraLLMTests.swift; sourceTree = "<group>"; };
 		DC9FA28A0037F775D8709714 /* TemporaryRecordingStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryRecordingStoreTests.swift; sourceTree = "<group>"; };
 		E0C2031FF8DEA6F28A552E13 /* STTErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTErrorTests.swift; sourceTree = "<group>"; };
-		E68848AF9A32051EA70FA076 /* Soyoka.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Soyoka.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E68848AF9A32051EA70FA076 /* Soyoka.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyoka.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E8392BC95ADACD56949BD661 /* LLMResponseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMResponseParserTests.swift; sourceTree = "<group>"; };
 		E8CEA24D3B13047FFF42BF43 /* AISummaryEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISummaryEntityTests.swift; sourceTree = "<group>"; };
 		F447D0B389CD4DB77BC46CB5 /* STTEngineTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTEngineTypeTests.swift; sourceTree = "<group>"; };
@@ -606,6 +606,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5X548938Y7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyokaApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -715,6 +716,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5X548938Y7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyokaApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
