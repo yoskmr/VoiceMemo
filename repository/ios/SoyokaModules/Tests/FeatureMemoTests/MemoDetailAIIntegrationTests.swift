@@ -76,6 +76,8 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）と
+        // AI処理完了時の並行エフェクト（memoLoaded + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
         // 1. メモ詳細ロード
@@ -157,6 +159,7 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiQuota.remainingCount = { 0 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
         // メモ詳細ロード
@@ -242,6 +245,8 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiQuota.remainingCount = { 13 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）と
+        // AI処理完了時の並行エフェクト（memoLoaded + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
         // 初回ロード
@@ -301,6 +306,7 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiQuota.remainingCount = { 15 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
         // 初回ロード
@@ -351,6 +357,7 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiQuota.remainingCount = { 15 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
         // 初回ロード
@@ -430,18 +437,16 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
-        store.exhaustivity = .off
-
-        // AI処理完了
         await store.send(.aiProcessingStatusUpdated(.completed(isOnDevice: true))) {
             $0.aiProcessingStatus = .completed(isOnDevice: true)
         }
 
-        // クォータ情報更新
-        await store.receive(\._quotaInfoLoaded) {
-            $0.remainingQuota = 14
-            $0.quotaLimit = 15
-        }
+        // completed 時: メモ詳細リロード + クォータ情報更新（順序非決定的）
+        await store.skipReceivedActions()
+
+        // クォータ情報が更新されたことを確認
+        XCTAssertEqual(store.state.remainingQuota, 14)
+        XCTAssertEqual(store.state.quotaLimit, 15)
     }
 
     // MARK: - Test 9: triggerAIProcessing エラー時のフォールバック
@@ -459,8 +464,6 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "キュー追加に失敗"])
             }
         }
-        store.exhaustivity = .off
-
         await store.send(.triggerAIProcessing) {
             $0.aiProcessingStatus = .queued
         }

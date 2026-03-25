@@ -71,7 +71,8 @@ final class MemoDetailReducerTests: XCTestCase {
         } withDependencies: {
             self.configureDependencies(&$0, entity: entity)
         }
-        // onAppear triggers concurrent effects whose order is non-deterministic
+        // exhaustivity = .off: onAppear が memoLoaded + observeStatus + _quotaInfoLoaded の3つの
+        // 並行エフェクトを .merge で起動し、受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) {
@@ -107,8 +108,6 @@ final class MemoDetailReducerTests: XCTestCase {
             )
         }
 
-
-
     }
 
     // MARK: - Test 2: 文字起こしテキストが設定される
@@ -130,6 +129,7 @@ final class MemoDetailReducerTests: XCTestCase {
         } withDependencies: {
             self.configureDependencies(&$0, entity: entity)
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -148,7 +148,6 @@ final class MemoDetailReducerTests: XCTestCase {
                 audioFilePath: "Audio/test.m4a"
             )
         }
-
 
         XCTAssertEqual(store.state.transcriptionText, fullText)
     }
@@ -175,6 +174,7 @@ final class MemoDetailReducerTests: XCTestCase {
         } withDependencies: {
             self.configureDependencies(&$0, entity: entity)
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -201,7 +201,6 @@ final class MemoDetailReducerTests: XCTestCase {
             )
         }
 
-
     }
 
     // MARK: - Test 4: AI要約がない場合
@@ -218,6 +217,7 @@ final class MemoDetailReducerTests: XCTestCase {
         } withDependencies: {
             self.configureDependencies(&$0, entity: entity)
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -237,7 +237,6 @@ final class MemoDetailReducerTests: XCTestCase {
                 audioFilePath: "Audio/test.m4a"
             )
         }
-
 
         XCTAssertNil(store.state.aiSummary)
         XCTAssertFalse(store.state.isAISummaryAvailable)
@@ -261,6 +260,7 @@ final class MemoDetailReducerTests: XCTestCase {
         } withDependencies: {
             self.configureDependencies(&$0, entity: entity)
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -285,7 +285,6 @@ final class MemoDetailReducerTests: XCTestCase {
             )
         }
 
-
         XCTAssertEqual(store.state.emotion?.category, .calm)
     }
 
@@ -309,6 +308,7 @@ final class MemoDetailReducerTests: XCTestCase {
         } withDependencies: {
             self.configureDependencies(&$0, entity: entity)
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -332,7 +332,6 @@ final class MemoDetailReducerTests: XCTestCase {
             )
         }
 
-
         XCTAssertEqual(store.state.tags.count, 2)
     }
 
@@ -351,6 +350,7 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.aiQuota.remainingCount = { 15 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -358,7 +358,6 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.isLoading = false
             $0.errorMessage = "メモが見つかりません"
         }
-
 
     }
 
@@ -425,12 +424,18 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.audioFileStore.deleteAudioFile = { _ in }
             $0.fts5IndexManager.removeIndex = { _ in }
         }
-        store.exhaustivity = .off
-
         await store.send(.delete(.deleteConfirmed(id: testMemoID))) {
             $0.deleteState.showDeleteConfirmation = false
             $0.deleteState.isDeleting = true
         }
+
+        await store.receive(\.delete.deleteCompleted) {
+            $0.deleteState.isDeleting = false
+            $0.deleteState.pendingDeleteID = nil
+        }
+
+        // 削除完了後に AppReducer への伝播アクション
+        await store.receive(\._deleteCompletedAndDismiss)
     }
 
     // MARK: - Test 12: 編集シートを閉じる
@@ -543,6 +548,8 @@ final class MemoDetailReducerTests: XCTestCase {
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.monthlyLimit = { 15 }
         }
+
+        // exhaustivity = .off: completed 時に memoLoaded + _quotaInfoLoaded の並行エフェクトが発生し、受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.aiProcessingStatusUpdated(.completed(isOnDevice: true))) {

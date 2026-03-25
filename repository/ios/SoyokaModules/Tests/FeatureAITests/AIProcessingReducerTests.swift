@@ -34,6 +34,8 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
         }
+        // exhaustivity = .off: _quotaCheckCompleted 後に observeStatus の cancellable ストリームが
+        // 長時間running effectとして残り続けるため、exhaustive モードでは完了を待てない
         store.exhaustivity = .off
 
         await store.send(.startProcessing)
@@ -57,6 +59,9 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.processingStatus = .completed(isOnDevice: true)
         }
 
+        // completed時のクォータ更新エフェクト（値は_quotaCheckCompleted時と同一のため状態変化なし）
+        await store.receive(.quotaUpdated(used: 1, remaining: 14))
+
         statusStream.continuation.finish()
     }
 
@@ -77,8 +82,6 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiQuota.monthlyLimit = { 15 }
             $0.aiQuota.nextResetDate = { self.testResetDate }
         }
-        store.exhaustivity = .off
-
         await store.send(.startProcessing)
 
         await store.receive(._quotaCheckCompleted(canProcess: false, remaining: 0, used: 15)) {
@@ -113,6 +116,8 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
         }
+        // exhaustivity = .off: _quotaCheckCompleted 後に observeStatus の cancellable ストリームが
+        // 長時間running effectとして残り続けるため、exhaustive モードでは完了を待てない
         store.exhaustivity = .off
 
         await store.send(.retryProcessing) {
@@ -122,7 +127,11 @@ final class AIProcessingReducerTests: XCTestCase {
         // retryProcessing は内部で startProcessing を送信する
         // → クォータチェック → enqueue のフロー
         await store.receive(.startProcessing)
-        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 14, used: 1))
+        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 14, used: 1)) {
+            $0.remainingQuota = 14
+            $0.quotaUsed = 1
+            $0.quotaLimit = 15
+        }
 
         statusStream.continuation.finish()
     }
@@ -144,8 +153,6 @@ final class AIProcessingReducerTests: XCTestCase {
                 cancelledMemoID.withValue { $0 = id }
             }
         }
-        store.exhaustivity = .off
-
         await store.send(.cancelProcessing)
 
         // キャンセルが呼ばれたことを確認
@@ -163,8 +170,6 @@ final class AIProcessingReducerTests: XCTestCase {
         ) {
             AIProcessingReducer()
         }
-        store.exhaustivity = .off
-
         await store.send(.startProcessing) {
             $0.showOnboarding = true
         }
@@ -192,6 +197,8 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
         }
+        // exhaustivity = .off: _quotaCheckCompleted 後に observeStatus の cancellable ストリームが
+        // 長時間running effectとして残り続けるため、exhaustive モードでは完了を待てない
         store.exhaustivity = .off
 
         await store.send(.onboardingDismissed) {
@@ -200,6 +207,7 @@ final class AIProcessingReducerTests: XCTestCase {
 
         // onboardingDismissed は内部で startProcessing を送信
         await store.receive(.startProcessing)
+        // _quotaCheckCompleted: remainingQuota/quotaUsed/quotaLimit は初期値と同一のため状態変化なし
         await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 15, used: 0))
 
         // UserDefaults にフラグが保存されたことを確認
@@ -223,8 +231,6 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.currentUsage = { 1 }
         }
-        store.exhaustivity = .off
-
         await store.send(.statusUpdated(.completed(isOnDevice: true))) {
             $0.processingStatus = .completed(isOnDevice: true)
         }
@@ -303,16 +309,15 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
         }
+        // exhaustivity = .off: _quotaCheckCompleted 後に observeStatus の cancellable ストリームが
+        // 長時間running effectとして残り続けるため、exhaustive モードでは完了を待てない
         store.exhaustivity = .off
 
         await store.send(.startProcessing)
 
         // オンボーディングは表示されず、直接クォータチェック
-        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 15, used: 0)) {
-            $0.remainingQuota = 15
-            $0.quotaUsed = 0
-            $0.quotaLimit = 15
-        }
+        // _quotaCheckCompleted: remainingQuota/quotaUsed/quotaLimit は初期値と同一のため状態変化なし
+        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 15, used: 0))
 
         statusStream.continuation.finish()
     }
@@ -330,8 +335,6 @@ final class AIProcessingReducerTests: XCTestCase {
         } withDependencies: {
             $0.aiQuota.canProcess = { throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "DB接続エラー"]) }
         }
-        store.exhaustivity = .off
-
         await store.send(.startProcessing)
 
         await store.receive(._errorOccurred("DB接続エラー")) {

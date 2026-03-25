@@ -81,6 +81,8 @@ final class MemoListReducerTests: XCTestCase {
             $0.aiQuota.nextResetDate = { Date() }
             $0.aiQuota.remainingCount = { 15 }
         }
+        // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
+        // 受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) {
@@ -137,6 +139,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.aiQuota.nextResetDate = { Date() }
             $0.aiQuota.remainingCount = { 15 }
         }
+
+        // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
+        // 受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) {
@@ -197,6 +202,8 @@ final class MemoListReducerTests: XCTestCase {
             $0.aiQuota.nextResetDate = { Date() }
             $0.aiQuota.remainingCount = { 15 }
         }
+        // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
+        // 受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.onAppear) { $0.isLoading = true }
@@ -260,6 +267,8 @@ final class MemoListReducerTests: XCTestCase {
             $0.aiQuota.remainingCount = { 15 }
         }
 
+        // exhaustivity = .off: onAppear の並行エフェクト（memosLoaded + aiQuotaLoaded）の順序が非決定的で、
+        // ページネーションテストの焦点は loadNextPage の動作検証のため
         store.exhaustivity = .off
 
         // 初回ロード
@@ -440,6 +449,7 @@ final class MemoListReducerTests: XCTestCase {
             $0.aiQuota.nextResetDate = { Date() }
             $0.aiQuota.remainingCount = { 15 }
         }
+        // exhaustivity = .off: refreshCompleted.success が aiQuotaLoaded エフェクトを発火し、受信順序が非決定的なため
         store.exhaustivity = .off
 
         await store.send(.refreshRequested) {
@@ -489,9 +499,13 @@ final class MemoListReducerTests: XCTestCase {
             $0.aiQuota.nextResetDate = { Date() }
             $0.aiQuota.remainingCount = { 15 }
         }
+        // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
+        // 受信順序が非決定的なため
         store.exhaustivity = .off
 
-        await store.send(.onAppear)
+        await store.send(.onAppear) {
+            $0.isLoading = true
+        }
 
         await store.receive(\.memosLoaded.failure) {
             $0.isLoading = false

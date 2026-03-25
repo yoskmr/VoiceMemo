@@ -23,7 +23,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.customDictionaryClient.getContextualStrings = { [] }
             $0.continuousClock = ImmediateClock()
         }
-        // TODO: exhaustivity = .off を解消し、録音開始後のタイマー・STTストリーム等の全エフェクトを明示的に検証する
+        // exhaustivity = .off: recordButtonTapped が startRecordingEffect（STTストリーム+音声レベル監視）と
+        // startTimerEffect（1秒間隔タイマー）を .merge で起動し、両方とも長時間running effectのため解消困難
         store.exhaustivity = .off
 
         await store.send(.recordButtonTapped) {
@@ -113,7 +114,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.audioRecorder.resumeRecording = {}
             $0.continuousClock = ImmediateClock()
         }
-        // TODO: exhaustivity = .off を解消し、再開後のタイマー再開エフェクトを明示的に検証する
+        // exhaustivity = .off: resumeButtonTapped が startTimerEffect（1秒間隔タイマー）と
+        // resumeRecording の .merge を起動し、タイマーが長時間running effectのため解消困難
         store.exhaustivity = .off
 
         await store.send(.resumeButtonTapped) {
@@ -136,7 +138,8 @@ final class RecordingFeatureTests: XCTestCase {
             }
             $0.continuousClock = ImmediateClock()
         }
-        // TODO: exhaustivity = .off を解消し、エラー時のrecordingFailedアクション受信を完全に検証する
+        // exhaustivity = .off: resumeButtonTapped が startTimerEffect（1秒間隔タイマー）と
+        // resumeRecording の .merge を起動し、タイマーが長時間running effectのため解消困難
         store.exhaustivity = .off
 
         await store.send(.resumeButtonTapped) {
@@ -182,7 +185,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
-        // TODO: exhaustivity = .off を解消し、停止後のFTS5インデックス更新・AI処理キュー投入等の全エフェクトを明示的に検証する
+        // exhaustivity = .off: stopButtonTapped → recordingSaved → completionStageAdvanced(.checkmark/.preview/.cta)の
+        // 一連のエフェクトが発生し、recordingSaved で動的に生成される VoiceMemoEntity の完全一致検証が困難なため
         store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
@@ -457,7 +461,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.customDictionaryClient.getContextualStrings = { [] }
             $0.continuousClock = ImmediateClock()
         }
-        // TODO: exhaustivity = .off を解消し、権限許可後の自動録音開始エフェクトを明示的に検証する
+        // exhaustivity = .off: permissionResponse(true) → recordButtonTapped → startRecordingEffect（STTストリーム+
+        // 音声レベル監視）と startTimerEffect（1秒間隔タイマー）を .merge で起動し、長時間running effectのため解消困難
         store.exhaustivity = .off
 
         await store.send(.permissionResponse(true)) {
@@ -508,7 +513,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.customDictionaryClient.getContextualStrings = { [] }
             $0.continuousClock = ImmediateClock()
         }
-        // TODO: exhaustivity = .off を解消し、録音開始失敗後のrecordingFailedアクション受信を完全に検証する
+        // exhaustivity = .off: recordButtonTapped が startTimerEffect（ImmediateClockで即座にtimerTicked発火）と
+        // startRecordingEffect を .merge で起動し、timerTicked と recordingFailed の受信順序が非決定的なため解消困難
         store.exhaustivity = .off
 
         await store.send(.recordButtonTapped) {
@@ -648,6 +654,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
+        // exhaustivity = .off: timerTicked → stopButtonTapped → stopAndSaveEffect + timer/audioLevel キャンセルの
+        // 一連のエフェクトが発生し、保存完了後の completionStageAdvanced 等を全て追跡するのが困難なため
         store.exhaustivity = .off
 
         await store.send(.timerTicked) {
