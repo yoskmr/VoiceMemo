@@ -19,9 +19,13 @@ struct WelcomeView: View {
                 .font(.system(size: 56))
                 .foregroundColor(.vmPrimary)
 
-            Text("MurMurNote")
+            Text("そよか")
                 .font(.vmTitle1)
                 .foregroundColor(.vmTextPrimary)
+
+            Text("Soyoka")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
 
             Text("声のままでいい。\nちゃんと残るから。")
                 .font(.vmBody())

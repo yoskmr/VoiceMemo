@@ -5,7 +5,7 @@ import FoundationModels
 #endif
 import os.log
 
-private let logger = Logger(subsystem: "com.murmurnote", category: "OnDeviceLLMProvider")
+private let logger = Logger(subsystem: "app.soyoka", category: "OnDeviceLLMProvider")
 
 /// オンデバイス LLM プロバイダ
 /// P3A-REQ-004 準拠

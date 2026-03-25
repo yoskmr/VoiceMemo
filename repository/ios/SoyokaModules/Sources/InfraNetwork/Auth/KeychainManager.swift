@@ -2,7 +2,7 @@ import Foundation
 import os.log
 import Security
 
-private let logger = Logger(subsystem: "com.murmurnote", category: "Keychain")
+private let logger = Logger(subsystem: "app.soyoka", category: "Keychain")
 
 // MARK: - KeychainItemType
 

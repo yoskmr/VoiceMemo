@@ -2,7 +2,7 @@ import Foundation
 import os.log
 import SwiftData
 
-private let logger = Logger(subsystem: "com.murmurnote", category: "ModelContainer")
+private let logger = Logger(subsystem: "app.soyoka", category: "ModelContainer")
 
 /// SwiftData ModelContainer の構成
 /// 01-Arch セクション6.3 準拠

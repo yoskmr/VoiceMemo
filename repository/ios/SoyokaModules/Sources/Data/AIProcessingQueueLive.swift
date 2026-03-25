@@ -5,7 +5,7 @@ import InfraStorage
 import os.log
 import SwiftData
 
-private let logger = Logger(subsystem: "com.murmurnote", category: "AIProcessingQueueLive")
+private let logger = Logger(subsystem: "app.soyoka", category: "AIProcessingQueueLive")
 
 /// AIProcessingQueueClient の Live 実装
 /// 設計書 DES-PHASE3A-001 セクション2.1, 2.2 準拠

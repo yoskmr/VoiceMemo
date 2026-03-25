@@ -1,6 +1,6 @@
-# MurMurNote（つぶやき） - AI音声メモ・日記アプリ - タスク概要
+# Soyoka（つぶやき） - AI音声メモ・日記アプリ - タスク概要
 
-**要件名**: MurMurNote（つぶやき） - AI音声メモ・日記アプリ (ai-voice-memo)
+**要件名**: Soyoka（つぶやき） - AI音声メモ・日記アプリ (ai-voice-memo)
 **作成日**: 2026-03-16
 **総タスク数**: 40件
 **推定総工数**: 264時間（約33営業日）
@@ -43,7 +43,7 @@
 
 ```mermaid
 gantt
-    title MurMurNote - フェーズ別工数
+    title Soyoka - フェーズ別工数
     dateFormat X
     axisFormat %s h
 

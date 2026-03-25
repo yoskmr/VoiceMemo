@@ -3,7 +3,7 @@ name: tca-pro
 description: Reviews, writes, and improves TCA (The Composable Architecture) code for correctness, modern API usage, and best practices. Use when reading, writing, or reviewing Swift projects that use TCA.
 license: MIT
 metadata:
-  author: MurMurNote Team
+  author: Soyoka Team
   version: "1.0"
 ---
 

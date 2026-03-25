@@ -1,6 +1,6 @@
 ---
 name: works-directory
-description: MurMurNoteプロジェクトの作業ディレクトリ（works/）運用ルール。調査(research)、分析(analysis)、作業依頼、レポート作成(report)など、works/配下で作業を行う場面で必ず参照すること。「調べて」「分析して」「レポートにまとめて」「作業して」といった依頼や、investigation/exploration タスク時に自動的に使うこと。
+description: Soyokaプロジェクトの作業ディレクトリ（works/）運用ルール。調査(research)、分析(analysis)、作業依頼、レポート作成(report)など、works/配下で作業を行う場面で必ず参照すること。「調べて」「分析して」「レポートにまとめて」「作業して」といった依頼や、investigation/exploration タスク時に自動的に使うこと。
 ---
 
 # 作業ディレクトリ運用ルール

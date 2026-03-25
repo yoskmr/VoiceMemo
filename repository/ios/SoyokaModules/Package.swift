@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "MurMurNoteModules",
+    name: "SoyokaModules",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "FeatureRecording", targets: ["FeatureRecording"]),

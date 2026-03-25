@@ -97,7 +97,7 @@ graph LR
         T_LLMPT["LLMProviderType enum"]
         T_EMO["EmotionType enum"]
         T_AUTH["AuthTokenProvider protocol"]
-        T_MEMO["MurMurNote @Model"]
+        T_MEMO["Soyoka @Model"]
     end
 
     subgraph "02-AI（STT/LLM実装の所有者）"
@@ -347,8 +347,8 @@ enum AuthMethod: String, Codable, Sendable {
 /// 認証トークンのペイロード（JWT Claimsに対応）
 struct AuthTokenPayload: Sendable, Codable {
     let sub: String              // ユーザーID (usr_xxx)
-    let iss: String              // "murmurnote-proxy"
-    let aud: String              // "murmurnote-ios"
+    let iss: String              // "soyoka-proxy"
+    let aud: String              // "soyoka-ios"
     let iat: TimeInterval        // 発行日時
     let exp: TimeInterval        // 有効期限
     let plan: SubscriptionPlan

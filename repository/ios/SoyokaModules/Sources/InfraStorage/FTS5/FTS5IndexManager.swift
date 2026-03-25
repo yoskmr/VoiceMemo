@@ -3,7 +3,7 @@ import Foundation
 import os.log
 import SQLite3
 
-private let logger = Logger(subsystem: "com.murmurnote", category: "FTS5")
+private let logger = Logger(subsystem: "app.soyoka", category: "FTS5")
 
 /// FTS5全文検索インデックスの管理
 /// TASK-0015: SQLite FTS5全文検索エンジン

@@ -1,89 +1,89 @@
-name: MurMurNote
+name: Soyoka
 options:
-  bundleIdPrefix: io.murmurnote
+  bundleIdPrefix: app.soyoka
   deploymentTarget:
     iOS: "17.0"
   xcodeVersion: "16.4"
   generateEmptyDirectories: true
 
 packages:
-  MurMurNoteModules:
-    path: MurMurNoteModules
+  SoyokaModules:
+    path: SoyokaModules
 
 targets:
-  MurMurNote:
+  Soyoka:
     type: application
     platform: iOS
     sources:
-      - path: MurMurNoteApp
+      - path: SoyokaApp
         type: group
     dependencies:
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureRecording
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureMemo
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureAI
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureSearch
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureSettings
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureSubscription
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: Domain
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: Data
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: SharedUI
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: SharedUtil
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraSTT
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraLLM
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraStorage
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraNetwork
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.murmurnote.app
+        PRODUCT_BUNDLE_IDENTIFIER: app.soyoka
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
-        INFOPLIST_FILE: MurMurNoteApp/Info.plist
+        INFOPLIST_FILE: SoyokaApp/Info.plist
         GENERATE_INFOPLIST_FILE: false
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
     info:
-      path: MurMurNoteApp/Info.plist
+      path: SoyokaApp/Info.plist
       properties:
-        CFBundleDisplayName: つぶやき
+        CFBundleDisplayName: Soyoka
         NSMicrophoneUsageDescription: "音声メモの録音に使用します"
         NSSpeechRecognitionUsageDescription: "音声をテキストに変換するために使用します"
         UILaunchScreen: {}
 
-  MurMurNoteTests:
+  SoyokaTests:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - path: MurMurNoteModules/Tests
+      - path: SoyokaModules/Tests
         type: group
     dependencies:
-      - target: MurMurNote
-      - package: MurMurNoteModules
+      - target: Soyoka
+      - package: SoyokaModules
         product: Domain
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureRecording
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureMemo
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureSearch
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: FeatureSettings
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraSTT
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraLLM
-      - package: MurMurNoteModules
+      - package: SoyokaModules
         product: InfraStorage

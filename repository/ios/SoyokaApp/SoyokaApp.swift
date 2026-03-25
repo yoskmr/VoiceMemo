@@ -7,7 +7,7 @@ import SharedUI
 import SwiftUI
 
 @main
-struct MurMurNoteApp: App {
+struct SoyokaApp: App {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
 
     var body: some Scene {

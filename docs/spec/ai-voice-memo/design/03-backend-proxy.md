@@ -721,7 +721,7 @@ Proプランの場合:
   },
   "subscription": {
     "status": "active",
-    "product_id": "io.murmurnote.pro.monthly",
+    "product_id": "app.soyoka.pro.monthly",
     "expires_at": "2026-04-15T23:59:59+09:00",
     "auto_renew": true
   },
@@ -1244,8 +1244,8 @@ const proOnlyMiddleware = async (c, next) => {
 
 | プロダクトID | プラン | 価格 | 期間 |
 |:-------------|:-------|:-----|:-----|
-| `io.murmurnote.pro.monthly` | Pro月額 | ¥500/月 | 1か月 |
-| `io.murmurnote.pro.yearly` | Pro年額 | ¥4,800/年 | 1年 |
+| `app.soyoka.pro.monthly` | Pro月額 | ¥500/月 | 1か月 |
+| `app.soyoka.pro.yearly` | Pro年額 | ¥4,800/年 | 1年 |
 
 ### 5.2 App Store Server API v2 による購読検証
 
@@ -2004,7 +2004,7 @@ CREATE INDEX idx_user_devices_attest_key ON user_devices(attest_key_id);
 CREATE TABLE subscriptions (
     id TEXT PRIMARY KEY,                        -- sub_xxxxxxxxxxxx
     user_id TEXT NOT NULL REFERENCES users(id),
-    product_id TEXT NOT NULL,                   -- io.murmurnote.pro.monthly
+    product_id TEXT NOT NULL,                   -- app.soyoka.pro.monthly
     original_transaction_id TEXT UNIQUE,        -- App Store Transaction ID
     app_account_token TEXT NOT NULL,            -- ★ appAccountToken (Critical #5)
     status TEXT NOT NULL DEFAULT 'active',      -- 'active' | 'expired' | 'billing_retry' | 'revoked' | 'refunded'
