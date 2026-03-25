@@ -16,7 +16,7 @@ public struct MemoListView: View {
     public var body: some View {
         NavigationStack {
             Group {
-                if store.isSearchActive {
+                if store.search.isActive {
                     searchResultsContent
                 } else {
                     memoListContent
@@ -25,7 +25,7 @@ public struct MemoListView: View {
             .background(Color.vmBackground)
             .navigationTitle("きおく")
             .searchable(
-                text: $store.searchQuery.sending(\.searchQueryChanged),
+                text: $store.search.query.sending(\.searchQueryChanged),
                 prompt: "きおくを検索..."
             )
             .toolbar {
@@ -55,7 +55,7 @@ public struct MemoListView: View {
             // スワイプ削除確認ダイアログ
             .alert(
                 "きおくを削除",
-                isPresented: $store.showDeleteConfirmation.sending(\.deleteConfirmationPresented)
+                isPresented: $store.deletion.showConfirmation.sending(\.deleteConfirmationPresented)
             ) {
                 Button("削除", role: .destructive) {
                     store.send(.confirmDelete)
@@ -165,16 +165,16 @@ public struct MemoListView: View {
     private var searchResultsContent: some View {
         ScrollView {
             LazyVStack(spacing: VMDesignTokens.Spacing.md) {
-                if store.isSearching {
+                if store.search.isSearching {
                     ProgressView("検索中...")
                         .padding()
-                } else if store.searchResults.isEmpty {
+                } else if store.search.results.isEmpty {
                     Text("検索結果がありません")
                         .font(.vmCallout)
                         .foregroundColor(.vmTextSecondary)
                         .padding(.top, VMDesignTokens.Spacing.xxxl)
                 } else {
-                    ForEach(store.searchResults) { result in
+                    ForEach(store.search.results) { result in
                         SearchResultCard(item: result)
                             .onTapGesture {
                                 store.send(.memoTapped(id: result.id))

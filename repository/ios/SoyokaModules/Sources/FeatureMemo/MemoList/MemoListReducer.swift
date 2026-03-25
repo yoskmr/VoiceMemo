@@ -11,9 +11,40 @@ public struct MemoListReducer {
 
     // MARK: - State
 
-    // TODO: [#10] State分割 - 検索関連を SearchState 子Stateに分離（searchQuery, searchResults, isSearching）
-    // TODO: [#10] State分割 - 削除関連を DeletionState に分離（pendingDeleteID, showDeleteConfirmation）
-    // 現在のStateプロパティ数が多く凝集度が低いため、Phase後半でサブState化を検討する
+    /// 検索関連の子State（凝集度向上のため分離）
+    @ObservableState
+    public struct SearchState: Equatable, Sendable {
+        public var query: String = ""
+        public var results: [SearchResultItem] = []
+        public var isSearching: Bool = false
+        public var isActive: Bool { !query.isEmpty }
+
+        public init(
+            query: String = "",
+            results: [SearchResultItem] = [],
+            isSearching: Bool = false
+        ) {
+            self.query = query
+            self.results = results
+            self.isSearching = isSearching
+        }
+    }
+
+    /// 削除確認の子State（凝集度向上のため分離）
+    @ObservableState
+    public struct DeletionState: Equatable, Sendable {
+        public var pendingID: UUID? = nil
+        public var showConfirmation: Bool = false
+
+        public init(
+            pendingID: UUID? = nil,
+            showConfirmation: Bool = false
+        ) {
+            self.pendingID = pendingID
+            self.showConfirmation = showConfirmation
+        }
+    }
+
     @ObservableState
     public struct State: Equatable {
         public var memos: IdentifiedArrayOf<MemoItem> = []
@@ -23,13 +54,8 @@ public struct MemoListReducer {
         public var currentPage: Int = 0
         public var errorMessage: String?
 
-        /// インライン検索（.searchable 統合）
-        public var searchQuery: String = ""
-        public var searchResults: [SearchResultItem] = []
-        public var isSearching: Bool = false
-
-        /// 検索がアクティブかどうか
-        public var isSearchActive: Bool { !searchQuery.isEmpty }
+        /// 検索関連
+        public var search: SearchState = SearchState()
 
         /// メモ詳細画面（NavigationStack push用、nilで非表示）
         @Presents public var selectedMemo: MemoDetailReducer.State?
@@ -40,9 +66,8 @@ public struct MemoListReducer {
         /// 録音完了→メモ詳細遷移時の待機用ID（refreshCompleted前にselectMemoが届いた場合に保持）
         public var pendingMemoID: UUID?
 
-        /// スワイプ削除確認ダイアログ用
-        public var pendingDeleteID: UUID?
-        public var showDeleteConfirmation: Bool = false
+        /// 削除確認関連
+        public var deletion: DeletionState = DeletionState()
 
         /// AI分析クォータ情報（Phase 3 UXレビュー: 一覧上部に使用回数表示）
         public var aiQuotaUsed: Int = 0
@@ -62,14 +87,11 @@ public struct MemoListReducer {
             hasMorePages: Bool = true,
             currentPage: Int = 0,
             errorMessage: String? = nil,
-            searchQuery: String = "",
-            searchResults: [SearchResultItem] = [],
-            isSearching: Bool = false,
+            search: SearchState = SearchState(),
             selectedMemo: MemoDetailReducer.State? = nil,
             emotionTrendState: EmotionTrendReducer.State? = nil,
             pendingMemoID: UUID? = nil,
-            pendingDeleteID: UUID? = nil,
-            showDeleteConfirmation: Bool = false,
+            deletion: DeletionState = DeletionState(),
             aiQuotaUsed: Int = 0,
             aiQuotaLimit: Int = 15,
             nextResetDate: Date? = nil,
@@ -81,14 +103,11 @@ public struct MemoListReducer {
             self.hasMorePages = hasMorePages
             self.currentPage = currentPage
             self.errorMessage = errorMessage
-            self.searchQuery = searchQuery
-            self.searchResults = searchResults
-            self.isSearching = isSearching
+            self.search = search
             self.selectedMemo = selectedMemo
             self.emotionTrendState = emotionTrendState
             self.pendingMemoID = pendingMemoID
-            self.pendingDeleteID = pendingDeleteID
-            self.showDeleteConfirmation = showDeleteConfirmation
+            self.deletion = deletion
             self.aiQuotaUsed = aiQuotaUsed
             self.aiQuotaLimit = aiQuotaLimit
             self.nextResetDate = nextResetDate
@@ -277,21 +296,21 @@ public struct MemoListReducer {
                 return .none
 
             case let .swipeToDelete(id):
-                state.pendingDeleteID = id
-                state.showDeleteConfirmation = true
+                state.deletion.pendingID = id
+                state.deletion.showConfirmation = true
                 return .none
 
             case let .deleteConfirmationPresented(isPresented):
-                state.showDeleteConfirmation = isPresented
+                state.deletion.showConfirmation = isPresented
                 if !isPresented {
-                    state.pendingDeleteID = nil
+                    state.deletion.pendingID = nil
                 }
                 return .none
 
             case .confirmDelete:
-                guard let id = state.pendingDeleteID else { return .none }
-                state.showDeleteConfirmation = false
-                state.pendingDeleteID = nil
+                guard let id = state.deletion.pendingID else { return .none }
+                state.deletion.showConfirmation = false
+                state.deletion.pendingID = nil
                 return .send(.deleteConfirmed(id: id))
 
             case let .deleteConfirmed(id):
@@ -364,15 +383,15 @@ public struct MemoListReducer {
                 return .none
 
             case let .searchQueryChanged(query):
-                state.searchQuery = query
+                state.search.query = query
 
                 guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
-                    state.searchResults = []
-                    state.isSearching = false
+                    state.search.results = []
+                    state.search.isSearching = false
                     return .cancel(id: CancelID.search)
                 }
 
-                state.isSearching = true
+                state.search.isSearching = true
                 return .run { [fts5IndexManager, voiceMemoRepository] send in
                     try await clock.sleep(for: .milliseconds(300))
                     do {
@@ -415,12 +434,12 @@ public struct MemoListReducer {
                 .cancellable(id: CancelID.search, cancelInFlight: true)
 
             case let .searchCompleted(.success(items)):
-                state.isSearching = false
-                state.searchResults = items
+                state.search.isSearching = false
+                state.search.results = items
                 return .none
 
             case let .searchCompleted(.failure(errorMessage)):
-                state.isSearching = false
+                state.search.isSearching = false
                 state.errorMessage = errorMessage
                 return .none
 
@@ -448,8 +467,8 @@ public struct MemoListReducer {
                 return .none
 
             case .deleteCancelled:
-                state.showDeleteConfirmation = false
-                state.pendingDeleteID = nil
+                state.deletion.showConfirmation = false
+                state.deletion.pendingID = nil
                 return .none
 
             // MARK: - T11: 月次制限UI

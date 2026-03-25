@@ -353,14 +353,14 @@ final class MemoListReducerTests: XCTestCase {
 
         // スワイプ → 確認ダイアログが表示される
         await store.send(.swipeToDelete(id: memoID)) {
-            $0.pendingDeleteID = memoID
-            $0.showDeleteConfirmation = true
+            $0.deletion.pendingID = memoID
+            $0.deletion.showConfirmation = true
         }
 
         // 確認ボタン → 削除実行
         await store.send(.confirmDelete) {
-            $0.showDeleteConfirmation = false
-            $0.pendingDeleteID = nil
+            $0.deletion.showConfirmation = false
+            $0.deletion.pendingID = nil
         }
 
         await store.receive(.deleteConfirmed(id: memoID))
@@ -403,14 +403,14 @@ final class MemoListReducerTests: XCTestCase {
 
         // スワイプ → 確認ダイアログが表示される
         await store.send(.swipeToDelete(id: memoID)) {
-            $0.pendingDeleteID = memoID
-            $0.showDeleteConfirmation = true
+            $0.deletion.pendingID = memoID
+            $0.deletion.showConfirmation = true
         }
 
         // キャンセル → 削除されない
         await store.send(.deleteCancelled) {
-            $0.showDeleteConfirmation = false
-            $0.pendingDeleteID = nil
+            $0.deletion.showConfirmation = false
+            $0.deletion.pendingID = nil
         }
 
         // メモは残っている
