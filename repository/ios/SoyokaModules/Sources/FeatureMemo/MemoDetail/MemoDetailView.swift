@@ -594,6 +594,7 @@ struct MemoDetailAIOnboardingSheet: View {
 
             Divider()
                 .padding(.horizontal, VMDesignTokens.Spacing.xxl)
+                .accessibilityHidden(true)
 
             // 説明セクション
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
