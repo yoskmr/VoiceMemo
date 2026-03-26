@@ -62,6 +62,21 @@ targets:
         NSMicrophoneUsageDescription: "音声メモの録音に使用します"
         NSSpeechRecognitionUsageDescription: "音声をテキストに変換するために使用します"
         UILaunchScreen: {}
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Soyoka Backup
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - app.soyoka.backup
+        UTExportedTypeDeclarations:
+          - UTTypeConformsTo:
+              - public.data
+              - public.archive
+            UTTypeDescription: Soyoka Backup
+            UTTypeIdentifier: app.soyoka.backup
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - soyokabackup
 
   SoyokaTests:
     type: bundle.unit-test

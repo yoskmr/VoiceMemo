@@ -83,7 +83,7 @@ public struct BackupView: View {
                 get: { store.showFilePicker },
                 set: { if !$0 { store.send(.importFilePickerCancelled) } }
             ),
-            allowedContentTypes: [.soyokaBackup, .archive],
+            allowedContentTypes: [.soyokaBackup, .archive, .data],
             allowsMultipleSelection: false
         ) { result in
             switch result {

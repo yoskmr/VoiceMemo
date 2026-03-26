@@ -24,6 +24,8 @@
 	<string>音声メモの録音に使用します</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>音声をテキストに変換するために使用します</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -60,7 +62,5 @@
 			</dict>
 		</dict>
 	</array>
-	<key>UILaunchScreen</key>
-	<dict/>
 </dict>
 </plist>
