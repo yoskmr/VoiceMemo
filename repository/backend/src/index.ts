@@ -4,10 +4,17 @@ import type { Env } from "./types.js";
 import { createErrorResponse, ErrorCode } from "./errors.js";
 import { authRoutes } from "./routes/auth.js";
 import { aiRoutes } from "./routes/ai.js";
+import { usageRoutes } from "./routes/usage.js";
+import { requestIdMiddleware } from "./middleware/requestId.js";
+import { createRateLimitMiddleware } from "./middleware/rateLimit.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// --- Health Check (認証不要) ---
+// --- Global Middleware: Request ID ---
+
+app.use("*", requestIdMiddleware);
+
+// --- Health Check (認証不要、レート制限なし) ---
 
 app.get("/health", (c) => {
   return c.json({
@@ -16,13 +23,21 @@ app.get("/health", (c) => {
   });
 });
 
-// --- Auth Routes (認証不要) ---
+// --- Auth Routes (認証不要、レート制限あり: 120/min) ---
 
+app.use("/api/v1/auth/*", createRateLimitMiddleware({ maxRequests: 120 }));
 app.route("/api/v1/auth", authRoutes);
 
-// --- AI Routes (認証必須) ---
+// --- AI Routes (認証必須、レート制限あり: 60/min) ---
 
+app.use("/api/v1/ai/*", createRateLimitMiddleware({ maxRequests: 60 }));
 app.route("/api/v1/ai", aiRoutes);
+
+// --- Usage Routes (認証必須、レート制限あり: 120/min) ---
+
+app.use("/api/v1/usage", createRateLimitMiddleware({ maxRequests: 120 }));
+app.use("/api/v1/usage/*", createRateLimitMiddleware({ maxRequests: 120 }));
+app.route("/api/v1/usage", usageRoutes);
 
 // --- Error Handler ---
 
