@@ -209,7 +209,11 @@ export interface Env {
 }
 ```
 
-- [ ] **Step 6: wrangler.toml を更新**
+- [ ] **Step 6: test/helpers/testUtils.ts を作成**
+
+D1/KV のインメモリモック、テスト用 JWT 生成ヘルパー、テスト用 Hono アプリファクトリを定義。Task 3 以降のテストで共通利用する。
+
+- [ ] **Step 7: wrangler.toml を更新**
 
 D1 と KV のバインディングを env.dev / env.staging に追加。
 
