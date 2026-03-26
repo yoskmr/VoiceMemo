@@ -93,4 +93,6 @@ export interface Env {
   ENVIRONMENT: string;
   OPENAI_API_KEY: string;
   JWT_SECRET: string;
+  DB: D1Database;
+  KV: KVNamespace;
 }

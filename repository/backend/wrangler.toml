@@ -6,6 +6,26 @@ compatibility_date = "2026-03-01"
 name = "soyoka-api-dev"
 vars = { ENVIRONMENT = "dev" }
 
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "soyoka-dev"
+database_id = "REPLACE_WITH_DEV_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[env.dev.kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_DEV_KV_ID"
+
 [env.staging]
 name = "soyoka-api-staging"
 vars = { ENVIRONMENT = "staging" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "soyoka-staging"
+database_id = "REPLACE_WITH_STAGING_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[env.staging.kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_STAGING_KV_ID"
