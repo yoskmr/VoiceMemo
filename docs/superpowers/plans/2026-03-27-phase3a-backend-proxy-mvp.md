@@ -25,6 +25,7 @@
 - Create: `repository/backend/src/errors.ts`
 - Create: `repository/backend/.dev.vars.example`
 - Create: `repository/backend/.gitignore`
+- Create: `repository/backend/vitest.config.ts`
 
 - [ ] **Step 1: package.json を作成**
 
@@ -43,6 +44,7 @@
   },
   "dependencies": {
     "hono": "^4.7",
+    "@hono/zod-validator": "^0.5",
     "jose": "^6.0",
     "zod": "^3.24"
   },
@@ -158,7 +160,7 @@ npx wrangler d1 create soyoka-dev
 npx wrangler d1 create soyoka-staging
 ```
 
-出力される database_id を wrangler.toml に記入。
+出力される database_id を wrangler.toml に記入。`migrations_dir = "migrations"` も各 D1 バインディングに追加すること。
 
 - [ ] **Step 2: KV ネームスペースを作成（dev + staging）**
 
@@ -335,7 +337,7 @@ Authorization ミドルウェアで全認証必須エンドポイントを保護
 - `checkQuota`: 上限未到達で true を返すこと
 - `checkQuota`: 上限到達（15回）で false を返すこと
 - `checkQuota`: Pro プランで常に true を返すこと
-- KV キーが `quota:{deviceId}:{YYYY-MM}` 形式であること
+- KV キーが `usage:{deviceId}:{YYYY-MM}` 形式であること
 - TTL が 40日に設定されること
 
 - [ ] **Step 2: src/services/quota.ts を実装**
@@ -356,7 +358,7 @@ npm test -- --filter quota
 ```bash
 git commit -m "feat(backend): 月次使用量管理サービスを実装
 
-KV Store で quota:{deviceId}:{YYYY-MM} 形式のカウントを管理。
+KV Store で usage:{deviceId}:{YYYY-MM} 形式のカウントを管理。
 無料プラン月15回制限、TTL 40日で自動リセット。"
 ```
 
@@ -388,7 +390,7 @@ JSON 形式で出力を指定（設計書の JSON Schema 準拠）。
 - `processAI(text, options, apiKey)`: OpenAI Chat Completions API を呼び出し
 - モデル: `gpt-4o-mini`
 - temperature: 0.3（安定した出力のため）
-- response_format: JSON
+- response_format: `{ type: "json_object" }`（OpenAI JSON mode）
 - タイムアウト: 30秒
 
 - [ ] **Step 4: テスト実行**

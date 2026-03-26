@@ -15,7 +15,7 @@ Soyoka の Backend Proxy を Cloudflare Workers 上に MVP スコープで構築
 | AI 処理エンドポイント | REQ-003, 004, 005, 010 | GPT-4o mini 呼び出し（要約+タグ+感情分析） |
 | 月次使用量制限 | REQ-011 | KV Store で月15回制限を強制 |
 | 使用量確認エンドポイント | REQ-011 | 残り回数を返却 |
-| レート制限 | REQ-012 | Cloudflare WAF + Workers middleware |
+| レート制限 | NFR-007 | Cloudflare WAF + Workers middleware |
 | dev + staging 環境 | — | wrangler.toml で環境分離 |
 
 ### 含まない（Phase 3b/3c で対応）
@@ -95,6 +95,8 @@ repository/backend/
 
 **目的**: iOS アプリのデバイスを登録し、JWT を発行する。
 
+Note: MVP ではフラットなリクエスト構造を使用。元設計書（セクション3.4.5）の `device_info` ネスト構造への移行は Phase 3c で対応。
+
 **リクエスト**:
 ```json
 {
@@ -156,19 +158,31 @@ CREATE TABLE devices (
 
 ### GET /api/v1/usage — 使用量確認
 
-**レスポンス (200 OK)**:
+**レスポンス (200 OK / free プラン)**:
 ```json
 {
   "used": 3,
   "limit": 15,
   "plan": "free",
-  "resets_at": "2026-04-01T00:00:00Z"
+  "resets_at": "2026-04-01T00:00:00+09:00"
 }
 ```
 
+**レスポンス (200 OK / pro プラン)**:
+```json
+{
+  "used": 42,
+  "limit": null,
+  "plan": "pro",
+  "resets_at": null
+}
+```
+
+Note: MVP では元設計書のネスト構造（`ai_processing` / `cloud_stt` / `subscription`）を簡略化したフラット構造を使用。Phase 3c で元設計書の構造に拡張する際、iOS クライアント側のパーサーも更新が必要。
+
 **処理フロー**:
 1. JWT 検証
-2. KV から `quota:{deviceId}:{YYYY-MM}` を取得
+2. KV から `usage:{deviceId}:{YYYY-MM}` を取得
 3. D1 からプラン情報取得
 4. レスポンス返却
 
@@ -177,7 +191,7 @@ CREATE TABLE devices (
 ### JWT 検証（middleware/auth.ts）
 
 - `Authorization: Bearer <token>` からトークン抽出
-- jose ライブラリで署名検証（HS256、シークレットは Workers Secrets）
+- jose ライブラリで署名検証（HS256、シークレットは Workers Secrets）。元設計書は ES256（非対称鍵）だが、MVPではデバイストークン認証のみのため HS256 で簡略化。Phase 3c（Sign In with Apple 統合時）に ES256 へ移行する
 - 検証失敗: `401 UNAUTHORIZED`
 - 検証成功: `c.set('deviceId', payload.sub)` でコンテキストに格納
 
@@ -195,7 +209,7 @@ CREATE TABLE devices (
 
 ## 月次使用量制限（services/quota.ts）
 
-- **KV キー**: `quota:{deviceId}:{YYYY-MM}` (例: `quota:uuid-xxx:2026-03`)
+- **KV キー**: `usage:{deviceId}:{YYYY-MM}` (例: `usage:uuid-xxx:2026-03`)（元設計書のキーパターンに準拠）
 - **値**: 整数（使用回数）
 - **TTL**: 40日（月次リセットを自然に実現。古いキーは自動削除）
 - **上限**: 15回/月（無料プラン）
@@ -244,7 +258,8 @@ JWT_SECRET=local-dev-secret-32chars-minimum
 - OpenAI API への送信テキストは処理完了後に参照を破棄
 - API キーはクライアント側に露出しない（NFR-008）
 - JWT シークレットは Workers Secrets で管理
-- CORS: iOS アプリからのリクエストのみ許可（Origin チェック不要、ネイティブアプリのため）
+- CORS: ネイティブアプリのためブラウザ同一オリジンポリシーの対象外。明示的な CORS 設定は不要
+- ログ: テキスト内容をログに含めない（REQ-008 準拠）。request_id、device_id、processing_time_ms のみ記録
 
 ## エラーハンドリング
 
@@ -254,6 +269,7 @@ JWT_SECRET=local-dev-secret-32chars-minimum
 |:--------------|:-------------|:-----|
 | 400 | `INVALID_REQUEST` | テキスト未入力、JSON不正 |
 | 401 | `UNAUTHORIZED` | JWT 無効・期限切れ |
+| 403 | `FORBIDDEN` | 権限不足（Phase 3c で Pro 限定機能実装時に使用） |
 | 429 | `RATE_LIMITED` | IP レート制限超過 |
 | 429 | `USAGE_LIMIT_EXCEEDED` | 月次15回到達 |
 | 500 | `INTERNAL_ERROR` | サーバー内部エラー |
