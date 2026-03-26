@@ -12,7 +12,7 @@ Soyoka の Backend Proxy を Cloudflare Workers 上に MVP スコープで構築
 |:-----|:---------|:-----|
 | Cloudflare Workers + Hono 初期構築 | — | プロジェクト骨格、dev + staging 環境 |
 | デバイストークン認証 | NFR-010 | UUID ベースの簡易認証。JWT 発行 |
-| AI 処理エンドポイント | REQ-003, 004, 005, 010 | GPT-4o mini 呼び出し（要約+タグ+感情分析） |
+| AI 処理エンドポイント | REQ-003, 004, 005, 010, 012 | GPT-4o mini 呼び出し（要約+タグ+感情分析）。Proプラン無制限対応含む |
 | 月次使用量制限 | REQ-011 | KV Store で月15回制限を強制 |
 | 使用量確認エンドポイント | REQ-011 | 残り回数を返却 |
 | レート制限 | NFR-007 | Cloudflare WAF + Workers middleware |
