@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type { Env } from "./types.js";
 import { createErrorResponse, ErrorCode } from "./errors.js";
 import { authRoutes } from "./routes/auth.js";
+import { aiRoutes } from "./routes/ai.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -18,6 +19,10 @@ app.get("/health", (c) => {
 // --- Auth Routes (認証不要) ---
 
 app.route("/api/v1/auth", authRoutes);
+
+// --- AI Routes (認証必須) ---
+
+app.route("/api/v1/ai", aiRoutes);
 
 // --- Error Handler ---
 
