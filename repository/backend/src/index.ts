@@ -2,10 +2,11 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { Env } from "./types.js";
 import { createErrorResponse, ErrorCode } from "./errors.js";
+import { authRoutes } from "./routes/auth.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// --- Health Check ---
+// --- Health Check (認証不要) ---
 
 app.get("/health", (c) => {
   return c.json({
@@ -13,6 +14,10 @@ app.get("/health", (c) => {
     environment: c.env.ENVIRONMENT ?? "unknown",
   });
 });
+
+// --- Auth Routes (認証不要) ---
+
+app.route("/api/v1/auth", authRoutes);
 
 // --- Error Handler ---
 
