@@ -1,0 +1,11 @@
+name = "soyoka-api"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+
+[env.dev]
+name = "soyoka-api-dev"
+vars = { ENVIRONMENT = "dev" }
+
+[env.staging]
+name = "soyoka-api-staging"
+vars = { ENVIRONMENT = "staging" }
