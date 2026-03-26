@@ -30,6 +30,10 @@ let package = Package(
             url: "https://github.com/pointfreeco/swift-dependencies",
             from: "1.6.0"
         ),
+        .package(
+            url: "https://github.com/weichsel/ZIPFoundation",
+            from: "0.9.19"
+        ),
         // SwiftLint: Xcode Build Phase で別途実行（SPMプラグインは互換性問題あり）
     ],
     targets: [
@@ -76,6 +80,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUtil",
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
             plugins: []
         ),
@@ -162,7 +167,11 @@ let package = Package(
         .testTarget(name: "FeatureAITests", dependencies: ["FeatureAI"]),
         .testTarget(name: "InfraSTTTests", dependencies: ["InfraSTT"]),
         .testTarget(name: "InfraLLMTests", dependencies: ["InfraLLM"]),
-        .testTarget(name: "InfraStorageTests", dependencies: ["InfraStorage", "Domain"]),
+        .testTarget(name: "InfraStorageTests", dependencies: [
+            "InfraStorage",
+            "Domain",
+            .product(name: "ZIPFoundation", package: "ZIPFoundation"),
+        ]),
         .testTarget(name: "FeatureSearchTests", dependencies: ["FeatureSearch", "Domain"]),
         .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "Domain"]),
     ]

@@ -31,6 +31,8 @@ public struct SettingsReducer {
         public var emotionAnalysisEnabled: Bool = false
         /// カスタム辞書のサブ State
         public var customDictionary = CustomDictionaryReducer.State()
+        /// バックアップのサブ State
+        public var backup = BackupReducer.State()
         /// AI処理回数リセット確認ダイアログ表示フラグ
         public var showResetQuotaConfirmation: Bool = false
         /// 今月のAI処理使用回数
@@ -46,6 +48,7 @@ public struct SettingsReducer {
             comingSoonFeature: ComingSoonFeature? = nil,
             emotionAnalysisEnabled: Bool? = nil,
             customDictionary: CustomDictionaryReducer.State = .init(),
+            backup: BackupReducer.State = .init(),
             showResetQuotaConfirmation: Bool = false,
             aiQuotaUsed: Int = 0,
             aiQuotaLimit: Int = 15
@@ -56,6 +59,7 @@ public struct SettingsReducer {
             self.emotionAnalysisEnabled = emotionAnalysisEnabled
                 ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
             self.customDictionary = customDictionary
+            self.backup = backup
             self.showResetQuotaConfirmation = showResetQuotaConfirmation
             self.aiQuotaUsed = aiQuotaUsed
             self.aiQuotaLimit = aiQuotaLimit
@@ -73,6 +77,8 @@ public struct SettingsReducer {
         case emotionAnalysisToggled(Bool)
         /// カスタム辞書のサブ Action
         case customDictionary(CustomDictionaryReducer.Action)
+        /// バックアップのサブ Action
+        case backup(BackupReducer.Action)
         /// 画面表示時
         case onAppear
         /// AI処理回数の取得結果
@@ -97,6 +103,9 @@ public struct SettingsReducer {
         Scope(state: \.customDictionary, action: \.customDictionary) {
             CustomDictionaryReducer()
         }
+        Scope(state: \.backup, action: \.backup) {
+            BackupReducer()
+        }
         Reduce { state, action in
             switch action {
             case let .comingSoonTapped(feature):
@@ -116,6 +125,9 @@ public struct SettingsReducer {
                 return .none
 
             case .customDictionary:
+                return .none
+
+            case .backup:
                 return .none
 
             case .onAppear:

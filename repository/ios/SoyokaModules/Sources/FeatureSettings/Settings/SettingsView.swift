@@ -50,6 +50,22 @@ public struct SettingsView: View {
                     Text("一般")
                 }
 
+                // MARK: - きおくのバックアップセクション
+                Section {
+                    NavigationLink {
+                        BackupView(
+                            store: store.scope(
+                                state: \.backup,
+                                action: \.backup
+                            )
+                        )
+                    } label: {
+                        Label("きおくのバックアップ", systemImage: "externaldrive.fill")
+                    }
+                } header: {
+                    Text("データ管理")
+                }
+
                 // MARK: - プライバシーセクション
                 Section {
                     comingSoonButton(

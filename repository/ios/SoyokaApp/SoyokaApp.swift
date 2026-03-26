@@ -50,6 +50,7 @@ struct AppReducer {
         case recording(RecordingFeature.Action)
         case memoList(MemoListReducer.Action)
         case settings(SettingsReducer.Action)
+        case openURL(URL)
     }
 
     @Dependency(\.fts5IndexManager) var fts5IndexManager
@@ -128,6 +129,13 @@ struct AppReducer {
             case .settings:
                 return .none
 
+            case let .openURL(url):
+                // .soyokabackup ファイルの処理を BackupReducer に委譲
+                if url.pathExtension == "soyokabackup" {
+                    return .send(.settings(.backup(.importFromURL(url))))
+                }
+                return .none
+
             case .memoList:
                 return .none
             }
@@ -167,5 +175,8 @@ struct AppView: View {
             .tag(AppReducer.State.Tab.settings)
         }
         .tint(Color.vmPrimary)
+        .onOpenURL { url in
+            store.send(.openURL(url))
+        }
     }
 }
