@@ -22,6 +22,12 @@ public final class LLMModelManager: @unchecked Sendable {
     /// モデルファイル名
     static let modelFileName = "phi-3-mini-q4_k_m.gguf"
 
+    /// モデル名（HuggingFace リポジトリ上の識別名）
+    public static let modelName = "phi-3-mini-4k-instruct-q4_k_m"
+
+    /// モデルファイルサイズ（バイト）: 約 2.5GB
+    public static let modelSize: Int64 = 2_500_000_000
+
     /// モデルファイルサイズの説明（ユーザー向け表示用）
     public static let modelFileSizeDescription = "約 2.5GB"
 
@@ -67,9 +73,10 @@ public final class LLMModelManager: @unchecked Sendable {
         AsyncStream { continuation in
             continuation.yield(.downloading(progress: 0.0))
 
-            // Phase 3a: スタブ - 即座に失敗を返す
-            // 実際のダウンロード処理は llama.cpp 統合時に実装
-            continuation.yield(.failed("Phase 3a: モデルダウンロードは未実装です。モック実装を使用してください。"))
+            // Phase 3a スタブ: llama.cpp SPM 統合後にダウンロード処理を実装予定
+            // モデル: Phi-3-mini-4k-instruct Q4_K_M (~2.5GB)
+            // ダウンロード元: HuggingFace microsoft/Phi-3-mini-4k-instruct-gguf
+            continuation.yield(.failed("モデルダウンロード機能は Phase 4 で実装予定です（\(Self.modelName), \(Self.modelFileSizeDescription)）"))
             continuation.finish()
         }
     }

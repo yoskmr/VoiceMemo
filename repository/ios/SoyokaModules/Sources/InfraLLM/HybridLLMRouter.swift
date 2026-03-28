@@ -20,6 +20,10 @@ public final class HybridLLMRouter: @unchecked Sendable {
     /// オンデバイス LLM プロバイダ（Apple Intelligence / llama.cpp）
     private let onDeviceProvider: OnDeviceLLMProvider
 
+    /// llama.cpp プロバイダ（Apple Intelligence 非対応デバイス向けフォールバック）
+    /// Phase 4 で llama.cpp SPM 統合後に有効化
+    private let llamaCppProvider: LlamaCppProvider?
+
     /// クラウド LLM プロバイダ（Backend Proxy 経由 GPT-4o mini）
     private let cloudProvider: CloudLLMProvider
 
@@ -28,9 +32,15 @@ public final class HybridLLMRouter: @unchecked Sendable {
     /// イニシャライザ
     /// - Parameters:
     ///   - onDeviceProvider: オンデバイス LLM プロバイダ
+    ///   - llamaCppProvider: llama.cpp プロバイダ（nil の場合はスキップ）
     ///   - cloudProvider: クラウド LLM プロバイダ
-    public init(onDeviceProvider: OnDeviceLLMProvider, cloudProvider: CloudLLMProvider) {
+    public init(
+        onDeviceProvider: OnDeviceLLMProvider,
+        llamaCppProvider: LlamaCppProvider? = nil,
+        cloudProvider: CloudLLMProvider
+    ) {
         self.onDeviceProvider = onDeviceProvider
+        self.llamaCppProvider = llamaCppProvider
         self.cloudProvider = cloudProvider
     }
 
@@ -79,12 +89,36 @@ public final class HybridLLMRouter: @unchecked Sendable {
                 return onDeviceResult
 
             } catch {
-                // オンデバイス処理失敗 → クラウドにフォールバック（EC-010）
-                logger.warning("オンデバイス処理失敗 → クラウドフォールバック: \(error.localizedDescription)")
+                // オンデバイス処理失敗 → llama.cpp → クラウドにフォールバック（EC-010）
+                logger.warning("オンデバイス処理失敗: \(error.localizedDescription)")
+
+                // 2.5. llama.cpp フォールバック
+                if let llamaCpp = llamaCppProvider, await llamaCpp.isAvailable() {
+                    do {
+                        let result = try await llamaCpp.process(request)
+                        logger.info("llama.cpp フォールバック成功")
+                        return result
+                    } catch {
+                        logger.warning("llama.cpp フォールバック失敗: \(error.localizedDescription)")
+                    }
+                }
+
                 if await cloudProvider.isAvailable() {
+                    logger.info("クラウドフォールバックに移行")
                     return try await cloudProvider.process(request)
                 }
                 throw error
+            }
+        }
+
+        // 2.5. オンデバイス不可 → llama.cpp を試行
+        if let llamaCpp = llamaCppProvider, await llamaCpp.isAvailable() {
+            do {
+                let result = try await llamaCpp.process(request)
+                logger.info("llama.cpp 処理成功（オンデバイス不可のため）")
+                return result
+            } catch {
+                logger.warning("llama.cpp 処理失敗 → クラウドフォールバック: \(error.localizedDescription)")
             }
         }
 
@@ -132,6 +166,7 @@ public final class HybridLLMRouter: @unchecked Sendable {
             },
             unloadModel: { [self] in
                 await self.onDeviceProvider.unloadModel()
+                await self.llamaCppProvider?.unloadModel()
             }
         )
     }
