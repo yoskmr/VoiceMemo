@@ -6,9 +6,10 @@ final class LLMProviderClientTests: XCTestCase {
     // MARK: - LLMTask テスト
 
     func testLLMTask_allCases() {
-        XCTAssertEqual(LLMTask.allCases.count, 2)
+        XCTAssertEqual(LLMTask.allCases.count, 3)
         XCTAssertTrue(LLMTask.allCases.contains(.summarize))
         XCTAssertTrue(LLMTask.allCases.contains(.tagging))
+        XCTAssertTrue(LLMTask.allCases.contains(.sentimentAnalysis))
     }
 
     func testLLMTask_rawValues() {

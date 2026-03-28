@@ -10,7 +10,8 @@ public enum LLMTask: String, CaseIterable, Sendable {
     case summarize
     /// タグ自動生成（最大3件）
     case tagging
-    // sentimentAnalysis は Phase 3b で追加
+    /// 感情分析（8カテゴリ）
+    case sentimentAnalysis
 }
 
 // MARK: - LLMリクエスト・レスポンス型
@@ -49,6 +50,8 @@ public struct LLMResponse: Sendable, Equatable {
     public let summary: LLMSummaryResult?
     /// タグ結果（.tagging タスク実行時）
     public let tags: [LLMTagResult]
+    /// 感情分析結果（.sentimentAnalysis タスク実行時）
+    public let sentiment: LLMSentimentResult?
     /// 処理時間（ミリ秒）
     public let processingTimeMs: Int
     /// 使用したプロバイダ種別
@@ -57,11 +60,13 @@ public struct LLMResponse: Sendable, Equatable {
     public init(
         summary: LLMSummaryResult?,
         tags: [LLMTagResult],
+        sentiment: LLMSentimentResult? = nil,
         processingTimeMs: Int,
         provider: LLMProviderType
     ) {
         self.summary = summary
         self.tags = tags
+        self.sentiment = sentiment
         self.processingTimeMs = processingTimeMs
         self.provider = provider
     }
@@ -93,6 +98,24 @@ public struct LLMTagResult: Sendable, Equatable {
     public init(label: String, confidence: Double) {
         self.label = label
         self.confidence = confidence
+    }
+}
+
+/// 感情分析結果（LLMレスポンス用）
+/// Phase 3b 感情分析機能（DES-PHASE3A-001 セクション3.1 準拠）
+/// 既存の `SentimentEvidence`（EmotionAnalysisEntity.swift）を再利用
+public struct LLMSentimentResult: Equatable, Sendable {
+    /// 主要な感情カテゴリ
+    public let primary: EmotionCategory
+    /// 各感情カテゴリのスコア（0.0〜1.0）
+    public let scores: [EmotionCategory: Double]
+    /// 根拠テキスト（感情が検出されたテキスト断片）
+    public let evidence: [SentimentEvidence]
+
+    public init(primary: EmotionCategory, scores: [EmotionCategory: Double], evidence: [SentimentEvidence]) {
+        self.primary = primary
+        self.scores = scores
+        self.evidence = evidence
     }
 }
 
