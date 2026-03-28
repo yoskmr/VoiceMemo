@@ -177,5 +177,13 @@ let package = Package(
         ]),
         .testTarget(name: "FeatureSearchTests", dependencies: ["FeatureSearch", "Domain"]),
         .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "FeatureSubscription", "Domain"]),
+        .testTarget(name: "E2ETests", dependencies: [
+            "FeatureRecording",
+            "FeatureMemo",
+            "FeatureAI",
+            "FeatureSearch",
+            "Domain",
+            .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+        ]),
     ]
 )
