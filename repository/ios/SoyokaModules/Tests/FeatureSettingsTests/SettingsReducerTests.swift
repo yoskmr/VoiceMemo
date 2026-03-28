@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FeatureSubscription
 import XCTest
 @testable import FeatureSettings
 
@@ -71,8 +72,8 @@ final class SettingsReducerTests: XCTestCase {
             SettingsReducer()
         }
 
-        await store.send(.comingSoonTapped(.planManagement)) {
-            $0.comingSoonFeature = .planManagement
+        await store.send(.comingSoonTapped(.privacySettings)) {
+            $0.comingSoonFeature = .privacySettings
             $0.showComingSoonAlert = true
         }
 
@@ -84,6 +85,20 @@ final class SettingsReducerTests: XCTestCase {
         await store.send(.comingSoonTapped(.usageStats)) {
             $0.comingSoonFeature = .usageStats
             $0.showComingSoonAlert = true
+        }
+    }
+
+    // MARK: - Test 6: planManagement タップでサブスクリプション画面を表示
+
+    func test_comingSoonTapped_planManagement_サブスクリプション画面表示() async {
+        let store = TestStore(
+            initialState: SettingsReducer.State()
+        ) {
+            SettingsReducer()
+        }
+
+        await store.send(.comingSoonTapped(.planManagement)) {
+            $0.subscription = SubscriptionReducer.State()
         }
     }
 }

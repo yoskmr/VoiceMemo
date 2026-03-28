@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Domain
+import FeatureSubscription
 import Foundation
 
 /// 設定画面のTCA Reducer
@@ -39,6 +40,8 @@ public struct SettingsReducer {
         public var aiQuotaUsed: Int = 0
         /// AI処理月次上限
         public var aiQuotaLimit: Int = 15
+        /// サブスクリプション画面の表示状態
+        @Presents public var subscription: SubscriptionReducer.State?
 
         /// UserDefaults キー: 感情分析オプトイン
         static let emotionAnalysisKey = "emotionAnalysisEnabled"
@@ -51,7 +54,8 @@ public struct SettingsReducer {
             backup: BackupReducer.State = .init(),
             showResetQuotaConfirmation: Bool = false,
             aiQuotaUsed: Int = 0,
-            aiQuotaLimit: Int = 15
+            aiQuotaLimit: Int = 15,
+            subscription: SubscriptionReducer.State? = nil
         ) {
             self.showComingSoonAlert = showComingSoonAlert
             self.comingSoonFeature = comingSoonFeature
@@ -63,6 +67,7 @@ public struct SettingsReducer {
             self.showResetQuotaConfirmation = showResetQuotaConfirmation
             self.aiQuotaUsed = aiQuotaUsed
             self.aiQuotaLimit = aiQuotaLimit
+            self.subscription = subscription
         }
     }
 
@@ -91,6 +96,8 @@ public struct SettingsReducer {
         case resetQuotaDismissed
         /// リセット完了
         case resetQuotaCompleted
+        /// サブスクリプション画面のアクション
+        case subscription(PresentationAction<SubscriptionReducer.Action>)
     }
 
     // MARK: - Reducer Body
@@ -108,6 +115,10 @@ public struct SettingsReducer {
         }
         Reduce { state, action in
             switch action {
+            case .comingSoonTapped(.planManagement):
+                state.subscription = SubscriptionReducer.State()
+                return .none
+
             case let .comingSoonTapped(feature):
                 state.comingSoonFeature = feature
                 state.showComingSoonAlert = true
@@ -160,7 +171,13 @@ public struct SettingsReducer {
             case .resetQuotaCompleted:
                 state.aiQuotaUsed = 0
                 return .none
+
+            case .subscription:
+                return .none
             }
+        }
+        .ifLet(\.$subscription, action: \.subscription) {
+            SubscriptionReducer()
         }
     }
 }

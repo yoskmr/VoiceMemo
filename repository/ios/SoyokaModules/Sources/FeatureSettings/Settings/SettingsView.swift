@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FeatureSubscription
 import SharedUI
 import SharedUtil
 import SwiftUI
@@ -182,6 +183,20 @@ public struct SettingsView: View {
                 Button("キャンセル", role: .cancel) {}
             } message: {
                 Text("今月のAI処理回数を0にリセットします")
+            }
+            .sheet(
+                item: $store.scope(
+                    state: \.subscription,
+                    action: \.subscription
+                )
+            ) { subscriptionStore in
+                NavigationStack {
+                    SubscriptionView(store: subscriptionStore)
+                        .navigationTitle("プラン管理")
+                        #if os(iOS)
+                        .navigationBarTitleDisplayMode(.inline)
+                        #endif
+                }
             }
         }
     }

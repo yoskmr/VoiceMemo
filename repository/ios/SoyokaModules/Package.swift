@@ -148,6 +148,7 @@ let package = Package(
                 "Domain",
                 "SharedUI",
                 "SharedUtil",
+                "FeatureSubscription",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
@@ -175,6 +176,6 @@ let package = Package(
             .product(name: "ZIPFoundation", package: "ZIPFoundation"),
         ]),
         .testTarget(name: "FeatureSearchTests", dependencies: ["FeatureSearch", "Domain"]),
-        .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "Domain"]),
+        .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "FeatureSubscription", "Domain"]),
     ]
 )
