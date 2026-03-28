@@ -3,6 +3,7 @@ import Dependencies
 import Domain
 import Foundation
 import InfraLLM
+import InfraNetwork
 import InfraStorage
 import SwiftData
 
@@ -26,14 +27,28 @@ private let sharedAIModelContainer: ModelContainer = {
     }
 }()
 
-// MARK: LLMProviderClient → OnDeviceLLMProvider Live実装
+// MARK: BackendProxyClient → Live実装（Backend Proxy 経由クラウドAI）
 
-/// Phase 3a: OnDeviceLLMProvider を使用（内部的に MockLLMProvider に委譲）
-/// 将来: llama.cpp 実統合時に OnDeviceLLMProvider の内部実装を差し替える
+/// Backend Proxy Base URL（Phase 3b: 環境変数 or Info.plist から取得予定）
+private let backendProxyBaseURL = URL(string: "https://api.soyoka.app")!
+
+extension BackendProxyClient: DependencyKey {
+    public static let liveValue: BackendProxyClient = .live(baseURL: backendProxyBaseURL)
+}
+
+// MARK: LLMProviderClient → HybridLLMRouter Live実装（オンデバイス優先 → クラウドフォールバック）
+
+/// Phase 3b: HybridLLMRouter でオンデバイス（Apple Intelligence）優先、
+/// クラウド（GPT-4o mini via Backend Proxy）フォールバック構成に切替
 private let sharedOnDeviceLLMProvider = OnDeviceLLMProvider()
+private let sharedCloudLLMProvider = CloudLLMProvider(proxyClient: BackendProxyClient.liveValue)
+private let sharedHybridLLMRouter = HybridLLMRouter(
+    onDeviceProvider: sharedOnDeviceLLMProvider,
+    cloudProvider: sharedCloudLLMProvider
+)
 
 extension LLMProviderClient: DependencyKey {
-    public static let liveValue: LLMProviderClient = sharedOnDeviceLLMProvider.asClient()
+    public static let liveValue: LLMProviderClient = sharedHybridLLMRouter.asClient()
 }
 
 // MARK: AIQuotaClient → AIQuotaRepository Live実装（SwiftData永続化）
