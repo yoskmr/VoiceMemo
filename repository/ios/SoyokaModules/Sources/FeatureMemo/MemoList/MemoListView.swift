@@ -15,74 +15,93 @@ public struct MemoListView: View {
 
     public var body: some View {
         NavigationStack {
-            Group {
-                if store.search.isActive {
-                    searchResultsContent
-                } else {
-                    memoListContent
+            mainContent
+                .background(Color.vmBackground)
+                .navigationTitle("きおく")
+                .searchable(
+                    text: $store.search.query.sending(\.searchQueryChanged),
+                    prompt: "きおくを検索..."
+                )
+                .toolbar { toolbarContent }
+                .refreshable { store.send(.refreshRequested) }
+                .navigationDestination(
+                    item: $store.scope(state: \.selectedMemo, action: \.memoDetail)
+                ) { (detailStore: StoreOf<MemoDetailReducer>) in
+                    MemoDetailView(store: detailStore)
                 }
-            }
-            .background(Color.vmBackground)
-            .navigationTitle("きおく")
-            .searchable(
-                text: $store.search.query.sending(\.searchQueryChanged),
-                prompt: "きおくを検索..."
-            )
-            .toolbar {
-                #if os(iOS)
-                ToolbarItem(placement: .topBarTrailing) {
-                    toolbarButtons
+                .navigationDestination(
+                    item: $store.scope(state: \.emotionTrendState, action: \.emotionTrend)
+                ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
+                    EmotionTrendView(store: emotionTrendStore)
                 }
-                #else
-                ToolbarItem(placement: .automatic) {
-                    toolbarButtons
+                .overlay(alignment: .bottom) { undoSnackbar }
+                .alert(
+                    "今月のAI処理回数に到達しました",
+                    isPresented: $store.showQuotaExceededAlert.sending(\.quotaExceededAlertPresented)
+                ) {
+                    Button("来月まで待つ", role: .cancel) {
+                        store.send(.quotaExceededAlertPresented(false))
+                    }
+                    Button("Proを見る") {
+                        store.send(.showProPlanTapped)
+                    }
+                } message: {
+                    Text("来月1日にリセットされます")
                 }
-                #endif
-            }
-            .refreshable {
-                store.send(.refreshRequested)
-            }
-            .navigationDestination(
-                item: $store.scope(state: \.selectedMemo, action: \.memoDetail)
-            ) { (detailStore: StoreOf<MemoDetailReducer>) in
-                MemoDetailView(store: detailStore)
-            }
-            .navigationDestination(
-                item: $store.scope(state: \.emotionTrendState, action: \.emotionTrend)
-            ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
-                EmotionTrendView(store: emotionTrendStore)
-            }
-            // スワイプ削除確認ダイアログ
-            .alert(
-                "きおくを削除",
-                isPresented: $store.deletion.showConfirmation.sending(\.deleteConfirmationPresented)
-            ) {
-                Button("削除", role: .destructive) {
-                    store.send(.confirmDelete)
-                }
-                Button("キャンセル", role: .cancel) {
-                    store.send(.deleteCancelled)
-                }
-            } message: {
-                Text("このきおくを完全に削除しますか？\nこの操作は取り消せません。")
-            }
-            // T11: 月上限到達時のダイアログ
-            .alert(
-                "今月のAI処理回数に到達しました",
-                isPresented: $store.showQuotaExceededAlert.sending(\.quotaExceededAlertPresented)
-            ) {
-                Button("来月まで待つ", role: .cancel) {
-                    store.send(.quotaExceededAlertPresented(false))
-                }
-                Button("Proを見る") {
-                    store.send(.showProPlanTapped)
-                }
-            } message: {
-                Text("来月1日にリセットされます")
+        }
+        .onAppear { store.send(.onAppear) }
+    }
+
+    // MARK: - Main Content
+
+    private var mainContent: some View {
+        Group {
+            if store.search.isActive {
+                searchResultsContent
+            } else {
+                memoListContent
             }
         }
-        .onAppear {
-            store.send(.onAppear)
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        #if os(iOS)
+        ToolbarItem(placement: .topBarTrailing) { toolbarButtons }
+        #else
+        ToolbarItem(placement: .automatic) { toolbarButtons }
+        #endif
+    }
+
+    // MARK: - Undo Snackbar
+
+    @ViewBuilder
+    private var undoSnackbar: some View {
+        if store.deletion.showUndoSnackbar,
+           let deleted = store.deletion.recentlyDeletedMemo {
+            HStack {
+                Text("「\(deleted.title)」を削除しました")
+                    .font(.vmCallout)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Spacer()
+                Button("元に戻す") {
+                    store.send(.undoDeleteTapped)
+                }
+                .font(.vmHeadline)
+                .foregroundColor(.vmPrimary)
+            }
+            .padding(.horizontal, VMDesignTokens.Spacing.lg)
+            .padding(.vertical, VMDesignTokens.Spacing.md)
+            .background(Color.vmSurface.opacity(0.95))
+            .cornerRadius(VMDesignTokens.CornerRadius.medium)
+            .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
+            .padding(.horizontal, VMDesignTokens.Spacing.lg)
+            .padding(.bottom, VMDesignTokens.Spacing.lg)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .animation(.spring(response: 0.3), value: store.deletion.showUndoSnackbar)
         }
     }
 
@@ -155,24 +174,33 @@ public struct MemoListView: View {
     }
 
     private var searchResultsContent: some View {
-        ScrollView {
-            LazyVStack(spacing: VMDesignTokens.Spacing.md) {
-                if store.search.isSearching {
-                    ProgressView("検索中...")
-                        .padding()
-                } else if store.search.results.isEmpty {
-                    Text("検索結果がありません")
-                        .font(.vmCallout)
-                        .foregroundColor(.vmTextSecondary)
-                        .padding(.top, VMDesignTokens.Spacing.xxxl)
-                } else {
-                    ForEach(store.search.results) { result in
-                        SearchResultCard(item: result)
-                            .onTapGesture {
-                                store.send(.memoTapped(id: result.id))
-                            }
-                            .padding(.horizontal, VMDesignTokens.Spacing.lg)
+        ZStack {
+            ScrollView {
+                LazyVStack(spacing: VMDesignTokens.Spacing.md) {
+                    if store.search.results.isEmpty && !store.search.isSearching {
+                        Text("検索結果がありません")
+                            .font(.vmCallout)
+                            .foregroundColor(.vmTextSecondary)
+                            .padding(.top, VMDesignTokens.Spacing.xxxl)
+                    } else {
+                        ForEach(store.search.results) { result in
+                            SearchResultCard(item: result)
+                                .onTapGesture {
+                                    store.send(.memoTapped(id: result.id))
+                                }
+                                .padding(.horizontal, VMDesignTokens.Spacing.lg)
+                        }
                     }
+                }
+            }
+            .opacity(store.search.isSearching ? 0.5 : 1.0)
+
+            if store.search.isSearching {
+                VStack {
+                    ProgressView()
+                        .tint(.vmPrimary)
+                        .padding(.top, VMDesignTokens.Spacing.xxxl)
+                    Spacer()
                 }
             }
         }

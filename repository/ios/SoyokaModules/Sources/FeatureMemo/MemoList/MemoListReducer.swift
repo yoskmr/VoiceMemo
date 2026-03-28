@@ -30,18 +30,20 @@ public struct MemoListReducer {
         }
     }
 
-    /// 削除確認の子State（凝集度向上のため分離）
+    /// 削除Undo管理の子State（凝集度向上のため分離）
     @ObservableState
     public struct DeletionState: Equatable, Sendable {
-        public var pendingID: UUID? = nil
-        public var showConfirmation: Bool = false
+        /// 直近削除したメモ（Undo 用に一時保持）
+        public var recentlyDeletedMemo: MemoItem? = nil
+        /// Undo スナックバーの表示フラグ
+        public var showUndoSnackbar: Bool = false
 
         public init(
-            pendingID: UUID? = nil,
-            showConfirmation: Bool = false
+            recentlyDeletedMemo: MemoItem? = nil,
+            showUndoSnackbar: Bool = false
         ) {
-            self.pendingID = pendingID
-            self.showConfirmation = showConfirmation
+            self.recentlyDeletedMemo = recentlyDeletedMemo
+            self.showUndoSnackbar = showUndoSnackbar
         }
     }
 
@@ -201,10 +203,9 @@ public struct MemoListReducer {
         case memosLoaded(Result<[MemoItem], EquatableError>)
         case memoTapped(id: UUID)
         case swipeToDelete(id: UUID)
-        case deleteConfirmationPresented(Bool)
-        case confirmDelete
+        case undoDeleteTapped
+        case undoExpired
         case deleteConfirmed(id: UUID)
-        case deleteCancelled
         case memoDeleted(Result<UUID, EquatableError>)
         case searchQueryChanged(String)
         case searchCompleted(SearchResult)
@@ -231,7 +232,7 @@ public struct MemoListReducer {
 
     // MARK: - Cancellation IDs
 
-    private enum CancelID { case search }
+    private enum CancelID { case search, undoTimer }
 
     // MARK: - Dependencies
 
@@ -299,21 +300,41 @@ public struct MemoListReducer {
                 return .none
 
             case let .swipeToDelete(id):
-                state.deletion.pendingID = id
-                state.deletion.showConfirmation = true
-                return .none
-
-            case let .deleteConfirmationPresented(isPresented):
-                state.deletion.showConfirmation = isPresented
-                if !isPresented {
-                    state.deletion.pendingID = nil
+                guard let memo = state.memos[id: id] else { return .none }
+                // 一覧から即座に除去し、Undo 用に保持
+                state.deletion.recentlyDeletedMemo = memo
+                state.deletion.showUndoSnackbar = true
+                state.memos.remove(id: id)
+                state.sections = Self.buildSections(
+                    from: state.memos,
+                    now: now,
+                    calendar: calendar
+                )
+                // 3秒後に undoExpired を送信
+                return .run { send in
+                    try await clock.sleep(for: .seconds(3))
+                    await send(.undoExpired)
                 }
-                return .none
+                .cancellable(id: CancelID.undoTimer, cancelInFlight: true)
 
-            case .confirmDelete:
-                guard let id = state.deletion.pendingID else { return .none }
-                state.deletion.showConfirmation = false
-                state.deletion.pendingID = nil
+            case .undoDeleteTapped:
+                guard let memo = state.deletion.recentlyDeletedMemo else { return .none }
+                // 削除したメモを一覧に復元
+                state.memos.updateOrAppend(memo)
+                state.sections = Self.buildSections(
+                    from: state.memos,
+                    now: now,
+                    calendar: calendar
+                )
+                state.deletion.recentlyDeletedMemo = nil
+                state.deletion.showUndoSnackbar = false
+                return .cancel(id: CancelID.undoTimer)
+
+            case .undoExpired:
+                guard let memo = state.deletion.recentlyDeletedMemo else { return .none }
+                let id = memo.id
+                state.deletion.recentlyDeletedMemo = nil
+                state.deletion.showUndoSnackbar = false
                 return .send(.deleteConfirmed(id: id))
 
             case let .deleteConfirmed(id):
@@ -325,13 +346,8 @@ public struct MemoListReducer {
                     await send(.memoDeleted(result))
                 }
 
-            case let .memoDeleted(.success(id)):
-                state.memos.remove(id: id)
-                state.sections = Self.buildSections(
-                    from: state.memos,
-                    now: now,
-                    calendar: calendar
-                )
+            case .memoDeleted(.success):
+                // メモは swipeToDelete 時点で一覧から除去済み
                 return .none
 
             case let .memoDeleted(.failure(error)):
@@ -467,11 +483,6 @@ public struct MemoListReducer {
                 return .send(.refreshRequested)
 
             case .memoDetail:
-                return .none
-
-            case .deleteCancelled:
-                state.deletion.showConfirmation = false
-                state.deletion.pendingID = nil
                 return .none
 
             // MARK: - T11: 月次制限UI

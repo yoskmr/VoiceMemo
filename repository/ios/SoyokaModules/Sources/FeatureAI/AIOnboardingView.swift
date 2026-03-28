@@ -14,6 +14,20 @@ public struct AIOnboardingView: View {
 
     public var body: some View {
         VStack(spacing: VMDesignTokens.Spacing.xl) {
+            // 閉じるボタン（右上）
+            HStack {
+                Spacer()
+                Button {
+                    store.send(.onboardingDismissed)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.vmTextTertiary)
+                }
+                .accessibilityLabel("閉じる")
+            }
+            .padding(.trailing, VMDesignTokens.Spacing.sm)
+
             Spacer()
 
             // ヘッダーアイコン
