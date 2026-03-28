@@ -110,11 +110,22 @@ public struct SettingsView: View {
                     HStack {
                         Label("バージョン", systemImage: "info.circle")
                         Spacer()
-                        Text("1.0.0")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
                             .foregroundColor(.vmTextTertiary)
                     }
                 } header: {
                     Text("その他")
+                }
+
+                // MARK: - フッター
+                Section {
+                    HStack {
+                        Spacer()
+                        Text("Soyoka v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
+                            .font(.vmCaption1)
+                            .foregroundColor(.vmTextTertiary)
+                        Spacer()
+                    }
                 }
 
                 // MARK: - デバッグセクション
