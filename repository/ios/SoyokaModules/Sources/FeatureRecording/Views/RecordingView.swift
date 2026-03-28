@@ -14,13 +14,30 @@ public struct RecordingView: View {
     }
 
     public var body: some View {
-        Group {
+        ZStack(alignment: .bottom) {
+            recordingContent
+
             if case .saved = store.recordingStatus {
+                // タップで閉じる背景（タブバーは操作可能なので背景色なし）
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        store.send(.dismissCompletion)
+                    }
+                    .ignoresSafeArea()
+
                 RecordingCompletionView(store: store)
-            } else {
-                recordingContent
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .move(edge: .bottom).combined(with: .opacity)
+                    )
             }
         }
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85),
+            value: store.recordingStatus
+        )
     }
 
     @ViewBuilder

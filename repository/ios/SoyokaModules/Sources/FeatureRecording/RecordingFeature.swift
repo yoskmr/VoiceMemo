@@ -146,6 +146,7 @@ public struct RecordingFeature {
         case recording
         case audioLevel
         case completionStage
+        case completionAutoDismiss
     }
 
     // MARK: - Reducer Body
@@ -280,6 +281,14 @@ public struct RecordingFeature {
 
             case let .completionStageAdvanced(stage):
                 state.completionStage = stage
+                // CTA表示後、3秒で自動的にトーストを閉じる
+                if stage == .cta {
+                    return .run { send in
+                        try await clock.sleep(for: .seconds(3))
+                        await send(.dismissCompletion)
+                    }
+                    .cancellable(id: CancelID.completionAutoDismiss)
+                }
                 return .none
 
             case .viewMemoTapped:
@@ -298,6 +307,7 @@ public struct RecordingFeature {
                 state.aiProcessingCompleted = false
                 return .merge(
                     .cancel(id: CancelID.completionStage),
+                    .cancel(id: CancelID.completionAutoDismiss),
                     .send(.navigateToMemoDetail(memoID))
                 )
 
@@ -311,7 +321,10 @@ public struct RecordingFeature {
                 state.wasAutoStopped = false
                 state.completionStage = .initial
                 state.aiProcessingCompleted = false
-                return .cancel(id: CancelID.completionStage)
+                return .merge(
+                    .cancel(id: CancelID.completionStage),
+                    .cancel(id: CancelID.completionAutoDismiss)
+                )
 
             case .navigateToMemoDetail:
                 // 親Reducer（AppReducer）で処理する
