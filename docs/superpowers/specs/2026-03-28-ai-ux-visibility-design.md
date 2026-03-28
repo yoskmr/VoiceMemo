@@ -74,13 +74,35 @@ CompletionStage に連動した段階表示:
 
 ### 実装方針
 
-RecordingFeature.State に `aiProcessingCompleted: Bool = false` を追加。
-AppReducer で AI処理完了時に `recording.aiProcessingCompleted = true` を設定。
+**RecordingFeature.State に追加**:
+```swift
+public var aiProcessingCompleted: Bool = false
+```
 
-RecordingCompletionView は:
-- `store.completionStage >= .preview` かつ `!store.aiProcessingCompleted` → 「ことばを整えています…」+ パルスドット
+**AI処理完了通知の中継アーキテクチャ**:
+
+1. `AppReducer` の `.recording(.recordingSaved(memo))` で `aiProcessingQueue.enqueueProcessing(memo.id)` を実行（既存）
+2. `AppReducer.Action` に `.aiProcessingCompleted(UUID)` ケースを追加
+3. `AppReducer.body` で `aiProcessingQueue` の statusStream を監視し、`.completed` 受信時に `.aiProcessingCompleted(memoID)` を発火
+4. `.aiProcessingCompleted` ハンドラで `state.recording.aiProcessingCompleted = true` を設定
+
+```swift
+// AppReducer に追加するアクション
+case aiProcessingCompleted(UUID)
+
+// AppReducer.body に追加するハンドラ
+case let .aiProcessingCompleted(memoID):
+    state.recording.aiProcessingCompleted = true
+    return .none
+```
+
+**RecordingCompletionView の表示制御**:
+
+CompletionStage の enum case 順序: `initial(0) < checkmark(1) < preview(2) < cta(3)` — Comparable 準拠済み。
+
+- `store.completionStage >= .preview`（= Stage 2以降）かつ `!store.aiProcessingCompleted` → 「ことばを整えています…」+ PulsingDotView
 - `store.aiProcessingCompleted` → 「整えました」+ チェックマーク
-- アニメーション: `.spring` で切り替え（reduceMotion 対応済み）
+- アニメーション: `.spring` で切り替え。PulsingDotView は親View側で `reduceMotion` を参照し、`reduceMotion` 時は静的ドット（明滅なし）に切り替える
 
 ### 文言選定の根拠
 
@@ -136,9 +158,8 @@ Soyoka
 ## 3. メモ一覧カードのAI状態表示
 
 ### 変更ファイル
-- `Sources/SharedUI/Components/MemoCard.swift`（UI追加）
-- `Sources/SharedUI/Models/MemoCardData.swift`（aiStatus フィールド追加）
-- `Sources/FeatureMemo/MemoList/MemoListReducer.swift`（MemoItem に aiStatus 追加）
+- `Sources/SharedUI/Components/MemoCard.swift`（MemoCardData に aiStatus 追加 + UI追加）
+- `Sources/FeatureMemo/MemoList/MemoListReducer.swift`（MemoItem に aiStatus 追加 + cardData 変換更新）
 - `Sources/FeatureMemo/MemoList/MemoListView.swift`（MemoCard に aiStatus を渡す）
 
 ### 現状
@@ -169,10 +190,12 @@ public enum AIDisplayStatus: Equatable, Sendable {
 ```
 
 MemoListReducer の `fetchMemoItems()` で判定:
-- `entity.aiSummary != nil` → `.completed`
+- `entity.aiSummary != nil` → `.completed`（`aiSummary: AISummaryEntity?` の nil チェック）
 - `entity.aiSummary == nil` かつ AI処理キュー内 → `.processing`
 - `entity.aiSummary == nil` かつ キュー外 → `.none`
-- AI処理エラー記録あり → `.failed`
+- `.failed` 判定: MVP では `.failed` 状態は表示しない（AI処理キューの statusStream で `.failed` を受信した場合はメモ詳細画面でのみリトライ UI を表示する既存実装に委ねる）。メモ一覧カードでは `.none` として扱う
+
+`MemoListReducer.MemoItem.cardData` 変換プロパティも `aiStatus` を含むよう更新する。
 
 ### アクセシビリティ
 
