@@ -157,7 +157,7 @@ struct AppReducer {
 
                 // Deep Link: soyoka://record
                 if url.scheme == "soyoka", url.host == "record" {
-                    state.selectedTab = .recording
+                    state.selectedTab = .home
                     return .none
                 }
 
