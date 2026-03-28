@@ -163,36 +163,23 @@ public struct SettingsView: View {
                 }
 
                 // MARK: - デバッグセクション
+                #if DEBUG
                 if AppEnvironment.current.isDebugMenuEnabled {
                     Section {
-                        Button(role: .destructive) {
-                            store.send(.resetQuotaTapped)
+                        NavigationLink {
+                            DebugMenuView(
+                                onResetQuota: { store.send(.resetQuotaTapped) },
+                                aiQuotaUsed: store.aiQuotaUsed,
+                                aiQuotaLimit: store.aiQuotaLimit
+                            )
                         } label: {
-                            HStack {
-                                Text("AI処理回数をリセット")
-                                Spacer()
-                                Text("\(store.aiQuotaUsed)/\(store.aiQuotaLimit)")
-                                    .foregroundColor(.vmTextTertiary)
-                            }
-                        }
-
-                        Button {
-                            UserDefaults.standard.set(false, forKey: "hasCompletedSetup")
-                            UserDefaults.standard.set(false, forKey: "hasSeenAIOnboarding")
-                        } label: {
-                            Text("ウェルカム画面・オンボーディングをリセット")
-                        }
-
-                        HStack {
-                            Text("STTエンジン")
-                            Spacer()
-                            Text("SpeechAnalyzer")
-                                .foregroundColor(.vmTextTertiary)
+                            Label("デバッグメニュー", systemImage: "ant.fill")
                         }
                     } header: {
-                        Text("デバッグ（\(AppEnvironment.current == .development ? "Development" : "Staging")）")
+                        Text("開発者メニュー")
                     }
                 }
+                #endif
             }
             #if os(iOS)
             .listStyle(.insetGrouped)
