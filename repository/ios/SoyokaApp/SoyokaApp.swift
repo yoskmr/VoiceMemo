@@ -147,6 +147,20 @@ struct AppReducer {
                 return .none
 
             case let .openURL(url):
+                // Deep Link: soyoka://memo/{id}
+                if url.scheme == "soyoka", url.host == "memo",
+                   let memoIDString = url.pathComponents.dropFirst().first,
+                   let memoID = UUID(uuidString: memoIDString) {
+                    state.selectedTab = .memoList
+                    return .send(.memoList(.selectMemo(id: memoID)))
+                }
+
+                // Deep Link: soyoka://record
+                if url.scheme == "soyoka", url.host == "record" {
+                    state.selectedTab = .recording
+                    return .none
+                }
+
                 // .soyokabackup ファイルの処理を BackupReducer に委譲
                 if url.pathExtension == "soyokabackup" {
                     return .send(.settings(.backup(.importFromURL(url))))
