@@ -479,6 +479,34 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
                 }
             }
 
+            // EmotionAnalysis の保存（感情分析オプトイン時のみ結果が存在）
+            if let sentimentResult = response.sentiment {
+                let emotionScoresDict: [String: Double] = Dictionary(
+                    uniqueKeysWithValues: sentimentResult.scores.map { ($0.key.rawValue, $0.value) }
+                )
+                let evidenceArray: [[String: String]] = sentimentResult.evidence.map { ev in
+                    ["text": ev.text, "emotion": ev.emotion.rawValue]
+                }
+
+                if let existingAnalysis = memoModel.emotionAnalysis {
+                    existingAnalysis.primaryEmotion = sentimentResult.primary
+                    existingAnalysis.confidence = sentimentResult.scores[sentimentResult.primary] ?? 0.0
+                    existingAnalysis.emotionScores = emotionScoresDict
+                    existingAnalysis.evidence = evidenceArray
+                    existingAnalysis.analyzedAt = Date()
+                } else {
+                    let analysisModel = EmotionAnalysisModel(
+                        primaryEmotion: sentimentResult.primary,
+                        confidence: sentimentResult.scores[sentimentResult.primary] ?? 0.0,
+                        emotionScores: emotionScoresDict,
+                        evidence: evidenceArray,
+                        analyzedAt: Date()
+                    )
+                    analysisModel.memo = memoModel
+                    context.insert(analysisModel)
+                }
+            }
+
             // Tags の保存
             for tagResult in response.tags {
                 let tagName = tagResult.label

@@ -219,8 +219,10 @@ public actor AIProcessingQueue {
             notifyStatus(memoID: memoID, status: .processing(progress: 0.8, description: "結果を保存中..."))
 
             // 結果保存
-            // TODO: VoiceMemoRepositoryClient にAI処理結果を一括保存するメソッドが必要
-            // 現在は updateMemoText で部分的に対応。感情分析結果・タグの保存は別途対応が必要
+            // Note: 本クラス（actor版）は旧実装。本番では AIProcessingQueueLive（Data層）が
+            // SwiftData Model を直接操作して AISummary・Tags・EmotionAnalysis を一括保存する。
+            // この actor 版は互換性維持のため、updateMemoText でタイトルと要約テキストのみ保存する。
+            // タグ・感情分析結果の保存は AIProcessingQueueLive.saveResults() で完全実装済み。
             if let summary = response.summary {
                 try await voiceMemoRepository.updateMemoText(
                     memoID,
