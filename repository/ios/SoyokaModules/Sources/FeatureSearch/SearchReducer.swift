@@ -183,7 +183,7 @@ public struct SearchReducer {
                 }
 
                 state.isSearching = true
-                return .run { [fts5IndexManager] send in
+                return .run { [fts5IndexManager, voiceMemoRepository] send in
                     do {
                         #if DEBUG
                         print("[Search] クエリ: '\(query)'")
@@ -193,14 +193,15 @@ public struct SearchReducer {
                         print("[Search] FTS5結果: \(ftsResults.count)件")
                         #endif
 
-                        // TODO: N+1クエリ問題 - 現在は FTS5 結果ごとに fetchMemoForSearch を個別呼び出ししている。
-                        // FTS5 は SQLite ベースで Repository(SwiftData) とは別DBのため、一括取得には
-                        // Repository 側に fetchByIDs([UUID]) メソッドの追加が必要。将来的に対応予定。
+                        // N+1クエリ解消: fetchMemosByIDsで一括取得（MemoListReducerと同じパターン）
+                        let memoIDs = ftsResults.compactMap { UUID(uuidString: $0.memoID) }
+                        let memosDict = try await voiceMemoRepository.fetchMemosByIDs(memoIDs)
+
                         var items: [SearchResultItem] = []
                         for ftsResult in ftsResults {
-                            guard let memo = try await voiceMemoRepository.fetchMemoForSearch(
-                                UUID(uuidString: ftsResult.memoID) ?? UUID()
-                            ) else { continue }
+                            guard let memoID = UUID(uuidString: ftsResult.memoID),
+                                  let memo = memosDict[memoID]
+                            else { continue }
 
                             // 日付フィルター
                             if let startDate = filterStartDate,
@@ -215,7 +216,7 @@ public struct SearchReducer {
                             }
 
                             items.append(SearchResultItem(
-                                id: UUID(uuidString: ftsResult.memoID) ?? UUID(),
+                                id: memoID,
                                 title: memo.title,
                                 snippet: ftsResult.snippet,
                                 createdAt: memo.createdAt,

@@ -33,14 +33,18 @@ final class SearchReducerTests: XCTestCase {
                     ),
                 ]
             }
-            $0.voiceMemoRepository.fetchMemoForSearch = { _ in
-                SearchableMemo(
-                    title: "テスト",
-                    createdAt: Date(timeIntervalSince1970: 1700000000),
-                    emotion: .joy,
-                    durationSeconds: 120,
-                    tags: ["アイデア"]
-                )
+            $0.voiceMemoRepository.fetchMemosByIDs = { ids in
+                var result: [UUID: SearchableMemo] = [:]
+                for id in ids {
+                    result[id] = SearchableMemo(
+                        title: "テスト",
+                        createdAt: Date(timeIntervalSince1970: 1700000000),
+                        emotion: .joy,
+                        durationSeconds: 120,
+                        tags: ["アイデア"]
+                    )
+                }
+                return result
             }
         }
 
