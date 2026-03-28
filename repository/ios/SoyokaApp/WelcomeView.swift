@@ -33,6 +33,11 @@ struct WelcomeView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(VMDesignTokens.LineSpacing.body)
 
+            Text("あなたの声を、整えて残します。")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
+                .padding(.top, VMDesignTokens.Spacing.xs)
+
             Spacer()
 
             if showProgress && !isReady {
