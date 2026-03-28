@@ -110,6 +110,37 @@ public struct SettingsView: View {
                         title: "利用統計",
                         icon: "chart.bar.fill"
                     )
+
+                    // プライバシーポリシー
+                    Link(destination: URL(string: "https://soyoka.app/privacy")!) {
+                        HStack {
+                            Image(systemName: "hand.raised.fill")
+                                .foregroundColor(.vmTextTertiary)
+                            Text("プライバシーポリシー")
+                                .font(.vmBody())
+                                .foregroundColor(.vmTextPrimary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.vmCaption1)
+                                .foregroundColor(.vmTextTertiary)
+                        }
+                    }
+
+                    // 利用規約
+                    Link(destination: URL(string: "https://soyoka.app/terms")!) {
+                        HStack {
+                            Image(systemName: "doc.text.fill")
+                                .foregroundColor(.vmTextTertiary)
+                            Text("利用規約")
+                                .font(.vmBody())
+                                .foregroundColor(.vmTextPrimary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.vmCaption1)
+                                .foregroundColor(.vmTextTertiary)
+                        }
+                    }
+
                     HStack {
                         Label("バージョン", systemImage: "info.circle")
                         Spacer()
