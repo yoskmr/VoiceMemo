@@ -76,7 +76,8 @@ InfraNetwork（Backend Proxy HTTP クライアント）
 ```swift
 public struct BackendProxyClient: Sendable {
     /// デバイス認証（JWT 取得）
-    public var authenticate: @Sendable (String, String, String) async throws -> AuthResponse
+    /// - Parameters: deviceID, appVersion, osVersion
+    public var authenticate: @Sendable (_ deviceID: String, _ appVersion: String, _ osVersion: String) async throws -> AuthResponse
     /// AI 処理リクエスト
     public var processAI: @Sendable (AIProcessRequest) async throws -> AIProcessResponse
     /// 使用量確認
@@ -105,14 +106,17 @@ public struct BackendProxyClient: Sendable {
 `LLMProviderClient` プロトコルに準拠し、BackendProxyClient を使ってクラウド LLM を呼び出す。
 
 ```swift
-public class CloudLLMProvider {
+public final class CloudLLMProvider: @unchecked Sendable {
     private let proxyClient: BackendProxyClient
 
     public func process(_ request: LLMRequest) async throws -> LLMResponse
+    public func processSentimentOnly(_ request: LLMRequest) async throws -> LLMSentimentResult
     public func isAvailable() async -> Bool  // ネットワーク到達性チェック
     public func providerType() -> LLMProviderType  // .cloudGPT4oMini
 }
 ```
+
+Note: `@unchecked Sendable` は既存の `OnDeviceLLMProvider` と同じパターン。
 
 **感情分析**: クラウド LLM のみが対応。レスポンスの `sentiment` フィールドを `EmotionAnalysisEntity` に変換。
 
@@ -126,23 +130,34 @@ public class CloudLLMProvider {
 ### ルーティングロジック
 
 ```swift
-public class HybridLLMRouter {
+public final class HybridLLMRouter: @unchecked Sendable {
     private let deviceChecker: DeviceCapabilityChecker
     private let onDeviceProvider: OnDeviceLLMProvider
     private let cloudProvider: CloudLLMProvider
 
     public func process(_ request: LLMRequest) async throws -> LLMResponse {
         // 1. オンデバイス処理を試行（要約+タグ）
+        // Note: Phase 3b MVP では Apple Intelligence のみ。
+        // llama.cpp は Phase 4 で追加（OnDeviceLLMProvider.isAvailable() が
+        // Apple Intelligence 非対応デバイスでは false を返す）
         if await onDeviceProvider.isAvailable() {
-            let onDeviceResult = try await onDeviceProvider.process(request)
+            do {
+                let onDeviceResult = try await onDeviceProvider.process(request)
 
-            // 2. 感情分析はクラウドで追加実行（オンライン時）
-            if request.tasks.contains(.sentimentAnalysis),
-               await cloudProvider.isAvailable() {
-                let sentimentResult = try await cloudProvider.processSentimentOnly(request)
-                return onDeviceResult.merging(sentiment: sentimentResult)
+                // 2. 感情分析はクラウドで追加実行（オンライン時 + ユーザー設定ON）
+                if request.tasks.contains(.sentimentAnalysis),
+                   await cloudProvider.isAvailable() {
+                    let sentimentResult = try await cloudProvider.processSentimentOnly(request)
+                    return onDeviceResult.merging(sentiment: sentimentResult)
+                }
+                return onDeviceResult
+            } catch {
+                // オンデバイス処理失敗 → クラウドにフォールバック（EC-010）
+                if await cloudProvider.isAvailable() {
+                    return try await cloudProvider.process(request)
+                }
+                throw error
             }
-            return onDeviceResult
         }
 
         // 3. オンデバイス不可 → クラウドで全処理
@@ -150,11 +165,13 @@ public class HybridLLMRouter {
             return try await cloudProvider.process(request)
         }
 
-        // 4. 全て不可 → エラー
-        throw LLMError.deviceNotSupported
+        // 4. 全て不可 → ネットワークエラー（deviceNotSupported ではない）
+        throw LLMError.processingFailed("オンデバイスLLM非対応かつネットワーク不達")
     }
 }
 ```
+
+Note: `@unchecked Sendable` は既存の `OnDeviceLLMProvider` と同じパターン。
 
 ### フォールバック戦略
 
@@ -173,7 +190,9 @@ public class HybridLLMRouter {
 ## 4. AI 処理キュー具体実装
 
 ### 新規ファイル
-- `Sources/Data/AIProcessingQueue.swift`
+- `Sources/InfraLLM/AIProcessingQueue.swift`
+
+Note: `Data` レイヤーは既存の SPM モジュール構成に存在しない。`AIProcessingQueue` は LLM プロバイダと密接に連携するため `InfraLLM` モジュール内に配置する。
 
 ### 実装内容
 
@@ -182,9 +201,24 @@ public class HybridLLMRouter {
 **処理フロー**:
 1. `enqueueProcessing(memoID)`: メモ ID を受け取り、バックグラウンドで処理開始
 2. VoiceMemoRepository からメモのテキストを取得
-3. HybridLLMRouter に LLMRequest を送信
-4. 結果を VoiceMemoRepository に保存（AISummaryEntity, Tags, EmotionAnalysis）
-5. `observeStatus(memoID)` でステータスを AsyncStream で配信
+3. **ユーザー設定を参照**: 感情分析が有効（デフォルト無効, REQ-005 オプトイン）の場合のみ `.sentimentAnalysis` を `LLMRequest.tasks` に含める
+4. HybridLLMRouter に LLMRequest を送信
+5. 結果を VoiceMemoRepository に保存（AISummaryEntity, Tags, EmotionAnalysis）
+6. `observeStatus(memoID)` でステータスを AsyncStream で配信
+
+**感情分析オプトイン制御**:
+```swift
+// UserDefaults から感情分析設定を取得（デフォルト: false）
+let sentimentEnabled = UserDefaults.standard.bool(forKey: "sentimentAnalysisEnabled")
+var tasks: Set<LLMTask> = [.summarize, .tagging]
+if sentimentEnabled {
+    tasks.insert(.sentimentAnalysis)
+}
+```
+
+**使用量カウント**:
+- クラウド LLM を使用した場合のみ `quotaClient.recordUsage()` を呼び出す
+- オンデバイス処理はカウント対象外（product-owner 判断 2026-03-28、REQ-003 注記参照）
 
 **キュー管理**:
 - Actor ベースで排他制御
@@ -204,21 +238,23 @@ public class HybridLLMRouter {
 `LLMResponse` に感情分析結果フィールドを追加:
 ```swift
 public struct LLMResponse: Equatable, Sendable {
-    // 既存
-    public var summary: LLMSummaryResult?
-    public var tags: [LLMTagResult]
-    public var processingTimeMs: Int
-    public var provider: LLMProviderType
+    // 既存（let で統一 — 既存コード準拠）
+    public let summary: LLMSummaryResult?
+    public let tags: [LLMTagResult]
+    public let processingTimeMs: Int
+    public let provider: LLMProviderType
     // NEW
-    public var sentiment: LLMSentimentResult?
+    public let sentiment: LLMSentimentResult?
 }
 
 public struct LLMSentimentResult: Equatable, Sendable {
-    public var primary: EmotionCategory
-    public var scores: [EmotionCategory: Double]
-    public var evidence: [SentimentEvidence]
+    public let primary: EmotionCategory
+    public let scores: [EmotionCategory: Double]
+    public let evidence: [SentimentEvidence]
 }
 ```
+
+Note: `LLMTask` は既に `CaseIterable` に準拠。`.sentimentAnalysis` 追加時に `allCases` が変わるため、`allCases` を参照するテストコードの更新が必要。
 
 ---
 
@@ -288,6 +324,7 @@ let aiQueue = AIProcessingQueue(
 4. Apple Intelligence 対応デバイスでオンデバイス処理が実行されること
 5. 非対応デバイスでクラウド処理にフォールバックすること
 6. クラウド障害時にオンデバイスにフォールバックすること（EC-010）
-7. 月次使用量制限が機能すること（クラウド処理のみカウント）
+7. 月次使用量制限が機能すること（クラウド処理のみカウント。オンデバイス処理は無料。REQ-003 注記参照）
 8. オフライン時にオンデバイス処理（要約+タグのみ）が動作すること
-9. 全既存テストがパスすること
+9. 感情分析がデフォルト無効で、ユーザー設定で有効化した場合のみ実行されること（REQ-005 オプトイン）
+10. 全既存テストがパスすること
