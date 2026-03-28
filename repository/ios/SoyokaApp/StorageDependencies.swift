@@ -7,24 +7,29 @@ import SwiftData
 // MARK: - Storage Dependencies
 // SwiftData永続化・FTS5検索・音声ファイル管理のDependency実装
 
+// MARK: - Shared ModelContainer（アプリ全体で唯一のインスタンス）
+
+/// SwiftData ModelContainer のシングルトン
+/// 複数の Dependency ファイル（Storage / Backup / Settings）から共有参照する。
+/// ModelContainer を複数インスタンス生成すると SwiftData の内部状態が競合するため、
+/// 必ずこの共有インスタンスを使用すること。
+let sharedModelContainer: ModelContainer = {
+    do {
+        return try ModelContainerConfiguration.create(inMemory: false)
+    } catch {
+        #if DEBUG
+        fatalError("SwiftData ModelContainer の初期化に失敗: \(error)")
+        #else
+        fatalError("データベース初期化エラー")
+        #endif
+    }
+}()
+
 // MARK: VoiceMemoRepositoryClient → SwiftData永続化
 
 extension VoiceMemoRepositoryClient: DependencyKey {
     public static let liveValue: VoiceMemoRepositoryClient = {
-        // SwiftData ModelContainer（設計書準拠: 永続ローカルストレージ）
-        let container: ModelContainer = {
-            do {
-                return try ModelContainerConfiguration.create(inMemory: false)
-            } catch {
-                #if DEBUG
-                fatalError("SwiftData ModelContainer の初期化に失敗: \(error)")
-                #else
-                fatalError("データベース初期化エラー")
-                #endif
-            }
-        }()
-
-        let repo = SwiftDataVoiceMemoRepository(modelContainer: container)
+        let repo = SwiftDataVoiceMemoRepository(modelContainer: sharedModelContainer)
 
         return VoiceMemoRepositoryClient(
             save: { memo in try await repo.save(memo) },

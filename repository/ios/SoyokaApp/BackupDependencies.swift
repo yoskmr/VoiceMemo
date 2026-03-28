@@ -11,17 +11,8 @@ import SwiftData
 
 extension BackupExportClient: DependencyKey {
     public static let liveValue: BackupExportClient = {
-        // 注意: StorageDependencies.swift と同じ ModelContainer を使用する必要がある
-        // TODO: ModelContainer のシングルトン化（現在は各 Dependency ファイルで別インスタンスを生成している）
-        let container: ModelContainer = {
-            do {
-                return try ModelContainerConfiguration.create(inMemory: false)
-            } catch {
-                fatalError("SwiftData ModelContainer の初期化に失敗 (Backup): \(error)")
-            }
-        }()
-
-        let exporter = BackupExporter(modelContainer: container)
+        // StorageDependencies.swift で定義された sharedModelContainer を共有参照
+        let exporter = BackupExporter(modelContainer: sharedModelContainer)
 
         return BackupExportClient(
             export: {
@@ -37,18 +28,11 @@ extension BackupExportClient: DependencyKey {
 
 extension BackupImportClient: DependencyKey {
     public static let liveValue: BackupImportClient = {
-        let container: ModelContainer = {
-            do {
-                return try ModelContainerConfiguration.create(inMemory: false)
-            } catch {
-                fatalError("SwiftData ModelContainer の初期化に失敗 (Backup): \(error)")
-            }
-        }()
-
+        // StorageDependencies.swift で定義された sharedModelContainer を共有参照
         @Dependency(\.fts5IndexManager) var fts5IndexManager
 
         let importer = BackupImporter(
-            modelContainer: container,
+            modelContainer: sharedModelContainer,
             fts5Upsert: { memoID, title, text, summary, tags in
                 try fts5IndexManager.upsertIndex(memoID, title, text, summary, tags)
             }

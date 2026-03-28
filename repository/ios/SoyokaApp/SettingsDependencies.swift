@@ -12,21 +12,7 @@ import SwiftData
 // AI処理キュー・LLMプロバイダ・AIクォータ・カスタム辞書のDependency実装
 
 // MARK: - Shared ModelContainer
-
-/// AI関連モジュールで共有する ModelContainer
-/// SwiftData の ModelContainer は複数インスタンスを持つと競合するため、
-/// シングルトンで共有する。
-private let sharedAIModelContainer: ModelContainer = {
-    do {
-        return try ModelContainerConfiguration.create(inMemory: false)
-    } catch {
-        #if DEBUG
-        fatalError("SwiftData ModelContainer の初期化に失敗 (AI): \(error)")
-        #else
-        fatalError("データベース初期化エラー")
-        #endif
-    }
-}()
+// StorageDependencies.swift で定義された sharedModelContainer をアプリ全体で共有する
 
 // MARK: BackendProxyClient → Live実装（Backend Proxy 経由クラウドAI）
 
@@ -55,7 +41,7 @@ extension LLMProviderClient: DependencyKey {
 // MARK: AIQuotaClient → AIQuotaRepository Live実装（SwiftData永続化）
 
 private let sharedAIQuotaRepository = AIQuotaRepository(
-    modelContainer: sharedAIModelContainer
+    modelContainer: sharedModelContainer
 )
 
 extension AIQuotaClient: DependencyKey {
@@ -67,7 +53,7 @@ extension AIQuotaClient: DependencyKey {
 extension AIProcessingQueueClient: DependencyKey {
     public static let liveValue: AIProcessingQueueClient = {
         let queue = AIProcessingQueueLive(
-            modelContainer: sharedAIModelContainer,
+            modelContainer: sharedModelContainer,
             llmProvider: LLMProviderClient.liveValue,
             aiQuota: AIQuotaClient.liveValue,
             voiceMemoRepository: VoiceMemoRepositoryClient.liveValue,
@@ -83,7 +69,7 @@ extension AIProcessingQueueClient: DependencyKey {
 
 extension CustomDictionaryClient: DependencyKey {
     public static let liveValue: CustomDictionaryClient = {
-        let container = sharedAIModelContainer
+        let container = sharedModelContainer
 
         return CustomDictionaryClient(
             loadEntries: {
