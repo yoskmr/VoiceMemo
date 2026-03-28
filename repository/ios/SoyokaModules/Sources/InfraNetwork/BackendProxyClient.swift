@@ -193,15 +193,41 @@ public struct BackendProxyClient: Sendable {
     public var processAI: @Sendable (_ text: String, _ language: String, _ options: AIRequestOptions) async throws -> CloudAIResponse
     /// 使用量取得
     public var getUsage: @Sendable () async throws -> CloudUsageResponse
+    /// サブスクリプション検証
+    public var verifySubscription: @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse
 
     public init(
         authenticate: @escaping @Sendable (_ deviceID: String, _ appVersion: String, _ osVersion: String) async throws -> AuthResponse,
         processAI: @escaping @Sendable (_ text: String, _ language: String, _ options: AIRequestOptions) async throws -> CloudAIResponse,
-        getUsage: @escaping @Sendable () async throws -> CloudUsageResponse
+        getUsage: @escaping @Sendable () async throws -> CloudUsageResponse,
+        verifySubscription: @escaping @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse
     ) {
         self.authenticate = authenticate
         self.processAI = processAI
         self.getUsage = getUsage
+        self.verifySubscription = verifySubscription
+    }
+}
+
+/// サブスクリプション検証レスポンス
+public struct SubscriptionVerifyResponse: Sendable, Equatable, Codable {
+    /// 購読状態
+    public let status: String
+    /// プロダクトID
+    public let productID: String
+    /// 有効期限
+    public let expiresAt: Date
+
+    public init(status: String, productID: String, expiresAt: Date) {
+        self.status = status
+        self.productID = productID
+        self.expiresAt = expiresAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case status
+        case productID = "product_id"
+        case expiresAt = "expires_at"
     }
 }
 
@@ -232,10 +258,12 @@ extension BackendProxyClient {
     /// - Parameters:
     ///   - baseURL: Backend Proxy の Base URL
     ///   - keychainManager: Keychain管理（JWT保存・取得）
+    ///   - appAttestManager: App Attest マネージャ（オプション。非対応端末では nil を渡す）
     /// - Returns: 本番用クライアント
     public static func live(
         baseURL: URL,
-        keychainManager: KeychainManager = KeychainManager()
+        keychainManager: KeychainManager = KeychainManager(),
+        appAttestManager: AppAttestManager? = nil
     ) -> BackendProxyClient {
         let session = URLSession.shared
 
@@ -245,6 +273,24 @@ extension BackendProxyClient {
             d.dateDecodingStrategy = .iso8601
             return d
         }()
+
+        /// App Attest Assertion ヘッダーを付加するヘルパー
+        /// App Attest 非対応端末ではスキップする（MVP ではオプショナル）
+        @Sendable func applyAttestHeader(
+            to request: inout URLRequest,
+            attestManager: AppAttestManager?
+        ) async {
+            guard let attestManager, attestManager.isSupported else { return }
+            do {
+                let challenge = request.url?.absoluteString.data(using: .utf8) ?? Data()
+                let assertion = try await attestManager.generateAssertion(challenge: challenge)
+                let base64Assertion = assertion.base64EncodedString()
+                request.setValue(base64Assertion, forHTTPHeaderField: "X-App-Attest-Assertion")
+            } catch {
+                // MVP: App Attest 失敗時はヘッダーなしで続行
+                logger.warning("App Attest Assertion 付加失敗（スキップ）: \(error.localizedDescription)")
+            }
+        }
 
         return BackendProxyClient(
             authenticate: { deviceID, appVersion, osVersion in
@@ -290,6 +336,9 @@ extension BackendProxyClient {
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+                // App Attest Assertion ヘッダー付加（対応端末のみ）
+                await applyAttestHeader(to: &request, attestManager: appAttestManager)
 
                 let body: [String: Any] = [
                     "text": text,
@@ -360,6 +409,51 @@ extension BackendProxyClient {
                 } catch {
                     throw BackendProxyError.decodingFailed(error.localizedDescription)
                 }
+            },
+
+            verifySubscription: { transactionID, productID, originalTransactionID in
+                // JWT を Keychain から取得
+                guard let token = keychainManager.loadString(key: .accessToken) else {
+                    throw BackendProxyError.tokenNotFound
+                }
+
+                let url = baseURL.appendingPathComponent("api/v1/subscription/verify")
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+                // App Attest Assertion ヘッダー付加（対応端末のみ）
+                await applyAttestHeader(to: &request, attestManager: appAttestManager)
+
+                let body: [String: String] = [
+                    "transaction_id": transactionID,
+                    "product_id": productID,
+                    "original_transaction_id": originalTransactionID,
+                ]
+                request.httpBody = try JSONEncoder().encode(body)
+
+                let (data, response) = try await session.data(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw BackendProxyError.networkError("Invalid response type")
+                }
+
+                if httpResponse.statusCode == 401 {
+                    throw BackendProxyError.tokenNotFound
+                }
+
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    throw BackendProxyError.serverError(httpResponse.statusCode)
+                }
+
+                do {
+                    let verifyResponse = try decoder.decode(SubscriptionVerifyResponse.self, from: data)
+                    logger.info("サブスクリプション検証成功: status=\(verifyResponse.status)")
+                    return verifyResponse
+                } catch {
+                    throw BackendProxyError.decodingFailed(error.localizedDescription)
+                }
             }
         )
     }
@@ -371,7 +465,8 @@ extension BackendProxyClient: TestDependencyKey {
     public static let testValue = BackendProxyClient(
         authenticate: unimplemented("BackendProxyClient.authenticate"),
         processAI: unimplemented("BackendProxyClient.processAI"),
-        getUsage: unimplemented("BackendProxyClient.getUsage")
+        getUsage: unimplemented("BackendProxyClient.getUsage"),
+        verifySubscription: unimplemented("BackendProxyClient.verifySubscription")
     )
 }
 
