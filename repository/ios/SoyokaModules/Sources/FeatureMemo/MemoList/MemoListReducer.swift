@@ -154,6 +154,7 @@ public struct MemoListReducer {
         public var emotion: EmotionCategory?
         public var tags: [String]
         public var audioFilePath: String
+        public var aiStatus: AIDisplayStatus
 
         public init(
             id: UUID,
@@ -163,7 +164,8 @@ public struct MemoListReducer {
             transcriptPreview: String,
             emotion: EmotionCategory?,
             tags: [String],
-            audioFilePath: String
+            audioFilePath: String,
+            aiStatus: AIDisplayStatus = .none
         ) {
             self.id = id
             self.title = title
@@ -173,6 +175,7 @@ public struct MemoListReducer {
             self.emotion = emotion
             self.tags = tags
             self.audioFilePath = audioFilePath
+            self.aiStatus = aiStatus
         }
     }
 
@@ -503,7 +506,8 @@ public struct MemoListReducer {
     private func fetchMemoItems(page: Int) async throws -> [MemoItem] {
         let entities = try await voiceMemoRepository.fetchMemos(page, State.pageSize)
         return entities.map { entity in
-            MemoItem(
+            let aiStatus: AIDisplayStatus = entity.aiSummary != nil ? .completed : .none
+            return MemoItem(
                 id: entity.id,
                 title: entity.title,
                 createdAt: entity.createdAt,
@@ -511,7 +515,8 @@ public struct MemoListReducer {
                 transcriptPreview: String((entity.aiSummary?.summaryText ?? entity.transcription?.fullText ?? "").prefix(60)),
                 emotion: entity.emotionAnalysis?.primaryEmotion,
                 tags: entity.tags.map(\.name),
-                audioFilePath: entity.audioFilePath
+                audioFilePath: entity.audioFilePath,
+                aiStatus: aiStatus
             )
         }
     }
@@ -565,7 +570,8 @@ extension MemoListReducer.MemoItem {
             durationSeconds: durationSeconds,
             transcriptPreview: transcriptPreview,
             emotion: emotion,
-            tags: tags
+            tags: tags,
+            aiStatus: aiStatus
         )
     }
 }
