@@ -115,8 +115,21 @@ public struct SubscriptionView: View {
 
     private var planSelectionSection: some View {
         VStack(spacing: VMDesignTokens.Spacing.md) {
-            ForEach(sortedProducts) { product in
-                planButton(for: product)
+            if store.products.isEmpty && !store.isLoading {
+                VStack(spacing: VMDesignTokens.Spacing.sm) {
+                    Text("まもなく登場")
+                        .font(.vmHeadline)
+                        .foregroundColor(.vmTextSecondary)
+                    Text("Proプランは準備中です。\nもう少しお待ちください。")
+                        .font(.vmCallout)
+                        .foregroundColor(.vmTextTertiary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, VMDesignTokens.Spacing.xl)
+            } else {
+                ForEach(sortedProducts) { product in
+                    planButton(for: product)
+                }
             }
         }
     }
@@ -175,17 +188,19 @@ public struct SubscriptionView: View {
 
     // MARK: - Restore
 
+    @ViewBuilder
     private var restoreSection: some View {
-        Button {
-            store.send(.restoreTapped)
-        } label: {
-            Text("購入を復元する")
-                .font(.vmSubheadline)
-                .foregroundColor(.vmTextSecondary)
-                .underline()
+        if !store.products.isEmpty {
+            Button {
+                store.send(.restoreTapped)
+            } label: {
+                Text("以前の購入を復元")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+            }
+            .disabled(store.isLoading)
+            .padding(.top, VMDesignTokens.Spacing.lg)
         }
-        .disabled(store.isLoading)
-        .padding(.top, VMDesignTokens.Spacing.sm)
     }
 
     // MARK: - Loading Overlay
