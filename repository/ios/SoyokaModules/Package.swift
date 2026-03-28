@@ -72,6 +72,7 @@ let package = Package(
             name: "InfraLLM",
             dependencies: [
                 "Domain",
+                "InfraNetwork",
             ],
             plugins: []
         ),
