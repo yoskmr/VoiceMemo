@@ -6,7 +6,7 @@ import SwiftUI
 
 /// 設定画面
 /// 設計書 04-ui-design-system.md セクション5.2 準拠
-/// Phase 1: カスタム辞書のみ遷移可能、他は「準備中」アラート
+/// Phase 1: カスタム辞書のみ遷移可能、他は「準備中」インライン表示
 public struct SettingsView: View {
     @Bindable var store: StoreOf<SettingsReducer>
 
@@ -71,13 +71,11 @@ public struct SettingsView: View {
                 Section {
                     comingSoonButton(
                         title: "プライバシー設定",
-                        icon: "hand.raised.fill",
-                        feature: .privacySettings
+                        icon: "hand.raised.fill"
                     )
                     comingSoonButton(
                         title: "アプリロック",
-                        icon: "lock.fill",
-                        feature: .appLock
+                        icon: "lock.fill"
                     )
                 } header: {
                     Text("プライバシー")
@@ -85,15 +83,21 @@ public struct SettingsView: View {
 
                 // MARK: - プランセクション
                 Section {
-                    comingSoonButton(
-                        title: "プラン管理",
-                        icon: "creditcard.fill",
-                        feature: .planManagement
-                    )
+                    Button {
+                        store.send(.planManagementTapped)
+                    } label: {
+                        HStack {
+                            Label("プラン管理", systemImage: "creditcard.fill")
+                                .foregroundColor(.vmTextPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.vmCaption2)
+                                .foregroundColor(.vmTextTertiary)
+                        }
+                    }
                     comingSoonButton(
                         title: "テーマ設定",
                         icon: "paintbrush.fill",
-                        feature: .themeSettings,
                         badge: "Pro"
                     )
                 } header: {
@@ -104,8 +108,7 @@ public struct SettingsView: View {
                 Section {
                     comingSoonButton(
                         title: "利用統計",
-                        icon: "chart.bar.fill",
-                        feature: .usageStats
+                        icon: "chart.bar.fill"
                     )
                     HStack {
                         Label("バージョン", systemImage: "info.circle")
@@ -171,17 +174,6 @@ public struct SettingsView: View {
                 store.send(.onAppear)
             }
             .alert(
-                store.comingSoonFeature?.displayName ?? "",
-                isPresented: Binding(
-                    get: { store.showComingSoonAlert },
-                    set: { if !$0 { store.send(.dismissComingSoonAlert) } }
-                )
-            ) {
-                Button("OK") {}
-            } message: {
-                Text("この機能は今後のアップデートで追加予定です")
-            }
-            .alert(
                 "AI処理回数をリセット",
                 isPresented: Binding(
                     get: { store.showResetQuotaConfirmation },
@@ -214,34 +206,30 @@ public struct SettingsView: View {
 
     // MARK: - Private Helpers
 
-    /// 「準備中」機能のボタン行
+    /// 「準備中」機能の行（非活性・インライン表示）
+    /// アラートを出さず、行自体で準備中であることを示す
     @ViewBuilder
     private func comingSoonButton(
         title: String,
         icon: String,
-        feature: SettingsReducer.ComingSoonFeature,
         badge: String? = nil
     ) -> some View {
-        Button {
-            store.send(.comingSoonTapped(feature))
-        } label: {
-            HStack {
-                Label(title, systemImage: icon)
-                    .foregroundColor(.vmTextPrimary)
-                Spacer()
-                if let badge {
-                    Text(badge)
-                        .font(.vmCaption1)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.vmAccent)
-                        .clipShape(Capsule())
-                }
-                Image(systemName: "chevron.right")
-                    .font(.vmCaption2)
-                    .foregroundColor(.vmTextTertiary)
+        HStack {
+            Label(title, systemImage: icon)
+                .foregroundColor(.vmTextTertiary)
+            Spacer()
+            if let badge {
+                Text(badge)
+                    .font(.vmCaption1)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.vmAccent.opacity(0.5))
+                    .clipShape(Capsule())
             }
+            Text("準備中")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
         }
     }
 }

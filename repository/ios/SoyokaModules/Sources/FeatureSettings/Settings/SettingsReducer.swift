@@ -5,29 +5,14 @@ import Foundation
 
 /// 設定画面のTCA Reducer
 /// 設計書 04-ui-design-system.md セクション5.2 準拠
-/// Phase 1: カスタム辞書のみ実機能、他は「準備中」表示
+/// Phase 1: カスタム辞書のみ実機能、他は「準備中」インライン表示
 @Reducer
 public struct SettingsReducer {
-
-    /// 「準備中」機能の型安全な列挙（#39: String → enum化）
-    public enum ComingSoonFeature: String, Equatable, Sendable {
-        case privacySettings = "プライバシー設定"
-        case appLock = "アプリロック"
-        case planManagement = "プラン管理"
-        case themeSettings = "テーマ設定"
-        case usageStats = "利用統計"
-
-        public var displayName: String { rawValue }
-    }
 
     // MARK: - State
 
     @ObservableState
     public struct State: Equatable {
-        /// 「準備中」アラート表示フラグ
-        public var showComingSoonAlert: Bool = false
-        /// 「準備中」アラートに表示する機能名
-        public var comingSoonFeature: ComingSoonFeature?
         /// 感情分析オプトインフラグ
         public var emotionAnalysisEnabled: Bool = false
         /// カスタム辞書のサブ State
@@ -47,8 +32,6 @@ public struct SettingsReducer {
         static let emotionAnalysisKey = "emotionAnalysisEnabled"
 
         public init(
-            showComingSoonAlert: Bool = false,
-            comingSoonFeature: ComingSoonFeature? = nil,
             emotionAnalysisEnabled: Bool? = nil,
             customDictionary: CustomDictionaryReducer.State = .init(),
             backup: BackupReducer.State = .init(),
@@ -57,8 +40,6 @@ public struct SettingsReducer {
             aiQuotaLimit: Int = 15,
             subscription: SubscriptionReducer.State? = nil
         ) {
-            self.showComingSoonAlert = showComingSoonAlert
-            self.comingSoonFeature = comingSoonFeature
             // UserDefaults から読み込み（明示的な値が渡された場合はそちらを優先）
             self.emotionAnalysisEnabled = emotionAnalysisEnabled
                 ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
@@ -74,10 +55,8 @@ public struct SettingsReducer {
     // MARK: - Action
 
     public enum Action: Equatable, Sendable {
-        /// 準備中の機能がタップされた（型安全enum版 #39）
-        case comingSoonTapped(ComingSoonFeature)
-        /// 「準備中」アラートを閉じる
-        case dismissComingSoonAlert
+        /// プラン管理がタップされた
+        case planManagementTapped
         /// 感情分析オプトインのトグル
         case emotionAnalysisToggled(Bool)
         /// カスタム辞書のサブ Action
@@ -115,18 +94,8 @@ public struct SettingsReducer {
         }
         Reduce { state, action in
             switch action {
-            case .comingSoonTapped(.planManagement):
+            case .planManagementTapped:
                 state.subscription = SubscriptionReducer.State()
-                return .none
-
-            case let .comingSoonTapped(feature):
-                state.comingSoonFeature = feature
-                state.showComingSoonAlert = true
-                return .none
-
-            case .dismissComingSoonAlert:
-                state.showComingSoonAlert = false
-                state.comingSoonFeature = nil
                 return .none
 
             case let .emotionAnalysisToggled(isEnabled):
