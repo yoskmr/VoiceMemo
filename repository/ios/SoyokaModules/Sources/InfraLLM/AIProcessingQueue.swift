@@ -180,10 +180,22 @@ public actor AIProcessingQueue {
 
             try Task.checkCancellation()
 
-            // 感情分析オプトイン設定の確認
-            let sentimentEnabled = UserDefaults.standard.bool(forKey: "sentimentAnalysisEnabled")
+            // サブスクリプション状態を取得してプラン判定
+            let subState = await subscriptionClient.currentSubscription()
+            let isProUser: Bool
+            if case .pro = subState {
+                isProUser = true
+            } else {
+                isProUser = false
+            }
+
+            // 感情分析オプトイン設定の確認（Proユーザーのみ有効）
+            let sentimentEnabled = isProUser
+                && UserDefaults.standard.bool(forKey: "sentimentAnalysisEnabled")
 
             // LLMRequest 構築
+            // Free ユーザー: ローカルのみ（allowCloud = false）、感情分析なし
+            // Pro ユーザー: ローカル + クラウド（allowCloud = true）
             var tasks: Set<LLMTask> = [.summarize, .tagging]
             if sentimentEnabled {
                 tasks.insert(.sentimentAnalysis)
@@ -191,7 +203,8 @@ public actor AIProcessingQueue {
 
             let request = LLMRequest(
                 text: transcriptionText,
-                tasks: tasks
+                tasks: tasks,
+                allowCloud: isProUser
             )
 
             // ステータス通知: processing (50%)
@@ -216,17 +229,12 @@ public actor AIProcessingQueue {
                 )
             }
 
-            // クラウドプロバイダ使用時のみクォータ消費を記録（Proプランはスキップ）
+            // クラウドプロバイダ使用時のみクォータ消費を記録
+            // Free ユーザーはクラウド不可のためクォータ記録は不要
+            // Pro ユーザーはクォータ無制限のため記録のみ（制限なし）
             let isOnDevice = response.provider == .onDeviceLlamaCpp
                 || response.provider == .onDeviceAppleIntelligence
-            let subState = await subscriptionClient.currentSubscription()
-            let isProUser: Bool
-            if case .pro = subState {
-                isProUser = true
-            } else {
-                isProUser = false
-            }
-            if !isOnDevice && !isProUser {
+            if !isOnDevice {
                 try await quotaClient.recordUsage()
                 logger.info("クラウドAI使用を記録: memoID=\(memoID)")
             }

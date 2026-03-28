@@ -90,13 +90,13 @@ public struct AIProcessingReducer {
                     return .none
                 }
 
-                // クォータチェック → enqueue
+                // ローカルAIは無制限のためクォータチェックをスキップし、常に処理を許可
+                // クラウドAIの制限はAIProcessingQueue側でプラン判定して制御する
                 return .run { send in
-                    let canProcess = try await aiQuota.canProcess()
-                    let remaining = try await aiQuota.remainingCount()
-                    let used = try await aiQuota.currentUsage()
+                    let used = (try? await aiQuota.currentUsage()) ?? 0
+                    let remaining = (try? await aiQuota.remainingCount()) ?? 0
                     await send(._quotaCheckCompleted(
-                        canProcess: canProcess,
+                        canProcess: true,
                         remaining: remaining,
                         used: used
                     ))

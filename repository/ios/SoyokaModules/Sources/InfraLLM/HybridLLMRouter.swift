@@ -59,14 +59,17 @@ public final class HybridLLMRouter: @unchecked Sendable {
     /// - Returns: LLM処理レスポンス（感情分析結果がマージされる場合あり）
     /// - Throws: `LLMError` 各種エラー
     public func process(_ request: LLMRequest) async throws -> LLMResponse {
+        let cloudAllowed = request.allowCloud
+
         // 1. オンデバイス処理を試行
         if await onDeviceProvider.isAvailable() {
             do {
                 let onDeviceResult = try await onDeviceProvider.process(request)
                 logger.info("オンデバイス処理成功: provider=\(onDeviceResult.provider.rawValue)")
 
-                // 2. 感情分析はクラウドで追加実行（オンライン時 + タスクに含まれる場合）
-                if request.tasks.contains(.sentimentAnalysis),
+                // 2. 感情分析はクラウドで追加実行（クラウド許可 + オンライン時 + タスクに含まれる場合）
+                if cloudAllowed,
+                   request.tasks.contains(.sentimentAnalysis),
                    await cloudProvider.isAvailable() {
                     do {
                         let sentimentResult = try await cloudProvider.processSentimentOnly(request)
@@ -103,7 +106,8 @@ public final class HybridLLMRouter: @unchecked Sendable {
                     }
                 }
 
-                if await cloudProvider.isAvailable() {
+                // クラウド許可時のみフォールバック
+                if cloudAllowed, await cloudProvider.isAvailable() {
                     logger.info("クラウドフォールバックに移行")
                     return try await cloudProvider.process(request)
                 }
@@ -122,13 +126,17 @@ public final class HybridLLMRouter: @unchecked Sendable {
             }
         }
 
-        // 3. オンデバイス不可 → クラウドで全処理
-        if await cloudProvider.isAvailable() {
+        // 3. オンデバイス不可 → クラウドで全処理（クラウド許可時のみ）
+        if cloudAllowed, await cloudProvider.isAvailable() {
             logger.info("オンデバイス不可 → クラウドで全処理を実行")
             return try await cloudProvider.process(request)
         }
 
         // 4. 全て不可
+        if !cloudAllowed {
+            logger.error("オンデバイスLLM不可かつクラウド使用不可（Freeプラン）")
+            throw LLMError.processingFailed("オンデバイスLLM不可かつクラウド使用不可（Freeプラン）")
+        }
         logger.error("全プロバイダ不可: オンデバイスLLM非対応かつネットワーク不達")
         throw LLMError.processingFailed("オンデバイスLLM非対応かつネットワーク不達")
     }
