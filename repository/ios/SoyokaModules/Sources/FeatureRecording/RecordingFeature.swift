@@ -41,6 +41,8 @@ public struct RecordingFeature {
         public var wasAutoStopped: Bool = false
         /// 完了画面の表示段階（Reducer駆動）
         public var completionStage: CompletionStage = .initial
+        /// AI処理が完了したかどうか（完了画面の表示制御用）
+        public var aiProcessingCompleted: Bool = false
 
         public init(
             recordingID: UUID = UUID(),
@@ -53,7 +55,8 @@ public struct RecordingFeature {
             isPermissionGranted: Bool = false,
             errorMessage: String? = nil,
             wasAutoStopped: Bool = false,
-            completionStage: CompletionStage = .initial
+            completionStage: CompletionStage = .initial,
+            aiProcessingCompleted: Bool = false
         ) {
             self.recordingID = recordingID
             self.recordingStatus = recordingStatus
@@ -66,6 +69,7 @@ public struct RecordingFeature {
             self.errorMessage = errorMessage
             self.wasAutoStopped = wasAutoStopped
             self.completionStage = completionStage
+            self.aiProcessingCompleted = aiProcessingCompleted
         }
 
         /// 残り30秒以内かどうか（タイマー警告色切り替え用）
@@ -291,6 +295,7 @@ public struct RecordingFeature {
                 state.audioLevel = 0
                 state.wasAutoStopped = false
                 state.completionStage = .initial
+                state.aiProcessingCompleted = false
                 return .merge(
                     .cancel(id: CancelID.completionStage),
                     .send(.navigateToMemoDetail(memoID))
@@ -305,6 +310,7 @@ public struct RecordingFeature {
                 state.audioLevel = 0
                 state.wasAutoStopped = false
                 state.completionStage = .initial
+                state.aiProcessingCompleted = false
                 return .cancel(id: CancelID.completionStage)
 
             case .navigateToMemoDetail:

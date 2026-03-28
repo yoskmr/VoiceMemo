@@ -552,7 +552,8 @@ final class RecordingFeatureTests: XCTestCase {
                 partialTranscription: "テスト文字起こし",
                 confirmedTranscription: "テスト文字起こし",
                 isPermissionGranted: true,
-                wasAutoStopped: true
+                wasAutoStopped: true,
+                aiProcessingCompleted: true
             )
         ) {
             RecordingFeature()
@@ -565,6 +566,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.elapsedTime = 0
             $0.audioLevel = 0
             $0.wasAutoStopped = false
+            $0.aiProcessingCompleted = false
         }
 
         await store.receive(.navigateToMemoDetail(memoID))
@@ -587,7 +589,8 @@ final class RecordingFeatureTests: XCTestCase {
                 partialTranscription: "テスト",
                 confirmedTranscription: "テスト",
                 isPermissionGranted: true,
-                wasAutoStopped: true
+                wasAutoStopped: true,
+                aiProcessingCompleted: true
             )
         ) {
             RecordingFeature()
@@ -600,6 +603,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.elapsedTime = 0
             $0.audioLevel = 0
             $0.wasAutoStopped = false
+            $0.aiProcessingCompleted = false
         }
     }
 
@@ -612,6 +616,14 @@ final class RecordingFeatureTests: XCTestCase {
         }
 
         await store.send(.viewMemoTapped)
+    }
+
+    // MARK: - aiProcessingCompleted
+
+    /// aiProcessingCompletedの初期値がfalseであること
+    func test_aiProcessingCompleted_初期値がfalseであること() {
+        let state = RecordingFeature.State()
+        XCTAssertEqual(state.aiProcessingCompleted, false)
     }
 
     // MARK: - 正常系: timerTicked → 最大時間到達で自動停止
