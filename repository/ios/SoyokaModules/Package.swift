@@ -87,6 +87,7 @@ let package = Package(
         .target(
             name: "InfraNetwork",
             dependencies: [
+                "Domain",
                 "SharedUtil",
             ],
             plugins: []
