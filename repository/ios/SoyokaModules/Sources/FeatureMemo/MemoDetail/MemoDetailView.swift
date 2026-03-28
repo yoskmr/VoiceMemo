@@ -40,6 +40,8 @@ public struct MemoDetailView: View {
                         onRegenerate: { store.send(.regenerateAISummary) },
                         onTriggerAI: { store.send(.triggerAIProcessing) }
                     )
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(store.aiSummary?.summaryText ?? "AI整理待機中")
 
                     // AI処理中のみ小さなインジケーター表示
                     AIProcessingStatusView(
@@ -513,6 +515,8 @@ struct AISummarySection: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, VMDesignTokens.Spacing.lg)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("AI整理待機中")
     }
 }
 
