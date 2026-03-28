@@ -1,6 +1,13 @@
 import Domain
 import SwiftUI
 
+/// メモカードに表示するAI処理状態
+public enum AIDisplayStatus: Equatable, Sendable {
+    case none        // AI未処理
+    case processing  // AI処理中
+    case completed   // AI処理済み
+}
+
 /// メモカードで表示するデータ
 /// SharedUI層はFeature層に依存しないため、独自のデータモデルを持つ
 public struct MemoCardData: Equatable, Sendable {
@@ -11,6 +18,7 @@ public struct MemoCardData: Equatable, Sendable {
     public let transcriptPreview: String
     public let emotion: EmotionCategory?
     public let tags: [String]
+    public let aiStatus: AIDisplayStatus
 
     public init(
         id: UUID,
@@ -19,7 +27,8 @@ public struct MemoCardData: Equatable, Sendable {
         durationSeconds: Double,
         transcriptPreview: String,
         emotion: EmotionCategory?,
-        tags: [String]
+        tags: [String],
+        aiStatus: AIDisplayStatus = .none
     ) {
         self.id = id
         self.title = title
@@ -28,6 +37,7 @@ public struct MemoCardData: Equatable, Sendable {
         self.transcriptPreview = transcriptPreview
         self.emotion = emotion
         self.tags = tags
+        self.aiStatus = aiStatus
     }
 }
 
@@ -61,6 +71,21 @@ public struct MemoCard: View {
                 Text(formattedDate)
                     .font(.vmCaption1)
                     .foregroundColor(.vmTextTertiary)
+                // AI処理状態アイコン
+                switch data.aiStatus {
+                case .processing:
+                    Circle()
+                        .fill(Color.vmPrimary.opacity(0.6))
+                        .frame(width: 6, height: 6)
+                        .accessibilityLabel("AI整理中")
+                case .completed:
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.vmPrimary.opacity(0.5))
+                        .accessibilityLabel("AI整理済み")
+                case .none:
+                    EmptyView()
+                }
                 Spacer()
                 Text(formattedDuration)
                     .font(.vmCaption1)
@@ -72,11 +97,19 @@ public struct MemoCard: View {
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
         .shadow(color: .black.opacity(0.03), radius: 4, y: 1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(data.title), \(formattedDate), \(formattedDuration)")
+        .accessibilityLabel("\(data.title), \(formattedDate), \(formattedDuration)\(aiStatusAccessibilityLabel)")
         .accessibilityHint("ダブルタップで詳細を表示します")
     }
 
     // MARK: - Computed Properties
+
+    private var aiStatusAccessibilityLabel: String {
+        switch data.aiStatus {
+        case .processing: return ", AI整理中"
+        case .completed: return ", AI整理済み"
+        case .none: return ""
+        }
+    }
 
     private var formattedDate: String {
         let formatter = DateFormatter()
