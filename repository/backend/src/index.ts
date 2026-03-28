@@ -5,6 +5,7 @@ import { createErrorResponse, ErrorCode } from "./errors.js";
 import { authRoutes } from "./routes/auth.js";
 import { aiRoutes } from "./routes/ai.js";
 import { usageRoutes } from "./routes/usage.js";
+import { subscriptionRoutes } from "./routes/subscription.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
 import { createRateLimitMiddleware } from "./middleware/rateLimit.js";
 
@@ -38,6 +39,11 @@ app.route("/api/v1/ai", aiRoutes);
 app.use("/api/v1/usage", createRateLimitMiddleware({ maxRequests: 120 }));
 app.use("/api/v1/usage/*", createRateLimitMiddleware({ maxRequests: 120 }));
 app.route("/api/v1/usage", usageRoutes);
+
+// --- Subscription Routes (verify: 認証必須、webhook: 認証不要) ---
+
+app.use("/api/v1/subscription/verify", createRateLimitMiddleware({ maxRequests: 60 }));
+app.route("/api/v1/subscription", subscriptionRoutes);
 
 // --- Error Handler ---
 

@@ -75,6 +75,16 @@ export const ErrorResponseSchema = z.object({
   }),
 });
 
+// --- Subscription Schemas ---
+
+export const SubscriptionVerifyRequestSchema = z.object({
+  transaction_id: z.string().min(1),
+  product_id: z.string().min(1),
+  original_transaction_id: z.string().min(1),
+});
+
+export type SubscriptionVerifyRequest = z.infer<typeof SubscriptionVerifyRequestSchema>;
+
 // --- Inferred Types ---
 
 export type DeviceAuthRequest = z.infer<typeof DeviceAuthRequestSchema>;
