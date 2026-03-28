@@ -51,6 +51,7 @@ struct AppReducer {
         case memoList(MemoListReducer.Action)
         case settings(SettingsReducer.Action)
         case openURL(URL)
+        case aiProcessingCompleted(UUID)
     }
 
     @Dependency(\.fts5IndexManager) var fts5IndexManager
@@ -112,6 +113,15 @@ struct AppReducer {
                             print("[AI] enqueueProcessing エラー（無視）: \(error)")
                             #endif
                         }
+                    },
+                    // AI処理完了を監視し、完了したら通知を中継
+                    .run { [aiProcessingQueue] send in
+                        for await status in aiProcessingQueue.observeStatus(memo.id) {
+                            if case .completed = status {
+                                await send(.aiProcessingCompleted(memo.id))
+                                break
+                            }
+                        }
                     }
                 )
 
@@ -122,6 +132,13 @@ struct AppReducer {
                     .send(.memoList(.refreshRequested)),
                     .send(.memoList(.selectMemo(id: memoID)))
                 )
+
+            case let .aiProcessingCompleted(memoID):
+                state.recording.aiProcessingCompleted = true
+                #if DEBUG
+                print("[AI] 処理完了通知: id=\(memoID.uuidString.prefix(8))")
+                #endif
+                return .none
 
             case .recording:
                 return .none
