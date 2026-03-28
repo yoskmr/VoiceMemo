@@ -109,16 +109,8 @@ public struct MemoListView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: VMDesignTokens.Spacing.md, pinnedViews: [.sectionHeaders]) {
-                        // AI分析クォータ表示（1回以上使用時に表示）
-                        if store.aiQuotaLimit > 0, store.aiQuotaUsed > 0 {
-                            AIQuotaProgressBar(
-                                used: store.aiQuotaUsed,
-                                limit: store.aiQuotaLimit,
-                                nextResetDate: store.nextResetDate
-                            )
-                            .padding(.horizontal, VMDesignTokens.Spacing.lg)
-                            .padding(.bottom, VMDesignTokens.Spacing.sm)
-                        }
+                        // ローカルAI無制限化に伴い、月次クォータ表示を非表示
+                        // クラウドAI（Pro専用）のクォータは別途Pro設定画面で確認する想定
                         ForEach(store.sections) { section in
                             Section {
                                 ForEach(section.memoIDs, id: \.self) { memoID in
