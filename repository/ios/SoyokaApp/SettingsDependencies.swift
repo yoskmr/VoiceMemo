@@ -1,6 +1,7 @@
 import Data
 import Dependencies
 import Domain
+import FeatureSubscription
 import Foundation
 import InfraLLM
 import InfraNetwork
@@ -71,7 +72,8 @@ extension AIProcessingQueueClient: DependencyKey {
             aiQuota: AIQuotaClient.liveValue,
             voiceMemoRepository: VoiceMemoRepositoryClient.liveValue,
             customDictionaryClient: CustomDictionaryClient.liveValue,
-            fts5IndexManager: FTS5IndexManagerClient.liveValue
+            fts5IndexManager: FTS5IndexManagerClient.liveValue,
+            subscriptionClient: SubscriptionClient.liveValue
         )
         return queue.toClient()
     }()

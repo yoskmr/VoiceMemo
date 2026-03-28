@@ -29,6 +29,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     private let voiceMemoRepository: VoiceMemoRepositoryClient
     private let customDictionaryClient: CustomDictionaryClient
     private let fts5IndexManager: FTS5IndexManagerClient
+    private let subscriptionClient: SubscriptionClient
 
     /// メモID → ステータス通知用の continuation マップ
     private var statusContinuations: [UUID: [UUID: AsyncStream<AIProcessingStatus>.Continuation]] = [:]
@@ -52,6 +53,13 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
         fts5IndexManager: FTS5IndexManagerClient = FTS5IndexManagerClient(
             createIndex: {}, upsertIndex: { _, _, _, _, _ in }, removeIndex: { _ in },
             search: { _ in [] }, searchWithSnippets: { _, _, _ in [] }
+        ),
+        subscriptionClient: SubscriptionClient = SubscriptionClient(
+            fetchProducts: { [] },
+            purchase: { _ in .cancelled },
+            currentSubscription: { .free },
+            observeTransactionUpdates: { AsyncStream { $0.finish() } },
+            restorePurchases: {}
         )
     ) {
         self.modelContainer = modelContainer
@@ -60,6 +68,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
         self.voiceMemoRepository = voiceMemoRepository
         self.customDictionaryClient = customDictionaryClient
         self.fts5IndexManager = fts5IndexManager
+        self.subscriptionClient = subscriptionClient
     }
 
     @MainActor
@@ -177,22 +186,33 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             // ステータス通知: processing (0%)
             notifyStatus(memoId: memoId, status: .processing(progress: 0.0, description: "AI処理を準備中..."))
 
-            // 月次制限チェック
-            let canProcess = try await aiQuota.canProcess()
-            guard canProcess else {
-                let remaining = try await aiQuota.remainingCount()
-                let resetDate = aiQuota.nextResetDate()
-                try await updateTaskStatus(
-                    memoId: memoId,
-                    status: AIProcessingTaskModel.Status.failed,
-                    errorMessage: "月次制限に到達しました"
-                )
-                notifyStatus(
-                    memoId: memoId,
-                    status: .failed(.quotaExceeded(remaining: remaining, resetDate: resetDate))
-                )
-                logger.warning("月次制限超過: memoId=\(memoId)")
-                return
+            // サブスクリプション状態の確認（Proプランはクォータ制限をスキップ）
+            let currentSubscriptionState = await subscriptionClient.currentSubscription()
+            let isPro: Bool
+            if case .pro = currentSubscriptionState {
+                isPro = true
+            } else {
+                isPro = false
+            }
+
+            // 月次制限チェック（Proプランはスキップ）
+            if !isPro {
+                let canProcess = try await aiQuota.canProcess()
+                guard canProcess else {
+                    let remaining = try await aiQuota.remainingCount()
+                    let resetDate = aiQuota.nextResetDate()
+                    try await updateTaskStatus(
+                        memoId: memoId,
+                        status: AIProcessingTaskModel.Status.failed,
+                        errorMessage: "月次制限に到達しました"
+                    )
+                    notifyStatus(
+                        memoId: memoId,
+                        status: .failed(.quotaExceeded(remaining: remaining, resetDate: resetDate))
+                    )
+                    logger.warning("月次制限超過: memoId=\(memoId)")
+                    return
+                }
             }
 
             // キャンセルチェック
@@ -256,8 +276,10 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             // 結果を VoiceMemoEntity に反映
             try await saveResults(memoId: memoId, response: response)
 
-            // 使用記録
-            try await aiQuota.recordUsage()
+            // 使用記録（Proプランはクォータ消費なし）
+            if !isPro {
+                try await aiQuota.recordUsage()
+            }
 
             // SwiftData ステータス更新: completed
             try await updateTaskStatus(

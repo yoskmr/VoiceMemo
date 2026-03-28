@@ -29,6 +29,9 @@ public actor AIProcessingQueue {
     /// AI処理クォータ管理クライアント
     private let quotaClient: AIQuotaClient
 
+    /// サブスクリプション状態確認クライアント
+    private let subscriptionClient: SubscriptionClient
+
     /// メモID → ステータス通知用 continuation マップ
     /// キー: memoID, 値: (streamID → continuation)
     private var statusContinuations: [UUID: [UUID: AsyncStream<AIProcessingStatus>.Continuation]] = [:]
@@ -46,11 +49,19 @@ public actor AIProcessingQueue {
     public init(
         llmProvider: LLMProviderClient,
         voiceMemoRepository: VoiceMemoRepositoryClient,
-        quotaClient: AIQuotaClient
+        quotaClient: AIQuotaClient,
+        subscriptionClient: SubscriptionClient = SubscriptionClient(
+            fetchProducts: { [] },
+            purchase: { _ in .cancelled },
+            currentSubscription: { .free },
+            observeTransactionUpdates: { AsyncStream { $0.finish() } },
+            restorePurchases: {}
+        )
     ) {
         self.llmProvider = llmProvider
         self.voiceMemoRepository = voiceMemoRepository
         self.quotaClient = quotaClient
+        self.subscriptionClient = subscriptionClient
     }
 
     // MARK: - Public API
@@ -205,10 +216,17 @@ public actor AIProcessingQueue {
                 )
             }
 
-            // クラウドプロバイダ使用時のみクォータ消費を記録
+            // クラウドプロバイダ使用時のみクォータ消費を記録（Proプランはスキップ）
             let isOnDevice = response.provider == .onDeviceLlamaCpp
                 || response.provider == .onDeviceAppleIntelligence
-            if !isOnDevice {
+            let subState = await subscriptionClient.currentSubscription()
+            let isProUser: Bool
+            if case .pro = subState {
+                isProUser = true
+            } else {
+                isProUser = false
+            }
+            if !isOnDevice && !isProUser {
                 try await quotaClient.recordUsage()
                 logger.info("クラウドAI使用を記録: memoID=\(memoID)")
             }
