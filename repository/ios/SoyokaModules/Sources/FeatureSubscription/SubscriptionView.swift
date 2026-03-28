@@ -102,9 +102,11 @@ public struct SubscriptionView: View {
             comparisonRow("つぶやきの録音", free: true, pro: true)
             comparisonRow("文字起こし", free: true, pro: true)
             comparisonRow("全文検索", free: true, pro: true)
-            comparisonRow("AI整理", free: "15回/月", pro: "無制限")
+            comparisonRow("AI整理（ローカル）", free: true, pro: true)
+            comparisonRow("AI整理（クラウド高精度）", free: false, pro: true)
+            comparisonRow("感情分析", free: false, pro: true)
+            comparisonRow("週次レポート", free: false, pro: true)
             comparisonRow("バックアップ", free: false, pro: true)
-            comparisonRow("優先サポート", free: false, pro: true)
         }
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
