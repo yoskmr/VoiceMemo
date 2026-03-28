@@ -1,5 +1,7 @@
+import AVFoundation
 import InfraSTT
 import SharedUI
+import Speech
 import SwiftUI
 
 /// 初回起動時のウェルカム画面
@@ -77,6 +79,7 @@ struct WelcomeView: View {
                 // 言語パックが利用可能か確認
                 if await engine.isAvailable() {
                     await MainActor.run { downloadProgress = 1.0 }
+                    await requestPermissions()
                     await completeSetup()
                     return
                 }
@@ -86,18 +89,41 @@ struct WelcomeView: View {
                     await MainActor.run { downloadProgress = 0.3 }
                     try await engine.downloadLanguagePack(locale: Locale(identifier: "ja-JP"))
                     await MainActor.run { downloadProgress = 1.0 }
+                    await requestPermissions()
                     await completeSetup()
                 } catch {
                     #if DEBUG
                     print("[Welcome] 言語パックDL失敗（Apple Speechにフォールバック）: \(error)")
                     #endif
                     await MainActor.run { downloadProgress = 1.0 }
+                    await requestPermissions()
                     await completeSetup()
                 }
             } else {
                 // iOS 26未満: すぐに完了
                 await MainActor.run { downloadProgress = 1.0 }
+                await requestPermissions()
                 await completeSetup()
+            }
+        }
+    }
+
+    /// マイク・音声認識の権限を確認し、未許可であればリクエストする
+    private func requestPermissions() async {
+        // マイク権限
+        if AVAudioApplication.shared.recordPermission != .granted {
+            let granted = await AVAudioApplication.requestRecordPermission()
+            #if DEBUG
+            print("[Welcome] マイク権限: \(granted)")
+            #endif
+        }
+
+        // 音声認識権限
+        if SFSpeechRecognizer.authorizationStatus() != .authorized {
+            await withCheckedContinuation { continuation in
+                SFSpeechRecognizer.requestAuthorization { _ in
+                    continuation.resume()
+                }
             }
         }
     }
