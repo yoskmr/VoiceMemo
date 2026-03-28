@@ -1,3 +1,4 @@
+import Charts
 import ComposableArchitecture
 import Domain
 import SharedUI
@@ -25,6 +26,11 @@ public struct EmotionTrendView: View {
             } else if store.emotions.isEmpty {
                 emptyStateView
             } else {
+                if !store.dailyEmotions.isEmpty {
+                    emotionChartView
+                        .padding(.horizontal, VMDesignTokens.Spacing.lg)
+                        .padding(.bottom, VMDesignTokens.Spacing.md)
+                }
                 emotionListView
             }
         }
@@ -33,6 +39,46 @@ public struct EmotionTrendView: View {
         .onAppear {
             store.send(.onAppear)
         }
+    }
+
+    // MARK: - Chart
+
+    /// 感情カテゴリラベルの配列（チャートの domain 用）
+    private var emotionLabels: [String] {
+        EmotionCategory.allCases.map(\.label)
+    }
+
+    /// 感情カテゴリ色の配列（チャートの range 用）
+    private var emotionColors: [Color] {
+        EmotionCategory.allCases.map(\.color)
+    }
+
+    /// 週次トレンドグラフ（Swift Charts）
+    private var emotionChartView: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
+            Text("感情の推移")
+                .font(.vmHeadline)
+                .foregroundColor(.vmTextPrimary)
+
+            Chart {
+                ForEach(store.dailyEmotions) { daily in
+                    ForEach(EmotionCategory.allCases, id: \.self) { emotion in
+                        if let score = daily.emotions[emotion], score > 0 {
+                            BarMark(
+                                x: .value("日付", daily.date, unit: .day),
+                                y: .value("スコア", score)
+                            )
+                            .foregroundStyle(by: .value("感情", emotion.label))
+                        }
+                    }
+                }
+            }
+            .chartForegroundStyleScale(domain: emotionLabels, range: emotionColors)
+            .frame(height: 200)
+        }
+        .padding(VMDesignTokens.Spacing.md)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.small)
     }
 
     // MARK: - Sub Views

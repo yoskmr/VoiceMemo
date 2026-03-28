@@ -49,6 +49,9 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.isLoading = false
             $0.emotions = []
         }
+
+        // dailyEmotions は初期値が [] なので変化なし
+        await store.receive(\.dailyEmotionsLoaded)
     }
 
     // MARK: - Test 2: onAppear で感情データありの場合はエントリを返す
@@ -56,6 +59,7 @@ final class EmotionTrendReducerTests: XCTestCase {
     func test_onAppear_感情データありの場合はエントリを返す() async {
         let memoID = UUID()
         let now = Date()
+        let calendar = Calendar.current
         let analysis = EmotionAnalysisEntity(
             primaryEmotion: .joy,
             confidence: 0.85,
@@ -75,7 +79,7 @@ final class EmotionTrendReducerTests: XCTestCase {
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memoWithEmotion] }
             $0.date.now = now
-            $0.calendar = Calendar.current
+            $0.calendar = calendar
         }
 
         await store.send(.onAppear) {
@@ -91,6 +95,17 @@ final class EmotionTrendReducerTests: XCTestCase {
                     primaryEmotion: .joy,
                     confidence: 0.85,
                     memoTitle: "楽しいメモ"
+                ),
+            ]
+        }
+
+        let dayStart = calendar.startOfDay(for: now)
+        await store.receive(\.dailyEmotionsLoaded) {
+            $0.dailyEmotions = [
+                EmotionTrendReducer.DailyEmotion(
+                    date: dayStart,
+                    emotions: [.joy: 0.85],
+                    memoCount: 1
                 ),
             ]
         }
@@ -123,13 +138,17 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.isLoading = false
             $0.emotions = []
         }
+
+        // dailyEmotions は初期値が [] なので変化なし
+        await store.receive(\.dailyEmotionsLoaded)
     }
 
     // MARK: - Test 4: periodChanged で期間フィルタリング
 
     func test_periodChanged_期間フィルタリング() async {
         let now = Date()
-        let twoWeeksAgo = Calendar.current.date(byAdding: .day, value: -14, to: now)!
+        let calendar = Calendar.current
+        let twoWeeksAgo = calendar.date(byAdding: .day, value: -14, to: now)!
         let memoID = UUID()
 
         let recentAnalysis = EmotionAnalysisEntity(
@@ -162,7 +181,7 @@ final class EmotionTrendReducerTests: XCTestCase {
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [recentMemo, oldMemo] }
             $0.date.now = now
-            $0.calendar = Calendar.current
+            $0.calendar = calendar
         }
 
         // 1週間に変更 → 古いメモは除外される
@@ -180,6 +199,17 @@ final class EmotionTrendReducerTests: XCTestCase {
                     primaryEmotion: .calm,
                     confidence: 0.9,
                     memoTitle: "最近のメモ"
+                ),
+            ]
+        }
+
+        let dayStart = calendar.startOfDay(for: now)
+        await store.receive(\.dailyEmotionsLoaded) {
+            $0.dailyEmotions = [
+                EmotionTrendReducer.DailyEmotion(
+                    date: dayStart,
+                    emotions: [.calm: 0.9],
+                    memoCount: 1
                 ),
             ]
         }
@@ -208,13 +238,17 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.isLoading = false
             $0.emotions = []
         }
+
+        // fetchAll が失敗しても aggregateDailyEmotions は空配列を返す
+        await store.receive(\.dailyEmotionsLoaded)
     }
 
     // MARK: - Test 6: 結果が新しい順にソートされる
 
     func test_onAppear_結果が新しい順にソート() async {
         let now = Date()
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now)!
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
         let memoID1 = UUID()
         let memoID2 = UUID()
 
@@ -232,7 +266,7 @@ final class EmotionTrendReducerTests: XCTestCase {
             // 古い順で渡す
             $0.voiceMemoRepository.fetchAll = { [memo1, memo2] }
             $0.date.now = now
-            $0.calendar = Calendar.current
+            $0.calendar = calendar
         }
 
         await store.send(.onAppear) {
@@ -256,6 +290,24 @@ final class EmotionTrendReducerTests: XCTestCase {
                     primaryEmotion: .joy,
                     confidence: 0.8,
                     memoTitle: "昨日のメモ"
+                ),
+            ]
+        }
+
+        let yesterdayStart = calendar.startOfDay(for: yesterday)
+        let todayStart = calendar.startOfDay(for: now)
+        await store.receive(\.dailyEmotionsLoaded) {
+            // 日付昇順でソートされている
+            $0.dailyEmotions = [
+                EmotionTrendReducer.DailyEmotion(
+                    date: yesterdayStart,
+                    emotions: [.joy: 0.8],
+                    memoCount: 1
+                ),
+                EmotionTrendReducer.DailyEmotion(
+                    date: todayStart,
+                    emotions: [.calm: 0.9],
+                    memoCount: 1
                 ),
             ]
         }
