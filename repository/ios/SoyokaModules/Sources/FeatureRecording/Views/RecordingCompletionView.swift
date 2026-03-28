@@ -32,6 +32,37 @@ struct RecordingCompletionView: View {
                 .opacity(stage >= .preview ? 1 : 0)
                 .animation(animation, value: stage)
 
+            // AI処理状態表示
+            if stage >= .preview {
+                if store.aiProcessingCompleted {
+                    HStack(spacing: VMDesignTokens.Spacing.xs) {
+                        Image(systemName: "checkmark")
+                            .font(.vmCaption1)
+                            .foregroundColor(.vmPrimary)
+                        Text("整えました")
+                            .font(.vmCaption1)
+                            .foregroundColor(.vmTextSecondary)
+                    }
+                    .transition(.opacity)
+                    .animation(animation, value: store.aiProcessingCompleted)
+                } else {
+                    HStack(spacing: VMDesignTokens.Spacing.xs) {
+                        if reduceMotion {
+                            Circle()
+                                .fill(Color.vmPrimary.opacity(0.6))
+                                .frame(width: 8, height: 8)
+                        } else {
+                            PulsingDotView()
+                        }
+                        Text("ことばを整えています…")
+                            .font(.vmCaption1)
+                            .foregroundColor(.vmTextTertiary)
+                    }
+                    .transition(.opacity)
+                    .animation(animation, value: store.aiProcessingCompleted)
+                }
+            }
+
             // 自動停止メッセージ
             if store.wasAutoStopped {
                 Text("5分に達したので終了しました")
