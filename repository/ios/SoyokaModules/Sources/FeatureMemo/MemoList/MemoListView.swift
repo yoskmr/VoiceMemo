@@ -58,6 +58,20 @@ public struct MemoListView: View {
                 } message: {
                     Text("来月1日にリセットされます")
                 }
+                .alert(
+                    "Proプランの機能です",
+                    isPresented: $store.showProRequiredAlert.sending(\.proRequiredAlertPresented)
+                ) {
+                    Button("あとで", role: .cancel) {
+                        store.send(.proRequiredAlertPresented(false))
+                    }
+                    Button("Proを見る") {
+                        store.send(.proRequiredAlertPresented(false))
+                        // Phase 3c: ここでサブスクリプション画面に遷移
+                    }
+                } message: {
+                    Text("この機能はProプランでご利用いただけます")
+                }
         }
         .onAppear { store.send(.onAppear) }
     }

@@ -67,6 +67,8 @@ public struct SettingsReducer {
         case planManagementTapped
         /// 感情分析オプトインのトグル
         case emotionAnalysisToggled(Bool)
+        /// 感情分析トグル変更確定（Pro検証後）
+        case emotionAnalysisConfirmed(Bool)
         /// AI整理の処理方法が変更された
         case aiProcessingModeChanged(AIProcessingMode)
         /// AI整理の文体が変更された
@@ -114,8 +116,24 @@ public struct SettingsReducer {
                 return .none
 
             case let .emotionAnalysisToggled(isEnabled):
+                // Pro限定機能: オンにする場合のみPro検証
+                if isEnabled {
+                    return .run { [subscriptionClient] send in
+                        let subState = await subscriptionClient.currentSubscription()
+                        if case .pro = subState {
+                            await send(.emotionAnalysisConfirmed(true))
+                        } else {
+                            await send(.planManagementTapped)
+                        }
+                    }
+                }
+                // オフにする場合はそのまま反映
+                state.emotionAnalysisEnabled = false
+                UserDefaults.standard.set(false, forKey: State.emotionAnalysisKey)
+                return .none
+
+            case let .emotionAnalysisConfirmed(isEnabled):
                 state.emotionAnalysisEnabled = isEnabled
-                // UserDefaults に永続化（アプリ再起動後も設定が保持される）
                 UserDefaults.standard.set(isEnabled, forKey: State.emotionAnalysisKey)
                 return .none
 

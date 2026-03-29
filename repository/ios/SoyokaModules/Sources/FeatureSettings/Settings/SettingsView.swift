@@ -20,15 +20,15 @@ public struct SettingsView: View {
             List {
                 // MARK: - AI処理セクション
                 Section {
+                    // こころの分析（Pro限定）
                     Toggle(isOn: Binding(
                         get: { store.emotionAnalysisEnabled },
                         set: { store.send(.emotionAnalysisToggled($0)) }
                     )) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("感情分析")
-                            Text("メモの内容をクラウドで分析し、感情を判定します。AI処理回数を1回消費します。")
-                                .font(.vmCaption1)
-                                .foregroundColor(.vmTextTertiary)
+                        HStack(spacing: VMDesignTokens.Spacing.sm) {
+                            Label("こころの分析", systemImage: "heart.text.square")
+                            Spacer()
+                            proBadge
                         }
                     }
                     .tint(.vmPrimary)
@@ -42,11 +42,15 @@ public struct SettingsView: View {
                             Text(mode.displayName).tag(mode)
                         }
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("処理方法")
-                            Text(store.aiProcessingMode.description)
-                                .font(.vmCaption1)
-                                .foregroundColor(.vmTextTertiary)
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("処理方法")
+                                Text(store.aiProcessingMode.description)
+                                    .font(.vmCaption1)
+                                    .foregroundColor(.vmTextTertiary)
+                            }
+                        } icon: {
+                            Image(systemName: "shield.checkered")
                         }
                     }
 
@@ -60,16 +64,22 @@ public struct SettingsView: View {
                                 Text(style.displayName)
                                 if style.requiresPro {
                                     Text("Pro")
+                                        .font(.caption2)
+                                        .foregroundColor(.vmAccent)
                                 }
                             }
                             .tag(style)
                         }
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("わたしの文体")
-                            Text(store.writingStyle.description)
-                                .font(.vmCaption1)
-                                .foregroundColor(.vmTextTertiary)
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("わたしの文体")
+                                Text(store.writingStyle.description)
+                                    .font(.vmCaption1)
+                                    .foregroundColor(.vmTextTertiary)
+                            }
+                        } icon: {
+                            Image(systemName: "textformat.alt")
                         }
                     }
                 } header: {
@@ -155,10 +165,7 @@ public struct SettingsView: View {
                     // プライバシーポリシー
                     Link(destination: URL(string: "https://soyoka.app/privacy")!) {
                         HStack {
-                            Image(systemName: "hand.raised.fill")
-                                .foregroundColor(.vmTextTertiary)
-                            Text("プライバシーポリシー")
-                                .font(.vmBody())
+                            Label("プライバシーポリシー", systemImage: "hand.raised.fill")
                                 .foregroundColor(.vmTextPrimary)
                             Spacer()
                             Image(systemName: "arrow.up.right")
@@ -170,10 +177,7 @@ public struct SettingsView: View {
                     // 利用規約
                     Link(destination: URL(string: "https://soyoka.app/terms")!) {
                         HStack {
-                            Image(systemName: "doc.text.fill")
-                                .foregroundColor(.vmTextTertiary)
-                            Text("利用規約")
-                                .font(.vmBody())
+                            Label("利用規約", systemImage: "doc.text.fill")
                                 .foregroundColor(.vmTextPrimary)
                             Spacer()
                             Image(systemName: "arrow.up.right")
@@ -265,6 +269,18 @@ public struct SettingsView: View {
 
     // MARK: - Private Helpers
 
+    /// 「Pro」バッジ（統一スタイル）
+    private var proBadge: some View {
+        Text("Pro")
+            .font(.vmCaption2)
+            .fontWeight(.semibold)
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Color.vmAccent)
+            .clipShape(Capsule())
+    }
+
     /// 「準備中」機能の行（非活性・インライン表示）
     /// アラートを出さず、行自体で準備中であることを示す
     @ViewBuilder
@@ -279,11 +295,12 @@ public struct SettingsView: View {
             Spacer()
             if let badge {
                 Text(badge)
-                    .font(.vmCaption1)
+                    .font(.vmCaption2)
+                    .fontWeight(.semibold)
                     .foregroundColor(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(Color.vmAccent.opacity(0.5))
+                    .background(Color.vmAccent)
                     .clipShape(Capsule())
             }
             Text("準備中")

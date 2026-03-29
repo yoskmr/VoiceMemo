@@ -82,6 +82,9 @@ public struct MemoListReducer {
         /// 月上限到達時のダイアログ表示フラグ（T11: 月次制限UI）
         public var showQuotaExceededAlert: Bool = false
 
+        /// Pro限定機能を使おうとしたときのダイアログ表示フラグ
+        public var showProRequiredAlert: Bool = false
+
         /// ページネーション設定（NFR-005: 1,000件一覧 1秒以内）
         public static let pageSize = 50
 
@@ -101,7 +104,8 @@ public struct MemoListReducer {
             aiQuotaUsed: Int = 0,
             aiQuotaLimit: Int = 15,
             nextResetDate: Date? = nil,
-            showQuotaExceededAlert: Bool = false
+            showQuotaExceededAlert: Bool = false,
+            showProRequiredAlert: Bool = false
         ) {
             self.memos = memos
             self.sections = sections
@@ -119,6 +123,7 @@ public struct MemoListReducer {
             self.aiQuotaLimit = aiQuotaLimit
             self.nextResetDate = nextResetDate
             self.showQuotaExceededAlert = showQuotaExceededAlert
+            self.showProRequiredAlert = showProRequiredAlert
         }
     }
 
@@ -216,6 +221,7 @@ public struct MemoListReducer {
         case searchCompleted(SearchResult)
         case trendIconTapped
         case weeklyReportTapped
+        case weeklyReportProVerified
         case weeklyReport(PresentationAction<WeeklyReportReducer.Action>)
         case selectMemo(id: UUID)
         case refreshRequested
@@ -229,6 +235,8 @@ public struct MemoListReducer {
         case quotaExceededAlertPresented(Bool)
         /// T11:「Proを見る」タップ（Phase 3aではプレースホルダ）
         case showProPlanTapped
+        /// Pro限定機能ダイアログの表示制御
+        case proRequiredAlertPresented(Bool)
     }
 
     /// 検索結果のEquatable準拠ラッパー
@@ -249,6 +257,7 @@ public struct MemoListReducer {
     @Dependency(\.date.now) var now
     @Dependency(\.calendar) var calendar
     @Dependency(\.aiQuota) var aiQuota
+    @Dependency(\.subscriptionClient) var subscriptionClient
 
     public init() {}
 
@@ -474,6 +483,17 @@ public struct MemoListReducer {
                 return .none
 
             case .weeklyReportTapped:
+                // Pro限定機能: サブスクリプション状態を確認
+                return .run { [subscriptionClient] send in
+                    let subState = await subscriptionClient.currentSubscription()
+                    if case .pro = subState {
+                        await send(.weeklyReportProVerified)
+                    } else {
+                        await send(.showProPlanTapped)
+                    }
+                }
+
+            case .weeklyReportProVerified:
                 state.weeklyReportState = WeeklyReportReducer.State()
                 return .none
 
@@ -512,9 +532,13 @@ public struct MemoListReducer {
                 return .none
 
             case .showProPlanTapped:
-                // Phase 3a: プレースホルダ（Phase 3cで課金画面に遷移）
-                // 現時点ではアラートを閉じるのみ
+                // Pro限定機能へのアクセス時にProプランダイアログを表示
                 state.showQuotaExceededAlert = false
+                state.showProRequiredAlert = true
+                return .none
+
+            case let .proRequiredAlertPresented(isPresented):
+                state.showProRequiredAlert = isPresented
                 return .none
             }
         }
