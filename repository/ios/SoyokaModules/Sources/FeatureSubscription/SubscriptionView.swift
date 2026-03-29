@@ -112,7 +112,6 @@ public struct SubscriptionView: View {
                 .padding(.horizontal, VMDesignTokens.Spacing.lg)
 
             // Proでもっと
-            comparisonRow("AI整理（高精度）", free: false, pro: true)
             comparisonRow("こころの分析", free: false, pro: true)
             comparisonRow("文体えらび", free: false, pro: true)
             comparisonRow("一週間をふりかえる", free: false, pro: true)
