@@ -30,18 +30,28 @@ public struct MemoDetailView: View {
                         duration: store.durationSeconds
                     )
 
-                    // AI要約セクション（シンプル版）
-                    AISummarySection(
-                        summary: store.aiSummary,
-                        aiProcessingStatus: store.aiProcessingStatus,
-                        isExpanded: store.isSummaryExpanded,
-                        remainingQuota: store.remainingQuota,
-                        onToggleExpand: { store.send(.toggleSummaryExpanded) },
-                        onRegenerate: { store.send(.regenerateAISummary) },
-                        onTriggerAI: { store.send(.triggerAIProcessing) }
-                    )
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(store.aiSummary?.summaryText ?? "AI整理待機中")
+                    // AI処理中: 美しいアニメーション表示
+                    if isAIProcessing(store.aiProcessingStatus) && store.aiSummary == nil {
+                        AIProcessingAnimationView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, VMDesignTokens.Spacing.xxl)
+                            .transition(.opacity)
+                    }
+                    // AI要約セクション（シンプル版）— 処理中でなければ表示
+                    else {
+                        AISummarySection(
+                            summary: store.aiSummary,
+                            aiProcessingStatus: store.aiProcessingStatus,
+                            isExpanded: store.isSummaryExpanded,
+                            remainingQuota: store.remainingQuota,
+                            onToggleExpand: { store.send(.toggleSummaryExpanded) },
+                            onRegenerate: { store.send(.regenerateAISummary) },
+                            onTriggerAI: { store.send(.triggerAIProcessing) }
+                        )
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(store.aiSummary?.summaryText ?? "AI整理待機中")
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    }
 
                     // AIフィードバックボタン（AI整理結果がある場合のみ表示）
                     if store.aiSummary != nil {
@@ -52,7 +62,7 @@ public struct MemoDetailView: View {
                         )
                     }
 
-                    // AI処理中のみ小さなインジケーター表示
+                    // AI処理失敗時のリトライ表示
                     AIProcessingStatusView(
                         status: store.aiProcessingStatus,
                         onRetry: { store.send(.regenerateAISummary) }
@@ -80,6 +90,8 @@ public struct MemoDetailView: View {
                 }
             }
             .padding(VMDesignTokens.Spacing.lg)
+            .animation(.easeOut(duration: 0.5), value: isAIProcessing(store.aiProcessingStatus))
+            .animation(.easeOut(duration: 0.5), value: store.aiSummary?.summaryText)
         }
         .background(Color.vmBackground)
         .overlay(alignment: .bottom) {
@@ -170,6 +182,16 @@ public struct MemoDetailView: View {
             MemoDetailAIOnboardingSheet {
                 store.send(.aiOnboardingDismissed)
             }
+        }
+    }
+
+    /// AI処理が進行中かどうかを判定（processing / queued）
+    private func isAIProcessing(_ status: AIProcessingStatus) -> Bool {
+        switch status {
+        case .processing, .queued:
+            return true
+        case .idle, .completed, .failed:
+            return false
         }
     }
 
