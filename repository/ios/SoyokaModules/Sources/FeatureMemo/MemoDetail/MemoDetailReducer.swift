@@ -52,6 +52,11 @@ public struct MemoDetailReducer {
         // AIオンボーディング表示フラグ
         public var showAIOnboarding: Bool = false
 
+        // 辞書レコメンド
+        public var dictionaryRecommendation: DictionaryRecommendation?
+        /// 編集差分検出用: メモロード時の文字起こしテキスト原文
+        public var originalTranscriptionText: String?
+
         // UI状態
         public var isLoading: Bool = false
         public var errorMessage: String?
@@ -79,6 +84,8 @@ public struct MemoDetailReducer {
             quotaLimit: Int = 15,
             isSummaryExpanded: Bool = false,
             showAIOnboarding: Bool = false,
+            dictionaryRecommendation: DictionaryRecommendation? = nil,
+            originalTranscriptionText: String? = nil,
             isLoading: Bool = false,
             errorMessage: String? = nil,
             showDeleteConfirmation: Bool = false
@@ -104,6 +111,8 @@ public struct MemoDetailReducer {
             self.quotaLimit = quotaLimit
             self.isSummaryExpanded = isSummaryExpanded
             self.showAIOnboarding = showAIOnboarding
+            self.dictionaryRecommendation = dictionaryRecommendation
+            self.originalTranscriptionText = originalTranscriptionText
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.showDeleteConfirmation = showDeleteConfirmation
@@ -184,6 +193,12 @@ public struct MemoDetailReducer {
         /// クォータ情報の受信（T09）
         case _quotaInfoLoaded(remaining: Int, limit: Int)
 
+        /// 辞書レコメンド
+        case checkDictionaryRecommendations
+        case dictionaryRecommendationLoaded(DictionaryRecommendation?)
+        case acceptDictionaryRecommendation(DictionaryRecommendation)
+        case dismissDictionaryRecommendation(DictionaryRecommendation)
+
         // 子Reducerアクション
         case edit(MemoEditReducer.Action)
         case delete(MemoDeleteReducer.Action)
@@ -252,6 +267,8 @@ public struct MemoDetailReducer {
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
     @Dependency(\.aiProcessingQueue) var aiProcessingQueue
     @Dependency(\.aiQuota) var aiQuota
+    @Dependency(\.customDictionaryClient) var customDictionaryClient
+    @Dependency(\.uuid) var uuid
 
     public init() {}
 
@@ -305,13 +322,16 @@ public struct MemoDetailReducer {
                 state.emotion = detail.emotion
                 state.tags = detail.tags
 
+                // 編集差分検出用に文字起こし原文を保存
+                state.originalTranscriptionText = detail.transcriptionText
+
                 // 音声プレイヤーの初期化（音声ファイルが存在する場合）
                 if !detail.audioFilePath.isEmpty {
                     state.audioPlayer = AudioPlayerReducer.State(
                         audioFilePath: detail.audioFilePath
                     )
                 }
-                return .none
+                return .send(.checkDictionaryRecommendations)
 
             case let .memoLoaded(.failure(error)):
                 state.isLoading = false
@@ -343,6 +363,22 @@ public struct MemoDetailReducer {
             // バインディングが .titleChanged を送信し ifLet 警告が出るため。
             case .edit(.saveCompleted(.success)):
                 if let editState = state.editState {
+                    // 編集前後の差分からレコメンド候補を記録
+                    let originalText = editState.originalTranscriptionText
+                    let modifiedText = editState.transcriptionText
+                    let changes = DictionaryRecommendationEngine.detectChanges(
+                        original: originalText,
+                        modified: modifiedText,
+                        source: .userEdit
+                    )
+                    for change in changes {
+                        RecommendationStore.record(
+                            reading: change.reading,
+                            display: change.display,
+                            source: .userEdit
+                        )
+                    }
+
                     state.title = editState.title
                     // AI整理テキストがある場合はそちらを更新
                     if state.aiSummary != nil {
@@ -357,12 +393,15 @@ public struct MemoDetailReducer {
                 // メモ詳細を再読み込み
                 state.isLoading = true
                 let memoID = state.memoID
-                return .run { send in
-                    let result = await Result {
-                        try await self.loadDetail(memoID: memoID)
-                    }.mapError { EquatableError($0) }
-                    await send(.memoLoaded(result))
-                }
+                return .merge(
+                    .run { send in
+                        let result = await Result {
+                            try await self.loadDetail(memoID: memoID)
+                        }.mapError { EquatableError($0) }
+                        await send(.memoLoaded(result))
+                    },
+                    .send(.checkDictionaryRecommendations)
+                )
 
             case .edit(.discardConfirmed):
                 // キャンセルは MemoEditReducer.discardConfirmed が自身で処理する（#14: 親漏洩解消）
@@ -400,6 +439,24 @@ public struct MemoDetailReducer {
             case let .aiProcessingStatusUpdated(status):
                 state.aiProcessingStatus = status
                 if case .completed = status {
+                    // AI整理完了時: STT原文とAI整理後テキストの差分からレコメンド候補を記録
+                    let sttOriginal = state.transcriptionText
+                    let aiText = state.aiSummary?.summaryText ?? ""
+                    if !sttOriginal.isEmpty && !aiText.isEmpty {
+                        let changes = DictionaryRecommendationEngine.detectChanges(
+                            original: sttOriginal,
+                            modified: aiText,
+                            source: .aiCorrection
+                        )
+                        for change in changes {
+                            RecommendationStore.record(
+                                reading: change.reading,
+                                display: change.display,
+                                source: .aiCorrection
+                            )
+                        }
+                    }
+
                     // AI処理完了時はメモ詳細を再読み込み + クォータ情報更新
                     let memoID = state.memoID
                     return .merge(
@@ -493,6 +550,38 @@ public struct MemoDetailReducer {
             case let ._quotaInfoLoaded(remaining, limit):
                 state.remainingQuota = remaining
                 state.quotaLimit = limit
+                return .none
+
+            // MARK: - 辞書レコメンド
+
+            case .checkDictionaryRecommendations:
+                let recommendations = RecommendationStore.fetchRecommendations()
+                state.dictionaryRecommendation = recommendations.first
+                return .none
+
+            case let .dictionaryRecommendationLoaded(recommendation):
+                state.dictionaryRecommendation = recommendation
+                return .none
+
+            case let .acceptDictionaryRecommendation(recommendation):
+                state.dictionaryRecommendation = nil
+                let reading = recommendation.reading
+                let display = recommendation.display
+                let entryID = uuid()
+                return .run { _ in
+                    let entry = DictionaryEntry(id: entryID, reading: reading, display: display)
+                    try await customDictionaryClient.addEntry(entry)
+                    RecommendationStore.dismiss(reading: reading, display: display)
+                } catch: { _, _ in
+                    // 辞書登録失敗は静かに無視（UX原則1: 操作を止めない）
+                }
+
+            case let .dismissDictionaryRecommendation(recommendation):
+                state.dictionaryRecommendation = nil
+                RecommendationStore.dismiss(
+                    reading: recommendation.reading,
+                    display: recommendation.display
+                )
                 return .none
 
             case .tagTapped, .shareButtonTapped, .backButtonTapped:

@@ -73,6 +73,19 @@ public struct MemoDetailView: View {
             .padding(VMDesignTokens.Spacing.lg)
         }
         .background(Color.vmBackground)
+        .overlay(alignment: .bottom) {
+            if let recommendation = store.dictionaryRecommendation {
+                DictionaryRecommendationBanner(
+                    recommendation: recommendation,
+                    onAccept: { store.send(.acceptDictionaryRecommendation(recommendation)) },
+                    onDismiss: { store.send(.dismissDictionaryRecommendation(recommendation)) }
+                )
+                .padding(.horizontal, VMDesignTokens.Spacing.lg)
+                .padding(.bottom, VMDesignTokens.Spacing.lg)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(response: 0.3), value: store.dictionaryRecommendation)
+            }
+        }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
