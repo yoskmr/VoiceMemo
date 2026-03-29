@@ -16,7 +16,7 @@ public struct MemoDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.lg) {
                 if store.isLoading {
-                    ProgressView("メモを読み込み中...")
+                    ProgressView("きおくを読み込み中...")
                         .frame(maxWidth: .infinity, minHeight: 200)
                 } else {
                     // タイトル
@@ -132,7 +132,7 @@ public struct MemoDetailView: View {
         }
         // 削除確認ダイアログ
         .alert(
-            "メモを削除",
+            "きおくを削除",
             isPresented: Binding(
                 get: { store.showDeleteConfirmation },
                 set: { store.send(.deleteConfirmationPresented($0)) }
@@ -145,7 +145,7 @@ public struct MemoDetailView: View {
                 store.send(.delete(.deleteCancelled))
             }
         } message: {
-            Text("このメモを完全に削除しますか？\nこの操作は取り消せません。")
+            Text("このきおくを完全に削除しますか？\nこの操作は取り消せません。")
         }
         // AIオンボーディングシート（初回AI処理時に表示）
         .sheet(
@@ -203,7 +203,7 @@ private struct EditSheetIdentifier: Identifiable {
 
 // MARK: - Sub-components
 
-/// メタ情報行（プレーンテキスト: 日付 · 録音時間）
+/// メタ情報行（プレーンテキスト: 日付 · つぶやき時間）
 struct MetaInfoRow: View {
     let date: Date
     let duration: Double
@@ -412,7 +412,7 @@ struct AIProcessingStatusView: View {
     private func failedMessage(for error: AIProcessingError) -> String {
         switch error {
         case .quotaExceeded(remaining: _, resetDate: _):
-            return "月間AI整理の上限に達しました"
+            return "AI整理を実行できませんでした"
         case .networkError(_):
             return "ネットワークエラー"
         case .processingFailed(_):
@@ -511,7 +511,7 @@ struct AISummarySection: View {
             PulsingDotView()
                 .frame(height: 32)
 
-            Text("メモを整理しています...")
+            Text("きおくを整理しています...")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextTertiary)
 
@@ -604,7 +604,7 @@ struct MemoDetailAIOnboardingSheet: View {
             Spacer()
 
             // タイトル
-            Text("AIメモ整理について")
+            Text("AI整理について")
                 .font(.vmTitle2)
                 .foregroundColor(.vmTextPrimary)
                 .multilineTextAlignment(.center)
@@ -620,11 +620,11 @@ struct MemoDetailAIOnboardingSheet: View {
                 )
 
                 onboardingFeatureRow(
-                    text: "あなたの言葉はデバイスの中だけで処理されます。外部に送信されることはありません"
+                    text: "あなたの言葉は、設定で選んだ処理方法に沿って大切に扱われます"
                 )
 
                 onboardingFeatureRow(
-                    text: "毎月15回まで無料でご利用いただけます"
+                    text: "AI整理は回数制限なく、いつでもご利用いただけます"
                 )
             }
             .padding(.horizontal, VMDesignTokens.Spacing.xxl)
@@ -648,7 +648,7 @@ struct MemoDetailAIOnboardingSheet: View {
         }
         .background(Color.vmBackground)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("AI分析機能の説明")
+        .accessibilityLabel("AI整理機能の説明")
     }
 
     private func onboardingFeatureRow(text: String) -> some View {

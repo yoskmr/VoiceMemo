@@ -91,12 +91,12 @@ public struct DebugMenuView: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
-            Text("全メモのAI要約・タグ・感情分析を削除します。")
+            Text("全きおくのAI要約・タグ・感情分析を削除します。")
         }
         .alert("テストデータ生成完了", isPresented: $showTestDataGeneratedAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("10件のサンプルメモを生成しました。")
+            Text("10件のサンプルきおくを生成しました。")
         }
         .alert("全データ削除完了", isPresented: $showDataDeletedAlert) {
             Button("OK", role: .cancel) {}

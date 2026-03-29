@@ -74,7 +74,7 @@ public struct SearchView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.vmTextTertiary)
                 TextField(
-                    "メモを検索...",
+                    "きおくを検索...",
                     text: Binding(
                         get: { store.searchText },
                         set: { store.send(.searchTextChanged($0)) }
@@ -294,10 +294,10 @@ struct SearchHintView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 40))
                 .foregroundColor(.vmTextTertiary)
-            Text("メモを検索")
+            Text("きおくを検索")
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextSecondary)
-            Text("キーワードを入力して\nメモを検索できます")
+            Text("キーワードを入力して\nきおくを検索できます")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextTertiary)
                 .multilineTextAlignment(.center)
@@ -316,7 +316,7 @@ struct EmptySearchResultView: View {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 40))
                 .foregroundColor(.vmTextTertiary)
-            Text("「\(query)」に一致するメモはありません")
+            Text("「\(query)」に一致するきおくはありません")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextSecondary)
                 .multilineTextAlignment(.center)

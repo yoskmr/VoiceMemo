@@ -46,17 +46,17 @@ public struct MemoListView: View {
                 }
                 .overlay(alignment: .bottom) { undoSnackbar }
                 .alert(
-                    "今月のAI処理回数に到達しました",
+                    "AI整理を実行できませんでした",
                     isPresented: $store.showQuotaExceededAlert.sending(\.quotaExceededAlertPresented)
                 ) {
-                    Button("来月まで待つ", role: .cancel) {
+                    Button("閉じる", role: .cancel) {
                         store.send(.quotaExceededAlertPresented(false))
                     }
                     Button("Proを見る") {
                         store.send(.showProPlanTapped)
                     }
                 } message: {
-                    Text("来月1日にリセットされます")
+                    Text("しばらく時間をおいて、もう一度お試しください")
                 }
                 .alert(
                     "Proプランの機能です",
@@ -354,8 +354,8 @@ struct SectionHeader: View {
     }
 }
 
-/// AI分析クォータ表示バー（ミニマル版: 80%以上時のみ表示される前提）
-/// プレーンテキスト + 控えめなプログレスバー
+/// AI整理の利用状況表示バー（Pro専用クラウドAI向け）
+/// ローカルAIは無制限のため、通常は非表示
 struct AIQuotaProgressBar: View {
     let used: Int
     let limit: Int
@@ -381,19 +381,9 @@ struct AIQuotaProgressBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
             HStack {
-                if isExceeded {
-                    Text("AI整理の上限に達しました")
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmError)
-                } else if remaining == 1 {
-                    Text("AI整理はあと1回です")
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmWarning)
-                } else {
-                    Text("AI整理 残り\(remaining)回")
-                        .font(.vmCaption1)
-                        .foregroundColor(.vmWarning)
-                }
+                Text("AI整理 \(used)回利用")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
                 Spacer()
                 Text("\(used)/\(limit)")
                     .font(.vmCaption1)
@@ -405,6 +395,6 @@ struct AIQuotaProgressBar: View {
         .padding(.vertical, VMDesignTokens.Spacing.sm)
         .padding(.horizontal, VMDesignTokens.Spacing.md)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("今月のAI処理: \(limit)回中\(used)回使用済み、残り\(remaining)回")
+        .accessibilityLabel("AI整理の利用状況: \(limit)回中\(used)回使用")
     }
 }

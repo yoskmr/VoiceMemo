@@ -55,7 +55,7 @@ public struct MemoEditView: View {
 
                     // メモテキスト編集
                     VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xs) {
-                        Text("メモ")
+                        Text("きおく")
                             .font(.vmSubheadline)
                             .foregroundColor(.vmTextSecondary)
                         TextEditor(

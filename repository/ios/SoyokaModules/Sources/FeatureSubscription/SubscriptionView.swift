@@ -115,7 +115,7 @@ public struct SubscriptionView: View {
             proFeatureRow(
                 icon: "heart.text.square",
                 title: "こころの分析",
-                description: "メモから感情を読み取り、喜び・不安・期待など8つの気持ちで記録します"
+                description: "きおくから感情を読み取り、喜び・不安・期待など8つの気持ちで記録します"
             )
             proFeatureRow(
                 icon: "textformat.alt",

@@ -37,7 +37,7 @@ public struct AIOnboardingView: View {
                 .accessibilityHidden(true)
 
             // タイトル
-            Text("AIメモ整理について")
+            Text("AI整理について")
                 .font(.vmTitle2)
                 .foregroundColor(.vmTextPrimary)
                 .multilineTextAlignment(.center)
@@ -54,12 +54,12 @@ public struct AIOnboardingView: View {
 
                 featureRow(
                     icon: "lock.shield",
-                    text: "あなたの言葉はデバイスの中だけで処理されます。外部に送信されることはありません"
+                    text: "あなたの言葉は、設定で選んだ処理方法に沿って大切に扱われます"
                 )
 
                 featureRow(
-                    icon: "gift",
-                    text: "毎月15回まで無料でご利用いただけます"
+                    icon: "infinity",
+                    text: "AI整理は回数制限なく、いつでもご利用いただけます"
                 )
             }
             .padding(.horizontal, VMDesignTokens.Spacing.xxl)
@@ -86,7 +86,7 @@ public struct AIOnboardingView: View {
         }
         .background(Color.vmBackground)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("AI分析機能の説明")
+        .accessibilityLabel("AI整理機能の説明")
     }
 
     // MARK: - Private Helpers

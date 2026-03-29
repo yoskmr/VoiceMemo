@@ -15,7 +15,7 @@ public struct MemoDeleteConfirmationModifier: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .alert(
-                "メモを削除しますか？",
+                "きおくを削除しますか？",
                 isPresented: Binding(
                     get: { store.showDeleteConfirmation },
                     set: { _ in }

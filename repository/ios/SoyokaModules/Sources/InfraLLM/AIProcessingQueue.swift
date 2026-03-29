@@ -224,7 +224,7 @@ public actor AIProcessingQueue {
             )
 
             // ステータス通知: processing (50%)
-            notifyStatus(memoID: memoID, status: .processing(progress: 0.5, description: "メモを整理中..."))
+            notifyStatus(memoID: memoID, status: .processing(progress: 0.5, description: "きおくを整理中..."))
 
             // LLM推論実行
             let response = try await llmProvider.process(request)

@@ -72,10 +72,10 @@ struct RecordingCompletionView: View {
                     .animation(animation, value: stage)
             }
 
-            // 「メモを見る」リンク
+            // 「きおくを見る」リンク
             if stage >= .cta {
                 Button { store.send(.viewMemoTapped) } label: {
-                    Text("メモを見る")
+                    Text("きおくを見る")
                         .font(.vmCallout)
                         .foregroundColor(.vmPrimary)
                 }
