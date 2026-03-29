@@ -474,9 +474,8 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
                 }
 
                 // メモのタイトルも更新（AI生成タイトル）
-                if memoModel.title.isEmpty || memoModel.title == "新規メモ" {
-                    memoModel.title = summaryResult.title
-                }
+                // 再生成時もタイトルを上書きする（ユーザー要望）
+                memoModel.title = summaryResult.title
             }
 
             // EmotionAnalysis の保存（感情分析オプトイン時のみ結果が存在）
