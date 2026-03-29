@@ -1,15 +1,26 @@
 import ComposableArchitecture
+import Dependencies
 import Domain
 import FeatureMemo
 import FeatureRecording
 import FeatureSettings
 import SharedUI
+import SharedUtil
 import InfraNetwork
 import SwiftUI
+import TelemetryDeck
 
 @main
 struct SoyokaApp: App {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
+
+    init() {
+        let config = TelemetryDeck.Config(appID: "AEB9BDE7-7494-4C4F-A281-A6485D8CFE97")
+        TelemetryDeck.initialize(config: config)
+        prepareDependencies {
+            $0.analyticsClient = .live()
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
