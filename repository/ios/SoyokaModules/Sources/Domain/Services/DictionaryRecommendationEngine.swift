@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 /// テキストの差分から辞書レコメンド候補を検出するエンジン
 public struct DictionaryRecommendationEngine: Sendable {
@@ -14,42 +15,78 @@ public struct DictionaryRecommendationEngine: Sendable {
         modified: String,
         source: DictionaryRecommendation.Source
     ) -> [(reading: String, display: String)] {
-        let originalWords = tokenize(original)
-        let modifiedWords = tokenize(modified)
+        let originalWords = Set(tokenizeWords(original))
+        let modifiedWords = Set(tokenizeWords(modified))
 
-        var changes: [(reading: String, display: String)] = []
+        // original にだけある単語（= 読み候補: STT の認識結果）
+        let onlyInOriginal = originalWords.subtracting(modifiedWords)
+        // modified にだけある単語（= 表示候補: AI/ユーザーが修正した表記）
+        let onlyInModified = modifiedWords.subtracting(originalWords)
 
-        // 簡易差分: 同じ位置で異なる単語を検出
-        let minCount = min(originalWords.count, modifiedWords.count)
-        for i in 0..<minCount {
-            let orig = originalWords[i]
-            let mod = modifiedWords[i]
-            if orig != mod && !orig.isEmpty && !mod.isEmpty {
-                // ひらがな/カタカナ → 漢字 の変更パターンを優先
-                if isLikelyReading(orig) && containsKanji(mod) {
-                    changes.append((reading: orig, display: mod))
+        var candidates: [(reading: String, display: String)] = []
+
+        for reading in onlyInOriginal {
+            for display in onlyInModified {
+                if isValidPair(reading: reading, display: display) {
+                    candidates.append((reading: reading, display: display))
                 }
             }
         }
 
-        return changes
+        return candidates
     }
 
     // MARK: - Private Helpers
 
-    private static func tokenize(_ text: String) -> [String] {
-        text.components(separatedBy: CharacterSet.whitespacesAndNewlines
-            .union(CharacterSet.punctuationCharacters)
-            .union(CharacterSet(charactersIn: "。、！？「」『』（）\n")))
-            .filter { !$0.isEmpty }
+    /// NLTokenizer で日本語テキストを単語分割
+    private static func tokenizeWords(_ text: String) -> [String] {
+        let tokenizer = NLTokenizer(unit: .word)
+        tokenizer.string = text
+        tokenizer.setLanguage(.japanese)
+        var words: [String] = []
+        tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
+            let word = String(text[range])
+            if word.count >= 2 {
+                words.append(word)
+            }
+            return true
+        }
+        return words
     }
 
-    private static func isLikelyReading(_ text: String) -> Bool {
-        let hiraganaKatakana = text.unicodeScalars.filter {
-            CharacterSet(charactersIn: "\u{3040}"..."\u{309F}").contains($0) ||
-            CharacterSet(charactersIn: "\u{30A0}"..."\u{30FF}").contains($0)
+    /// 辞書登録候補として有効なペアか判定
+    private static func isValidPair(reading: String, display: String) -> Bool {
+        // 長さチェック: 2-8文字
+        guard reading.count >= 2, reading.count <= 8 else { return false }
+        guard display.count >= 2, display.count <= 8 else { return false }
+
+        // 文字数差が2文字以内（同じ単語の別表記）
+        guard abs(reading.count - display.count) <= 2 else { return false }
+
+        // reading と display が同じなら除外
+        guard reading != display else { return false }
+
+        // display に漢字を含むこと（正しい表記は漢字が含まれる）
+        guard containsKanji(display) else { return false }
+
+        // 除外ワード（助詞・助動詞・接続詞・一般的すぎる単語）
+        let excludeWords: Set<String> = [
+            "ので", "ため", "から", "けど", "だけど", "でも",
+            "それ", "これ", "あれ", "ここ", "そこ", "あそこ",
+            "する", "ある", "いる", "なる", "できる",
+            "こと", "もの", "ところ", "とき",
+            "今日", "明日", "昨日", "今年", "去年", "来年",
+            "本当", "最近", "結局", "やっぱり",
+        ]
+        if excludeWords.contains(reading) || excludeWords.contains(display) {
+            return false
         }
-        return Double(hiraganaKatakana.count) / Double(max(text.count, 1)) > 0.5
+
+        // 数字のみの単語は除外
+        if reading.allSatisfy({ $0.isNumber || $0 == "." }) { return false }
+        if display.allSatisfy({ $0.isNumber || $0 == "." }) { return false }
+
+        return true
     }
 
     private static func containsKanji(_ text: String) -> Bool {
