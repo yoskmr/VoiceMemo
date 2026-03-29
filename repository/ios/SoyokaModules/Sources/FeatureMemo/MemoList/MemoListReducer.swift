@@ -65,6 +65,9 @@ public struct MemoListReducer {
         /// 感情トレンド画面（NavigationStack push用、nilで非表示）
         @Presents public var emotionTrendState: EmotionTrendReducer.State?
 
+        /// 週次レポート画面（sheet表示用、nilで非表示）
+        @Presents public var weeklyReportState: WeeklyReportReducer.State?
+
         /// 録音完了→メモ詳細遷移時の待機用ID（refreshCompleted前にselectMemoが届いた場合に保持）
         public var pendingMemoID: UUID?
 
@@ -92,6 +95,7 @@ public struct MemoListReducer {
             search: SearchState = SearchState(),
             selectedMemo: MemoDetailReducer.State? = nil,
             emotionTrendState: EmotionTrendReducer.State? = nil,
+            weeklyReportState: WeeklyReportReducer.State? = nil,
             pendingMemoID: UUID? = nil,
             deletion: DeletionState = DeletionState(),
             aiQuotaUsed: Int = 0,
@@ -108,6 +112,7 @@ public struct MemoListReducer {
             self.search = search
             self.selectedMemo = selectedMemo
             self.emotionTrendState = emotionTrendState
+            self.weeklyReportState = weeklyReportState
             self.pendingMemoID = pendingMemoID
             self.deletion = deletion
             self.aiQuotaUsed = aiQuotaUsed
@@ -210,6 +215,8 @@ public struct MemoListReducer {
         case searchQueryChanged(String)
         case searchCompleted(SearchResult)
         case trendIconTapped
+        case weeklyReportTapped
+        case weeklyReport(PresentationAction<WeeklyReportReducer.Action>)
         case selectMemo(id: UUID)
         case refreshRequested
         case refreshCompleted(Result<[MemoItem], EquatableError>)
@@ -466,6 +473,13 @@ public struct MemoListReducer {
                 state.emotionTrendState = EmotionTrendReducer.State()
                 return .none
 
+            case .weeklyReportTapped:
+                state.weeklyReportState = WeeklyReportReducer.State()
+                return .none
+
+            case .weeklyReport:
+                return .none
+
             case .emotionTrend:
                 return .none
 
@@ -509,6 +523,9 @@ public struct MemoListReducer {
         }
         .ifLet(\.$emotionTrendState, action: \.emotionTrend) {
             EmotionTrendReducer()
+        }
+        .ifLet(\.$weeklyReportState, action: \.weeklyReport) {
+            WeeklyReportReducer()
         }
     }
 

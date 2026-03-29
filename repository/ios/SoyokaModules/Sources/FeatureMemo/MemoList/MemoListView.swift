@@ -34,6 +34,13 @@ public struct MemoListView: View {
                 ) { (emotionTrendStore: StoreOf<EmotionTrendReducer>) in
                     EmotionTrendView(store: emotionTrendStore)
                 }
+                .sheet(
+                    item: $store.scope(state: \.weeklyReportState, action: \.weeklyReport)
+                ) { reportStore in
+                    NavigationStack {
+                        WeeklyReportView(store: reportStore)
+                    }
+                }
                 .overlay(alignment: .bottom) { undoSnackbar }
                 .alert(
                     "今月のAI処理回数に到達しました",
@@ -207,8 +214,13 @@ public struct MemoListView: View {
     }
 
     private var toolbarButtons: some View {
-        Button { store.send(.trendIconTapped) } label: {
-            Image(systemName: "chart.line.uptrend.xyaxis")
+        HStack(spacing: VMDesignTokens.Spacing.md) {
+            Button { store.send(.weeklyReportTapped) } label: {
+                Image(systemName: "doc.text.magnifyingglass")
+            }
+            Button { store.send(.trendIconTapped) } label: {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+            }
         }
     }
 }
