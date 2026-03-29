@@ -207,8 +207,22 @@ struct AppView: View {
             .tag(AppReducer.State.Tab.settings)
         }
         .tint(Color.vmPrimary)
+        .preferredColorScheme(store.settings.themeType.colorScheme)
         .onOpenURL { url in
             store.send(.openURL(url))
+        }
+    }
+}
+
+// MARK: - ThemeType+ColorScheme
+
+private extension ThemeType {
+    /// SwiftUI の ColorScheme に変換（system の場合は nil を返し OS に委ねる）
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system, .journal: return nil
+        case .light: return .light
+        case .dark: return .dark
         }
     }
 }

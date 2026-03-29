@@ -87,6 +87,18 @@ public struct SettingsView: View {
 
                 // MARK: - 一般セクション
                 Section {
+                    // 外観モード
+                    Picker(selection: Binding(
+                        get: { store.themeType },
+                        set: { store.send(.themeTypeChanged($0)) }
+                    )) {
+                        ForEach(ThemeType.allCases.filter { $0 != .journal }, id: \.self) { theme in
+                            Text(theme.displayName).tag(theme)
+                        }
+                    } label: {
+                        Label("外観モード", systemImage: "circle.lefthalf.filled")
+                    }
+
                     NavigationLink {
                         CustomDictionaryView(
                             store: store.scope(

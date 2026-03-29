@@ -23,6 +23,8 @@ public struct SettingsReducer {
         public var customDictionary = CustomDictionaryReducer.State()
         /// バックアップのサブ State
         public var backup = BackupReducer.State()
+        /// 外観モード（ライト/ダーク/システムに従う）
+        public var themeType: ThemeType = ThemeType.current
         /// AI処理回数リセット確認ダイアログ表示フラグ
         public var showResetQuotaConfirmation: Bool = false
         /// 今月のAI処理使用回数
@@ -39,6 +41,7 @@ public struct SettingsReducer {
             emotionAnalysisEnabled: Bool? = nil,
             writingStyle: WritingStyle? = nil,
             aiProcessingMode: AIProcessingMode? = nil,
+            themeType: ThemeType? = nil,
             customDictionary: CustomDictionaryReducer.State = .init(),
             backup: BackupReducer.State = .init(),
             showResetQuotaConfirmation: Bool = false,
@@ -51,6 +54,7 @@ public struct SettingsReducer {
                 ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
             self.writingStyle = writingStyle ?? WritingStyle.current
             self.aiProcessingMode = aiProcessingMode ?? AIProcessingMode.current
+            self.themeType = themeType ?? ThemeType.current
             self.customDictionary = customDictionary
             self.backup = backup
             self.showResetQuotaConfirmation = showResetQuotaConfirmation
@@ -71,6 +75,8 @@ public struct SettingsReducer {
         case emotionAnalysisConfirmed(Bool)
         /// AI整理の処理方法が変更された
         case aiProcessingModeChanged(AIProcessingMode)
+        /// 外観モードが変更された
+        case themeTypeChanged(ThemeType)
         /// AI整理の文体が変更された
         case writingStyleChanged(WritingStyle)
         /// AI整理の文体変更確定（Pro検証後）
@@ -135,6 +141,11 @@ public struct SettingsReducer {
             case let .emotionAnalysisConfirmed(isEnabled):
                 state.emotionAnalysisEnabled = isEnabled
                 UserDefaults.standard.set(isEnabled, forKey: State.emotionAnalysisKey)
+                return .none
+
+            case let .themeTypeChanged(theme):
+                state.themeType = theme
+                ThemeType.setCurrent(theme)
                 return .none
 
             case let .aiProcessingModeChanged(mode):
