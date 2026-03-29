@@ -33,11 +33,15 @@ public struct LLMResponseParser: Sendable {
             throw LLMError.invalidOutput
         }
 
+        // プロンプト指示文の繰り返しを除去
+        // LLM が「JSON形式で出力:」等のプロンプト指示をそのまま出力する場合がある
+        let cleaned = Self.removePromptEcho(from: trimmed)
+
         // JSON部分を抽出
-        guard let jsonString = extractJSON(from: trimmed) else {
+        guard let jsonString = extractJSON(from: cleaned) else {
             // フェンスドコードブロックからの抽出も失敗した場合、
             // 不完全JSONの修復を試みる
-            if let repaired = tryRepairAndParse(trimmed, processingTimeMs: processingTimeMs, provider: provider) {
+            if let repaired = tryRepairAndParse(cleaned, processingTimeMs: processingTimeMs, provider: provider) {
                 return repaired
             }
             throw LLMError.invalidOutput
@@ -199,6 +203,41 @@ public struct LLMResponseParser: Sendable {
             processingTimeMs: processingTimeMs,
             provider: provider
         )
+    }
+
+    // MARK: - プロンプトエコー除去
+
+    /// LLM がプロンプト指示文をそのまま出力した場合に除去する
+    /// 例: 「JSON形式で出力:{"title": ...}」→ 「{"title": ...}」
+    private static func removePromptEcho(from text: String) -> String {
+        var result = text
+
+        // 「JSON形式で出力:」「JSON形式で出力してください:」等のパターンを除去
+        let echoPatterns = [
+            #"JSON形式で出力[：:]"#,
+            #"JSON形式で出力してください[：:]"#,
+            #"以下のJSON形式で[出力回答][：:]"#,
+            #"出力[：:]?\s*\{"#,
+        ]
+
+        for pattern in echoPatterns {
+            if let range = result.range(of: pattern, options: .regularExpression) {
+                // パターンの直前までがテキスト本文、パターン以降がJSON
+                let beforeEcho = String(result[result.startIndex..<range.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let afterEcho = String(result[range.lowerBound...])
+
+                // JSON 部分（{から始まる）を抽出
+                if let jsonStart = afterEcho.firstIndex(of: "{") {
+                    result = String(afterEcho[jsonStart...])
+                } else {
+                    result = afterEcho
+                }
+                break
+            }
+        }
+
+        return result
     }
 
     // MARK: - 不完全JSON修復
