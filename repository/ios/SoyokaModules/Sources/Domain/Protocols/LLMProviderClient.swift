@@ -30,6 +30,8 @@ public struct LLMRequest: Sendable, Equatable {
     public let customDictionary: [String]
     /// クラウドプロバイダの使用を許可するか（Free プランでは false）
     public let allowCloud: Bool
+    /// AI整理の文体（ユーザー選択）
+    public let writingStyle: WritingStyle
 
     public init(
         text: String,
@@ -37,7 +39,8 @@ public struct LLMRequest: Sendable, Equatable {
         language: String = "ja",
         maxTokens: Int = 650,
         customDictionary: [String] = [],
-        allowCloud: Bool = true
+        allowCloud: Bool = true,
+        writingStyle: WritingStyle = .soft
     ) {
         self.text = text
         self.tasks = tasks
@@ -45,6 +48,7 @@ public struct LLMRequest: Sendable, Equatable {
         self.customDictionary = customDictionary
         self.maxTokens = maxTokens
         self.allowCloud = allowCloud
+        self.writingStyle = writingStyle
     }
 }
 

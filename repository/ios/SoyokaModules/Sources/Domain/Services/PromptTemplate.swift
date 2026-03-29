@@ -20,18 +20,67 @@ public struct PromptTemplate: Sendable, Equatable {
     /// - Parameters:
     ///   - text: 文字起こしテキスト
     ///   - customDictionary: カスタム辞書（固有名詞リスト）。空でなければプロンプトに注入
+    ///   - style: AI整理の文体（デフォルト: `.soft`＝既存プロンプトそのまま）
     /// - Returns: LLMに送信するプロンプト文字列
-    public func buildUserPrompt(text: String, customDictionary: [String] = []) -> String {
+    public func buildUserPrompt(text: String, customDictionary: [String] = [], style: WritingStyle = .soft) -> String {
         var prompt = userPromptTemplate.replacingOccurrences(of: "{transcribed_text}", with: text)
         prompt = prompt.replacingOccurrences(of: "{custom_dictionary}", with: formatDictionary(customDictionary))
+        prompt += Self.styleInstruction(for: style)
         return prompt
     }
 
     /// 読みペア付きカスタム辞書でプロンプトを構築する（SpeechAnalyzer後処理用）
-    public func buildUserPrompt(text: String, dictionaryPairs: [(reading: String, display: String)]) -> String {
+    public func buildUserPrompt(text: String, dictionaryPairs: [(reading: String, display: String)], style: WritingStyle = .soft) -> String {
         var prompt = userPromptTemplate.replacingOccurrences(of: "{transcribed_text}", with: text)
         prompt = prompt.replacingOccurrences(of: "{custom_dictionary}", with: formatDictionaryPairs(dictionaryPairs))
+        prompt += Self.styleInstruction(for: style)
         return prompt
+    }
+
+    /// 文体に応じたプロンプト追加指示を返す
+    public static func styleInstruction(for style: WritingStyle) -> String {
+        switch style {
+        case .soft:
+            return ""  // デフォルト（既存プロンプトそのまま）
+        case .formal:
+            return """
+
+            追加指示 - 文体「きちんと」:
+            - 「です」「ます」調で統一する
+            - 主語と述語を明確にする
+            - 感情的な表現は残しつつ、丁寧な言葉遣いに整える
+            - カジュアルすぎる表現（「～じゃん」「マジで」等）は自然な丁寧語に言い換える
+            """
+        case .casual:
+            return """
+
+            追加指示 - 文体「ひとりごと」:
+            - 短い文で区切る。一文は長くても30文字程度
+            - 体言止めを積極的に使う
+            - 「。」より「。」を省略した改行を多用
+            - SNSに投稿するような気軽さで
+            - 感嘆や独り言のニュアンスを大切にする
+            """
+        case .reflection:
+            return """
+
+            追加指示 - 文体「ふりかえり」:
+            - 「あなた」に語りかける手紙のような文体にする
+            - 「今日のあなたは〜」「〜したんだね」のように、やさしく見守るトーンで
+            - 内容を要約するのではなく、体験に共感し、小さな気づきを添える
+            - 最後に一言、励ましや問いかけを加える
+            """
+        case .essay:
+            return """
+
+            追加指示 - 文体「エッセイ」:
+            - 短い随筆・エッセイのように書き直す
+            - 冒頭に情景描写を加える（天気、季節、場所の雰囲気など、文脈から推測して自然に）
+            - 思考の流れに文学的なリズムを持たせる
+            - 体言止め、倒置法、比喩を適度に使う
+            - 日常のひとコマが作品のように感じられる文章に
+            """
+        }
     }
 
     private func formatDictionary(_ words: [String]) -> String {
