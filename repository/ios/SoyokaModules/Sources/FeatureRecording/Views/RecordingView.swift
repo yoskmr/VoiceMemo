@@ -77,7 +77,9 @@ public struct RecordingView: View {
             recordingControls
                 .padding(.bottom, VMDesignTokens.Spacing.xxxl)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.vmBackground)
+        .scrollDisabled(true)
     }
 
     // MARK: - Recording Controls

@@ -18,6 +18,9 @@ public struct MemoListView: View {
             mainContent
                 .background(Color.vmBackground)
                 .navigationTitle("きおく")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.large)
+                #endif
                 .searchable(
                     text: $store.search.query.sending(\.searchQueryChanged),
                     prompt: "きおくを検索..."
