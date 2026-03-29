@@ -37,7 +37,7 @@ public struct ForceUpdateOverlay: View {
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(uiColor: .systemBackground))
+        .background(.background)
         .interactiveDismissDisabled()
     }
 }
