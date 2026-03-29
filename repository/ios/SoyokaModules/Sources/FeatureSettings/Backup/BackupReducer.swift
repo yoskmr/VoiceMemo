@@ -28,6 +28,10 @@ public struct BackupReducer {
         public var importResult: BackupResult?
         /// エラーメッセージ
         public var errorMessage: String?
+        /// バックアップ対象のきおく件数
+        public var memoCount: Int = 0
+        /// バックアップ対象のカスタム辞書エントリ件数
+        public var dictionaryCount: Int = 0
 
         public init(
             isExporting: Bool = false,
@@ -37,7 +41,9 @@ public struct BackupReducer {
             showFilePicker: Bool = false,
             showImportResultAlert: Bool = false,
             importResult: BackupResult? = nil,
-            errorMessage: String? = nil
+            errorMessage: String? = nil,
+            memoCount: Int = 0,
+            dictionaryCount: Int = 0
         ) {
             self.isExporting = isExporting
             self.isImporting = isImporting
@@ -47,12 +53,18 @@ public struct BackupReducer {
             self.showImportResultAlert = showImportResultAlert
             self.importResult = importResult
             self.errorMessage = errorMessage
+            self.memoCount = memoCount
+            self.dictionaryCount = dictionaryCount
         }
     }
 
     // MARK: - Action
 
     public enum Action: Equatable, Sendable {
+        /// 画面表示時
+        case onAppear
+        /// データ件数取得完了
+        case dataCountsLoaded(memoCount: Int, dictionaryCount: Int)
         /// 「バックアップを作成」タップ
         case exportTapped
         /// エクスポート成功
@@ -83,6 +95,8 @@ public struct BackupReducer {
 
     @Dependency(\.backupExport) var backupExport
     @Dependency(\.backupImport) var backupImport
+    @Dependency(\.voiceMemoRepository) var voiceMemoRepository
+    @Dependency(\.customDictionaryClient) var customDictionaryClient
 
     public init() {}
 
@@ -91,6 +105,18 @@ public struct BackupReducer {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
+            case .onAppear:
+                return .run { send in
+                    let memos = try await voiceMemoRepository.fetchAll()
+                    let entries = try await customDictionaryClient.loadEntries()
+                    await send(.dataCountsLoaded(memoCount: memos.count, dictionaryCount: entries.count))
+                }
+
+            case let .dataCountsLoaded(memoCount, dictionaryCount):
+                state.memoCount = memoCount
+                state.dictionaryCount = dictionaryCount
+                return .none
+
             case .exportTapped:
                 state.isExporting = true
                 state.errorMessage = nil

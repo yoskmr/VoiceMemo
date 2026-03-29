@@ -21,6 +21,22 @@ public struct BackupView: View {
 
     public var body: some View {
         List {
+            // MARK: - データ概要セクション
+            Section {
+                VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.sm) {
+                    Label("バックアップに含まれるデータ", systemImage: "doc.on.doc")
+                        .font(.vmHeadline)
+                        .foregroundColor(.vmTextPrimary)
+
+                    HStack(spacing: VMDesignTokens.Spacing.lg) {
+                        dataCountView(count: store.memoCount, label: "きおく")
+                        dataCountView(count: store.dictionaryCount, label: "辞書")
+                    }
+                    .padding(.top, VMDesignTokens.Spacing.xs)
+                }
+                .padding(.vertical, VMDesignTokens.Spacing.sm)
+            }
+
             // MARK: - エクスポートセクション
             Section {
                 Button {
@@ -37,7 +53,7 @@ public struct BackupView: View {
                 }
                 .disabled(store.isExporting || store.isImporting)
             } footer: {
-                Text("すべてのきおくと音声データを書き出します")
+                Text("すべてのきおくと辞書データを書き出します")
                     .font(.vmCaption1)
             }
 
@@ -57,14 +73,14 @@ public struct BackupView: View {
                 }
                 .disabled(store.isExporting || store.isImporting)
             } footer: {
-                Text(".soyokabackup ファイルを選択してきおくを復元します。既に存在するきおくはスキップされます。")
+                Text(".soyokabackup ファイルを選択してデータを復元します。既に存在するデータはスキップされます。")
                     .font(.vmCaption1)
             }
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
         #endif
-        .navigationTitle("きおくのバックアップ")
+        .navigationTitle("データのバックアップ")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
@@ -106,10 +122,12 @@ public struct BackupView: View {
             Button("OK") {}
         } message: {
             if let result = store.importResult {
-                let message = "\(result.importedCount)件のきおくを復元しました"
+                let memoMessage = "\(result.importedCount)件のきおく"
+                let dictMessage = result.dictionaryImportedCount > 0 ? "、\(result.dictionaryImportedCount)件の辞書" : ""
+                let mainMessage = memoMessage + dictMessage + "を復元しました"
                 let skipMessage = result.skippedCount > 0 ? "（\(result.skippedCount)件はスキップ）" : ""
                 let audioMessage = result.audioMissingCount > 0 ? "\n\(result.audioMissingCount)件は音声なしで復元" : ""
-                Text(message + skipMessage + audioMessage)
+                Text(mainMessage + skipMessage + audioMessage)
             }
         }
         // エラーアラート
@@ -125,6 +143,22 @@ public struct BackupView: View {
             if let message = store.errorMessage {
                 Text(message)
             }
+        }
+        .onAppear {
+            store.send(.onAppear)
+        }
+    }
+
+    // MARK: - Private Helpers
+
+    private func dataCountView(count: Int, label: String) -> some View {
+        VStack {
+            Text("\(count)")
+                .font(.vmTitle2)
+                .foregroundColor(.vmPrimary)
+            Text(label)
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextSecondary)
         }
     }
 }
