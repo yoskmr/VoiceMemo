@@ -44,7 +44,7 @@ final class OnDeviceLLMProviderTests: XCTestCase {
 
     func testProcess_inputTooLong_throwsInputTooLong() async {
         let provider = makeProvider()
-        let longText = String(repeating: "あ", count: 3001)
+        let longText = String(repeating: "あ", count: 10001)
         let request = LLMRequest(text: longText, tasks: [.summarize])
 
         do {
@@ -55,9 +55,9 @@ final class OnDeviceLLMProviderTests: XCTestCase {
         }
     }
 
-    func testProcess_inputExactly3000Characters_success() async throws {
+    func testProcess_inputExactly10000Characters_success() async throws {
         let provider = makeProvider()
-        let exactText = String(repeating: "あ", count: 3000)
+        let exactText = String(repeating: "あ", count: 10000)
         let request = LLMRequest(text: exactText, tasks: [.summarize])
 
         let response = try await provider.process(request)
@@ -266,9 +266,9 @@ final class OnDeviceLLMProviderTests: XCTestCase {
 
     // MARK: - maxInputCharacters / minInputCharacters
 
-    func testMaxInputCharacters_is3000() {
+    func testMaxInputCharacters_is10000() {
         let provider = makeProvider()
-        XCTAssertEqual(provider.maxInputCharacters, 3000)
+        XCTAssertEqual(provider.maxInputCharacters, 10000)
     }
 
     func testMinInputCharacters_is10() {

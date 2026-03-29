@@ -54,11 +54,16 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         return .onDeviceLlamaCpp
     }
 
-    /// 最大入力文字数
-    /// Apple Intelligence Foundation Models: 4096トークン対応（日本語約3000文字）
-    /// llama.cpp (Phi-3-mini): ~650トークン（日本語約500文字）
-    /// 現在はApple Intelligence優先のため3000文字に設定
-    public let maxInputCharacters: Int = 3000
+    /// 最大安全入力文字数（1チャンクあたり）
+    /// Apple Intelligence Foundation Models の出力トークン上限を考慮し、
+    /// 入力 + プロンプト指示 + JSON 出力がトークン上限に収まるよう1500文字に設定。
+    /// これを超える場合は自動的に分割処理を行う。
+    private let maxSafeInputLength: Int = 1500
+
+    /// 最大入力文字数（分割処理込み）
+    /// 分割処理に対応したため、従来の3000文字制限を大幅に緩和。
+    /// 10分間の音声メモ（約3000〜5000文字）を想定。
+    public let maxInputCharacters: Int = 10000
 
     /// 最小入力文字数（短すぎるテキストはスキップ）
     public let minInputCharacters: Int = 10
@@ -101,20 +106,28 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
             try await loadModel()
         }
 
-        // 3. 入力テキストの長さ制御
-        // Apple Intelligence の出力トークン上限を考慮し、入力が長すぎる場合はトランケート
-        // 入力 + プロンプト指示 + JSON出力 がトークン上限に収まるよう、入力は1500文字以内に制限
-        let maxSafeInputLength = 1500
-        let inputText: String
-        if request.text.count > maxSafeInputLength {
-            inputText = String(request.text.prefix(maxSafeInputLength))
-            logger.info("[LLM] 入力テキストをトランケート: \(request.text.count)文字 → \(maxSafeInputLength)文字")
-        } else {
-            inputText = request.text
-        }
+        // 3. フィラー除去（ルールベース、LLM 不要）
+        let preprocessed = TextPreprocessor.removeFillers(request.text)
+        logger.info("[LLM] フィラー除去: \(request.text.count)文字 → \(preprocessed.count)文字")
 
-        // 4. プロンプト構築（文体指示を含む）
-        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: inputText, customDictionary: request.customDictionary, style: request.writingStyle)
+        // 4. 長さチェック → 通常処理 or 分割処理
+        if preprocessed.count <= maxSafeInputLength {
+            // 通常処理（1チャンクで収まる）
+            return try await processSingleChunk(preprocessed, request: request)
+        } else {
+            // 分割処理（1500文字超）
+            return try await processChunked(preprocessed, request: request)
+        }
+    }
+
+    /// 単一チャンクの通常処理
+    private func processSingleChunk(_ inputText: String, request: LLMRequest) async throws -> LLMResponse {
+        // プロンプト構築（文体指示を含む）
+        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(
+            text: inputText,
+            customDictionary: request.customDictionary,
+            style: request.writingStyle
+        )
         logger.debug("プロンプト構築完了: \(prompt.prefix(100))...")
         #if DEBUG
         if !request.customDictionary.isEmpty {
@@ -124,19 +137,111 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         }
         #endif
 
-        // 4. 推論実行
+        // 推論実行
         let startTime = CFAbsoluteTimeGetCurrent()
         var response = try await internalProcess(request, prompt: prompt)
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
 
         logger.info("LLM推論完了: \(Int(elapsed * 1000))ms")
 
-        // 5. カスタム辞書による後処理（LLMが修正しきれなかった固有名詞を置換）
+        // カスタム辞書による後処理
         if !request.customDictionary.isEmpty {
             response = applyDictionaryPostProcessing(response, dictionary: request.customDictionary)
         }
 
         return response
+    }
+
+    /// 分割処理（1500文字超のテキストを句点区切りで分割し、個別に AI 整理→結果を結合）
+    private func processChunked(_ preprocessed: String, request: LLMRequest) async throws -> LLMResponse {
+        let chunks = splitText(preprocessed, maxLength: maxSafeInputLength)
+        logger.info("[LLM] 分割処理: \(chunks.count)チャンクに分割")
+
+        var allBriefs: [String] = []
+        var allTags: Set<String> = []
+        var firstTitle = ""
+        var totalProcessingTime = 0
+
+        for (index, chunk) in chunks.enumerated() {
+            logger.info("[LLM] チャンク \(index + 1)/\(chunks.count) 処理中（\(chunk.count)文字）")
+
+            let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(
+                text: chunk,
+                customDictionary: request.customDictionary,
+                style: request.writingStyle
+            )
+
+            let startTime = CFAbsoluteTimeGetCurrent()
+            let chunkResponse = try await internalProcess(request, prompt: prompt)
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            let chunkTime = Int(elapsed * 1000)
+
+            logger.info("[LLM] チャンク \(index + 1)/\(chunks.count) 完了: \(chunkTime)ms")
+
+            if index == 0, let title = chunkResponse.summary?.title {
+                firstTitle = title
+            }
+            if let brief = chunkResponse.summary?.brief {
+                allBriefs.append(brief)
+            }
+            for tag in chunkResponse.tags {
+                allTags.insert(tag.label)
+            }
+            totalProcessingTime += chunkResponse.processingTimeMs
+        }
+
+        // 結果を結合
+        let combinedBrief = allBriefs.joined(separator: "\n\n")
+        let combinedTags = Array(allTags).prefix(3).map {
+            LLMTagResult(label: $0, confidence: 0.7)
+        }
+
+        var response = LLMResponse(
+            summary: LLMSummaryResult(
+                title: firstTitle,
+                brief: combinedBrief,
+                keyPoints: []
+            ),
+            tags: Array(combinedTags),
+            processingTimeMs: totalProcessingTime,
+            provider: currentProviderType
+        )
+
+        // カスタム辞書による後処理
+        if !request.customDictionary.isEmpty {
+            response = applyDictionaryPostProcessing(response, dictionary: request.customDictionary)
+        }
+
+        return response
+    }
+
+    /// テキストを自然な区切り（句点）で分割する
+    private func splitText(_ text: String, maxLength: Int) -> [String] {
+        guard text.count > maxLength else { return [text] }
+
+        var chunks: [String] = []
+        var remaining = text
+
+        while remaining.count > maxLength {
+            // maxLength 以内で最後の句点を探す
+            let searchRange = remaining.prefix(maxLength)
+            if let lastPeriod = searchRange.lastIndex(of: "。") {
+                let chunk = String(remaining[remaining.startIndex...lastPeriod])
+                chunks.append(chunk)
+                remaining = String(remaining[remaining.index(after: lastPeriod)...])
+            } else {
+                // 句点がない場合は maxLength で強制分割
+                let chunk = String(remaining.prefix(maxLength))
+                chunks.append(chunk)
+                remaining = String(remaining.dropFirst(maxLength))
+            }
+        }
+
+        if !remaining.isEmpty {
+            chunks.append(remaining)
+        }
+
+        return chunks
     }
 
     /// プロバイダの利用可否チェック
