@@ -17,6 +17,8 @@ public struct SettingsReducer {
         public var emotionAnalysisEnabled: Bool = false
         /// AI整理の文体
         public var writingStyle: WritingStyle = WritingStyle.current
+        /// AI整理の処理方法（おまかせ / デバイス内のみ）
+        public var aiProcessingMode: AIProcessingMode = AIProcessingMode.current
         /// カスタム辞書のサブ State
         public var customDictionary = CustomDictionaryReducer.State()
         /// バックアップのサブ State
@@ -36,6 +38,7 @@ public struct SettingsReducer {
         public init(
             emotionAnalysisEnabled: Bool? = nil,
             writingStyle: WritingStyle? = nil,
+            aiProcessingMode: AIProcessingMode? = nil,
             customDictionary: CustomDictionaryReducer.State = .init(),
             backup: BackupReducer.State = .init(),
             showResetQuotaConfirmation: Bool = false,
@@ -47,6 +50,7 @@ public struct SettingsReducer {
             self.emotionAnalysisEnabled = emotionAnalysisEnabled
                 ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
             self.writingStyle = writingStyle ?? WritingStyle.current
+            self.aiProcessingMode = aiProcessingMode ?? AIProcessingMode.current
             self.customDictionary = customDictionary
             self.backup = backup
             self.showResetQuotaConfirmation = showResetQuotaConfirmation
@@ -63,6 +67,8 @@ public struct SettingsReducer {
         case planManagementTapped
         /// 感情分析オプトインのトグル
         case emotionAnalysisToggled(Bool)
+        /// AI整理の処理方法が変更された
+        case aiProcessingModeChanged(AIProcessingMode)
         /// AI整理の文体が変更された
         case writingStyleChanged(WritingStyle)
         /// AI整理の文体変更確定（Pro検証後）
@@ -111,6 +117,11 @@ public struct SettingsReducer {
                 state.emotionAnalysisEnabled = isEnabled
                 // UserDefaults に永続化（アプリ再起動後も設定が保持される）
                 UserDefaults.standard.set(isEnabled, forKey: State.emotionAnalysisKey)
+                return .none
+
+            case let .aiProcessingModeChanged(mode):
+                state.aiProcessingMode = mode
+                AIProcessingMode.setCurrent(mode)
                 return .none
 
             case let .writingStyleChanged(style):

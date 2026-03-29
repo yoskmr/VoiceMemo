@@ -33,6 +33,23 @@ public struct SettingsView: View {
                     }
                     .tint(.vmPrimary)
 
+                    // 処理方法（プライバシー）
+                    Picker(selection: Binding(
+                        get: { store.aiProcessingMode },
+                        set: { store.send(.aiProcessingModeChanged($0)) }
+                    )) {
+                        ForEach(AIProcessingMode.allCases, id: \.self) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("処理方法")
+                            Text(store.aiProcessingMode.description)
+                                .font(.vmCaption1)
+                                .foregroundColor(.vmTextTertiary)
+                        }
+                    }
+
                     // 文体選択（メニュー形式でコンパクトに）
                     Picker(selection: Binding(
                         get: { store.writingStyle },
