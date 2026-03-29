@@ -117,6 +117,8 @@ public struct RecordingFeature {
         case dismissCompletion
         /// 親（AppReducer）にメモ詳細への遷移を通知
         case navigateToMemoDetail(UUID)
+        /// 完了後の自動遷移（1.5秒後にきおく詳細へ）
+        case autoNavigateToMemo
 
         // 完了画面段階アクション
         case completionStageAdvanced(RecordingFeature.State.CompletionStage)
@@ -266,32 +268,35 @@ public struct RecordingFeature {
                 return .none
 
             case let .recordingSaved(memo):
-                // 完了画面を表示（リセットはviewMemoTapped/dismissCompletionで行う）
+                // 完了画面を表示（リセットはviewMemoTapped/autoNavigateToMemoで行う）
                 state.recordingStatus = .saved(memo)
                 state.completionStage = .initial
-                return .run { send in
-                    try await clock.sleep(for: .milliseconds(100))
-                    await send(.completionStageAdvanced(.checkmark))
-                    try await clock.sleep(for: .milliseconds(200))
-                    await send(.completionStageAdvanced(.preview))
-                    try await clock.sleep(for: .milliseconds(200))
-                    await send(.completionStageAdvanced(.cta))
-                }
-                .cancellable(id: CancelID.completionStage)
+                return .merge(
+                    // 段階的にトースト表示を進める
+                    .run { send in
+                        try await clock.sleep(for: .milliseconds(100))
+                        await send(.completionStageAdvanced(.checkmark))
+                        try await clock.sleep(for: .milliseconds(200))
+                        await send(.completionStageAdvanced(.preview))
+                        try await clock.sleep(for: .milliseconds(200))
+                        await send(.completionStageAdvanced(.cta))
+                    }
+                    .cancellable(id: CancelID.completionStage),
+                    // 1.5秒後に自動的にきおく詳細へ遷移
+                    .run { send in
+                        try await clock.sleep(for: .milliseconds(1500))
+                        await send(.autoNavigateToMemo)
+                    }
+                    .cancellable(id: CancelID.completionAutoDismiss)
+                )
 
             case let .completionStageAdvanced(stage):
                 state.completionStage = stage
-                // CTA表示後、3秒で自動的にトーストを閉じる
-                if stage == .cta {
-                    return .run { send in
-                        try await clock.sleep(for: .seconds(3))
-                        await send(.dismissCompletion)
-                    }
-                    .cancellable(id: CancelID.completionAutoDismiss)
-                }
+                // 自動遷移は .recordingSaved で開始済みのため、ここでは何もしない
                 return .none
 
             case .viewMemoTapped:
+                // 手動タップ: 自動遷移タイマーをキャンセルして即座に遷移
                 guard case let .saved(memo) = state.recordingStatus else {
                     return .none
                 }
@@ -308,6 +313,25 @@ public struct RecordingFeature {
                 return .merge(
                     .cancel(id: CancelID.completionStage),
                     .cancel(id: CancelID.completionAutoDismiss),
+                    .send(.navigateToMemoDetail(memoID))
+                )
+
+            case .autoNavigateToMemo:
+                // 1.5秒後の自動遷移: viewMemoTapped と同じ処理
+                guard case let .saved(memo) = state.recordingStatus else {
+                    return .none
+                }
+                let memoID = memo.id
+                state.recordingStatus = .idle
+                state.partialTranscription = ""
+                state.confirmedTranscription = ""
+                state.elapsedTime = 0
+                state.audioLevel = 0
+                state.wasAutoStopped = false
+                state.completionStage = .initial
+                state.aiProcessingCompleted = false
+                return .merge(
+                    .cancel(id: CancelID.completionStage),
                     .send(.navigateToMemoDetail(memoID))
                 )
 
