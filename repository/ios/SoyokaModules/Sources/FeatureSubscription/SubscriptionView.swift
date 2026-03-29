@@ -98,12 +98,12 @@ public struct SubscriptionView: View {
 
             Divider().foregroundColor(.vmDivider)
 
-            // Free でも使える機能
-            comparisonRow("つぶやきの録音", free: true, pro: true)
-            comparisonRow("文字起こし", free: true, pro: true)
-            comparisonRow("全文検索", free: true, pro: true)
-            comparisonRow("AI整理（ローカル）", free: true, pro: true)
-            comparisonRow("バックアップ", free: true, pro: true)
+            // いつでも使える
+            comparisonRow("声を残す", free: true, pro: true)
+            comparisonRow("ことばに変える", free: true, pro: true)
+            comparisonRow("きおくを探す", free: true, pro: true)
+            comparisonRow("やわらかく整える", free: true, pro: true)
+            comparisonRow("きおくを守る", free: true, pro: true)
 
             // Free/Pro 境界の区切り線
             Divider()
@@ -111,11 +111,11 @@ public struct SubscriptionView: View {
                 .background(Color.vmDivider)
                 .padding(.horizontal, VMDesignTokens.Spacing.lg)
 
-            // Pro で広がる機能
-            comparisonRow("AI整理（クラウド高精度）", free: false, pro: true)
-            comparisonRow("感情分析", free: false, pro: true)
-            comparisonRow("文体（ふりかえり・エッセイ）", free: false, pro: true)
-            comparisonRow("週次レポート", free: false, pro: true)
+            // Proでもっと
+            comparisonRow("もっと丁寧に整える", free: false, pro: true)
+            comparisonRow("こころの動きを知る", free: false, pro: true)
+            comparisonRow("自分だけの文体で", free: false, pro: true)
+            comparisonRow("一週間をふりかえる", free: false, pro: true)
         }
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
