@@ -7,7 +7,6 @@ import SwiftUI
 
 /// 設定画面
 /// 設計書 04-ui-design-system.md セクション5.2 準拠
-/// Phase 1: カスタム辞書のみ遷移可能、他は「準備中」インライン表示
 public struct SettingsView: View {
     @Bindable var store: StoreOf<SettingsReducer>
 
@@ -118,20 +117,6 @@ public struct SettingsView: View {
                     Text("データ管理")
                 }
 
-                // MARK: - プライバシーセクション
-                Section {
-                    comingSoonButton(
-                        title: "プライバシー設定",
-                        icon: "hand.raised.fill"
-                    )
-                    comingSoonButton(
-                        title: "アプリロック",
-                        icon: "lock.fill"
-                    )
-                } header: {
-                    Text("プライバシー")
-                }
-
                 // MARK: - プランセクション
                 Section {
                     Button {
@@ -146,22 +131,12 @@ public struct SettingsView: View {
                                 .foregroundColor(.vmTextTertiary)
                         }
                     }
-                    comingSoonButton(
-                        title: "テーマ設定",
-                        icon: "paintbrush.fill",
-                        badge: "Pro"
-                    )
                 } header: {
                     Text("プラン")
                 }
 
                 // MARK: - その他セクション
                 Section {
-                    comingSoonButton(
-                        title: "利用統計",
-                        icon: "chart.bar.fill"
-                    )
-
                     // プライバシーポリシー
                     Link(destination: URL(string: "https://soyoka.app/privacy")!) {
                         HStack {
@@ -194,17 +169,6 @@ public struct SettingsView: View {
                     }
                 } header: {
                     Text("その他")
-                }
-
-                // MARK: - フッター
-                Section {
-                    HStack {
-                        Spacer()
-                        Text("Soyoka v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
-                            .font(.vmCaption1)
-                            .foregroundColor(.vmTextTertiary)
-                        Spacer()
-                    }
                 }
 
                 // MARK: - デバッグセクション
@@ -269,7 +233,7 @@ public struct SettingsView: View {
 
     // MARK: - Private Helpers
 
-    /// 「Pro」バッジ（統一スタイル）
+    /// Pro バッジ（統一スタイル）
     private var proBadge: some View {
         Text("Pro")
             .font(.vmCaption2)
@@ -281,31 +245,4 @@ public struct SettingsView: View {
             .clipShape(Capsule())
     }
 
-    /// 「準備中」機能の行（非活性・インライン表示）
-    /// アラートを出さず、行自体で準備中であることを示す
-    @ViewBuilder
-    private func comingSoonButton(
-        title: String,
-        icon: String,
-        badge: String? = nil
-    ) -> some View {
-        HStack {
-            Label(title, systemImage: icon)
-                .foregroundColor(.vmTextTertiary)
-            Spacer()
-            if let badge {
-                Text(badge)
-                    .font(.vmCaption2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.vmAccent)
-                    .clipShape(Capsule())
-            }
-            Text("準備中")
-                .font(.vmCaption1)
-                .foregroundColor(.vmTextTertiary)
-        }
-    }
 }
