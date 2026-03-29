@@ -19,6 +19,7 @@ public struct SubscriptionView: View {
                 featureComparisonSection
                 planSelectionSection
                 restoreSection
+                legalLinksSection
             }
             .padding(.horizontal, VMDesignTokens.Spacing.lg)
             .padding(.vertical, VMDesignTokens.Spacing.xxl)
@@ -244,6 +245,19 @@ public struct SubscriptionView: View {
             .disabled(store.isLoading)
             .padding(.top, VMDesignTokens.Spacing.lg)
         }
+    }
+
+    // MARK: - Legal Links
+
+    private var legalLinksSection: some View {
+        HStack(spacing: VMDesignTokens.Spacing.xs) {
+            Link("プライバシーポリシー", destination: URL(string: "https://soyoka.app/privacy")!)
+            Text("｜")
+                .foregroundColor(.vmTextTertiary)
+            Link("利用規約", destination: URL(string: "https://soyoka.app/terms")!)
+        }
+        .font(.vmCaption2)
+        .foregroundColor(.vmTextTertiary)
     }
 
     // MARK: - Loading Overlay
