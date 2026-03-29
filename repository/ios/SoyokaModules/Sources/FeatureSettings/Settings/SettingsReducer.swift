@@ -15,6 +15,8 @@ public struct SettingsReducer {
     public struct State: Equatable {
         /// 感情分析オプトインフラグ
         public var emotionAnalysisEnabled: Bool = false
+        /// AI整理の文体
+        public var writingStyle: WritingStyle = WritingStyle.current
         /// カスタム辞書のサブ State
         public var customDictionary = CustomDictionaryReducer.State()
         /// バックアップのサブ State
@@ -33,6 +35,7 @@ public struct SettingsReducer {
 
         public init(
             emotionAnalysisEnabled: Bool? = nil,
+            writingStyle: WritingStyle? = nil,
             customDictionary: CustomDictionaryReducer.State = .init(),
             backup: BackupReducer.State = .init(),
             showResetQuotaConfirmation: Bool = false,
@@ -43,6 +46,7 @@ public struct SettingsReducer {
             // UserDefaults から読み込み（明示的な値が渡された場合はそちらを優先）
             self.emotionAnalysisEnabled = emotionAnalysisEnabled
                 ?? UserDefaults.standard.bool(forKey: Self.emotionAnalysisKey)
+            self.writingStyle = writingStyle ?? WritingStyle.current
             self.customDictionary = customDictionary
             self.backup = backup
             self.showResetQuotaConfirmation = showResetQuotaConfirmation
@@ -59,6 +63,8 @@ public struct SettingsReducer {
         case planManagementTapped
         /// 感情分析オプトインのトグル
         case emotionAnalysisToggled(Bool)
+        /// AI整理の文体が変更された
+        case writingStyleChanged(WritingStyle)
         /// カスタム辞書のサブ Action
         case customDictionary(CustomDictionaryReducer.Action)
         /// バックアップのサブ Action
@@ -102,6 +108,14 @@ public struct SettingsReducer {
                 state.emotionAnalysisEnabled = isEnabled
                 // UserDefaults に永続化（アプリ再起動後も設定が保持される）
                 UserDefaults.standard.set(isEnabled, forKey: State.emotionAnalysisKey)
+                return .none
+
+            case let .writingStyleChanged(style):
+                // Pro限定チェック
+                // TODO: SubscriptionClient で Pro 判定。非 Pro なら Pro 案内
+                // MVP では全て許可（デバッグ用）
+                state.writingStyle = style
+                WritingStyle.setCurrent(style)
                 return .none
 
             case .customDictionary:

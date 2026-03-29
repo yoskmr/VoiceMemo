@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Domain
 import FeatureSubscription
 import SharedUI
 import SharedUtil
@@ -31,6 +32,33 @@ public struct SettingsView: View {
                         }
                     }
                     .tint(.vmPrimary)
+
+                    // 文体選択
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("わたしの文体")
+                            .font(.vmHeadline)
+                        Text("AI整理の雰囲気を選べます")
+                            .font(.vmCaption1)
+                            .foregroundColor(.vmTextTertiary)
+                    }
+
+                    Picker("文体", selection: Binding(
+                        get: { store.writingStyle },
+                        set: { store.send(.writingStyleChanged($0)) }
+                    )) {
+                        ForEach(WritingStyle.allCases, id: \.self) { style in
+                            HStack {
+                                Text(style.displayName)
+                                if style.requiresPro {
+                                    Text("Pro")
+                                        .font(.vmCaption2)
+                                        .foregroundColor(.vmAccent)
+                                }
+                            }
+                            .tag(style)
+                        }
+                    }
+                    .pickerStyle(.inline)
                 } header: {
                     Text("AI処理")
                 }
