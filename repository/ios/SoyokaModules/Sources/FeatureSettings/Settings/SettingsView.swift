@@ -51,7 +51,7 @@ public struct SettingsView: View {
                     Text("一般")
                 }
 
-                // MARK: - きおくのバックアップセクション
+                // MARK: - データのバックアップセクション
                 Section {
                     NavigationLink {
                         BackupView(
@@ -61,7 +61,7 @@ public struct SettingsView: View {
                             )
                         )
                     } label: {
-                        Label("きおくのバックアップ", systemImage: "externaldrive.fill")
+                        Label("データのバックアップ", systemImage: "externaldrive.fill")
                     }
                 } header: {
                     Text("データ管理")
