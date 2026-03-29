@@ -44,7 +44,7 @@ extension BackendProxyClient: DependencyKey {
 // MARK: ForceUpdateClient → Live実装（バージョンチェック）
 
 extension ForceUpdateClient: DependencyKey {
-    public static let liveValue = ForceUpdateClient.live()
+    public static let liveValue = ForceUpdateClient.live(baseURL: backendProxyBaseURL)
 }
 
 // MARK: LLMProviderClient → HybridLLMRouter Live実装（オンデバイス優先 → クラウドフォールバック）

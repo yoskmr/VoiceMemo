@@ -67,14 +67,12 @@ extension ForceUpdateClient {
 
 extension ForceUpdateClient {
     /// 本番用クライアント
-    public static func live() -> ForceUpdateClient {
+    public static func live(baseURL: URL) -> ForceUpdateClient {
         let session = URLSession.shared
 
         return ForceUpdateClient(
-            check: { baseURL in
-                guard let url = URL(string: "\(baseURL)/api/v1/version/check") else {
-                    throw ForceUpdateError.invalidURL
-                }
+            check: { _ in
+                let url = baseURL.appendingPathComponent("api/v1/version/check")
 
                 var request = URLRequest(url: url)
                 request.httpMethod = "GET"
@@ -97,8 +95,11 @@ extension ForceUpdateClient {
 
                 let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
 
-                if isVersionLessThan(currentVersion, minimum: versionCheck.minimumVersion),
-                   let storeURL = URL(string: versionCheck.storeUrl) {
+                if isVersionLessThan(currentVersion, minimum: versionCheck.minimumVersion) {
+                    guard let storeURL = URL(string: versionCheck.storeUrl), !versionCheck.storeUrl.isEmpty else {
+                        logger.error("store_url が無効: '\(versionCheck.storeUrl)' — 強制アップデートをスキップ")
+                        return .upToDate
+                    }
                     logger.info("強制アップデート: current=\(currentVersion) < minimum=\(versionCheck.minimumVersion)")
                     return .updateRequired(storeURL: storeURL)
                 }
