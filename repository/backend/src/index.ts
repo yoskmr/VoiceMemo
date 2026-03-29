@@ -7,6 +7,7 @@ import { aiRoutes } from "./routes/ai.js";
 import { usageRoutes } from "./routes/usage.js";
 import { subscriptionRoutes } from "./routes/subscription.js";
 import { promptRoutes } from "./routes/prompts.js";
+import { versionRoutes } from "./routes/version.js";
 import { requestIdMiddleware } from "./middleware/requestId.js";
 import { createRateLimitMiddleware } from "./middleware/rateLimit.js";
 
@@ -45,6 +46,11 @@ app.route("/api/v1/usage", usageRoutes);
 
 app.use("/api/v1/subscription/verify", createRateLimitMiddleware({ maxRequests: 60 }));
 app.route("/api/v1/subscription", subscriptionRoutes);
+
+// --- Version Check Routes (認証不要、レート制限あり: 120/min) ---
+
+app.use("/api/v1/version/*", createRateLimitMiddleware({ maxRequests: 120 }));
+app.route("/api/v1/version", versionRoutes);
 
 // --- Prompt Routes (認証不要、レート制限なし: 公開情報) ---
 
