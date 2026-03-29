@@ -101,8 +101,8 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
             try await loadModel()
         }
 
-        // 3. プロンプト構築
-        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: request.text, customDictionary: request.customDictionary)
+        // 3. プロンプト構築（文体指示を含む）
+        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: request.text, customDictionary: request.customDictionary, style: request.writingStyle)
         logger.debug("プロンプト構築完了: \(prompt.prefix(100))...")
         #if DEBUG
         if !request.customDictionary.isEmpty {

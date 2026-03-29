@@ -201,10 +201,14 @@ public actor AIProcessingQueue {
                 tasks.insert(.sentimentAnalysis)
             }
 
+            // ユーザーが選択した文体を取得
+            let writingStyle = WritingStyle.current
+
             let request = LLMRequest(
                 text: transcriptionText,
                 tasks: tasks,
-                allowCloud: isProUser
+                allowCloud: isProUser,
+                writingStyle: writingStyle
             )
 
             // ステータス通知: processing (50%)

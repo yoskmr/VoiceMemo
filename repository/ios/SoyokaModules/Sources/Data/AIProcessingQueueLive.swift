@@ -250,10 +250,14 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             let postProcessor = DictionaryPostProcessor()
             let correctedText = postProcessor.apply(text: transcriptionText, entries: dictionaryPairs)
 
+            // ユーザーが選択した文体を取得
+            let writingStyle = WritingStyle.current
+
             let request = LLMRequest(
                 text: correctedText,
                 tasks: [.summarize, .tagging],
-                customDictionary: []
+                customDictionary: [],
+                writingStyle: writingStyle
             )
 
             // ステータス通知: processing (50%)
