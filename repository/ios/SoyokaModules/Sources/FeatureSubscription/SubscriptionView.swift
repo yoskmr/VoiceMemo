@@ -98,15 +98,24 @@ public struct SubscriptionView: View {
 
             Divider().foregroundColor(.vmDivider)
 
-            // 機能行
+            // Free でも使える機能
             comparisonRow("つぶやきの録音", free: true, pro: true)
             comparisonRow("文字起こし", free: true, pro: true)
             comparisonRow("全文検索", free: true, pro: true)
             comparisonRow("AI整理（ローカル）", free: true, pro: true)
+            comparisonRow("バックアップ", free: true, pro: true)
+
+            // Free/Pro 境界の区切り線
+            Divider()
+                .frame(height: 1)
+                .background(Color.vmDivider)
+                .padding(.horizontal, VMDesignTokens.Spacing.lg)
+
+            // Pro で広がる機能
             comparisonRow("AI整理（クラウド高精度）", free: false, pro: true)
             comparisonRow("感情分析", free: false, pro: true)
+            comparisonRow("文体（ふりかえり・エッセイ）", free: false, pro: true)
             comparisonRow("週次レポート", free: false, pro: true)
-            comparisonRow("バックアップ", free: false, pro: true)
         }
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
