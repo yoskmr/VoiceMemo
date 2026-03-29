@@ -583,8 +583,11 @@ public struct MemoDetailReducer {
             // MARK: - 辞書レコメンド
 
             case .checkDictionaryRecommendations:
-                let recommendations = RecommendationStore.fetchRecommendations()
-                state.dictionaryRecommendation = recommendations.first
+                // 辞書レコメンドの検出精度が不十分なため一時無効化
+                // TODO: 単語レベルの形態素解析ベース diff に改善してから再有効化
+                // let recommendations = RecommendationStore.fetchRecommendations()
+                // state.dictionaryRecommendation = recommendations.first
+                state.dictionaryRecommendation = nil
                 return .none
 
             case let .dictionaryRecommendationLoaded(recommendation):
