@@ -85,6 +85,10 @@ public final class BackupExporter: @unchecked Sendable {
         let tagDescriptor = FetchDescriptor<TagModel>()
         let tagModels = try context.fetch(tagDescriptor)
 
+        // 全カスタム辞書エントリ取得
+        let dictDescriptor = FetchDescriptor<CustomDictionaryEntryModel>()
+        let dictModels = try context.fetch(dictDescriptor)
+
         // メモ → BackupMemo 変換
         let backupMemos = memoModels.map { model -> BackupMemo in
             // audioFilePath から audioFileName を抽出（"Audio/uuid.m4a" → "uuid.m4a"）
@@ -160,9 +164,19 @@ public final class BackupExporter: @unchecked Sendable {
             )
         }
 
+        // カスタム辞書 → BackupDictionaryEntry 変換
+        let backupDictionary = dictModels.map { model -> BackupDictionaryEntry in
+            BackupDictionaryEntry(
+                id: model.id,
+                reading: model.reading,
+                display: model.display
+            )
+        }
+
         return BackupPayload(
             memos: backupMemos,
-            tags: backupTags
+            tags: backupTags,
+            customDictionary: backupDictionary
         )
     }
 }

@@ -9,6 +9,7 @@ public struct BackupPayload: Codable, Sendable, Equatable {
     public let sourceBundleId: String
     public let memos: [BackupMemo]
     public let tags: [BackupTag]
+    public let customDictionary: [BackupDictionaryEntry]
 
     public init(
         version: Int = 1,
@@ -16,7 +17,8 @@ public struct BackupPayload: Codable, Sendable, Equatable {
         sourceApp: String = "Soyoka",
         sourceBundleId: String = "app.soyoka",
         memos: [BackupMemo],
-        tags: [BackupTag]
+        tags: [BackupTag],
+        customDictionary: [BackupDictionaryEntry] = []
     ) {
         self.version = version
         self.exportedAt = exportedAt
@@ -24,6 +26,19 @@ public struct BackupPayload: Codable, Sendable, Equatable {
         self.sourceBundleId = sourceBundleId
         self.memos = memos
         self.tags = tags
+        self.customDictionary = customDictionary
+    }
+
+    /// v1 バックアップとの後方互換: customDictionary が存在しない場合は空配列
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        exportedAt = try container.decode(Date.self, forKey: .exportedAt)
+        sourceApp = try container.decode(String.self, forKey: .sourceApp)
+        sourceBundleId = try container.decode(String.self, forKey: .sourceBundleId)
+        memos = try container.decode([BackupMemo].self, forKey: .memos)
+        tags = try container.decode([BackupTag].self, forKey: .tags)
+        customDictionary = try container.decodeIfPresent([BackupDictionaryEntry].self, forKey: .customDictionary) ?? []
     }
 
     /// 現在サポートするバックアップバージョン
@@ -196,5 +211,23 @@ public struct BackupTag: Codable, Sendable, Equatable {
         self.colorHex = colorHex
         self.source = source
         self.createdAt = createdAt
+    }
+}
+
+// MARK: - BackupDictionaryEntry
+
+/// カスタム辞書エントリのバックアップ表現
+/// v1 バックアップとの後方互換のため、BackupPayload では decodeIfPresent で扱う
+public struct BackupDictionaryEntry: Codable, Sendable, Equatable {
+    public let id: UUID
+    /// 読み（音声認識結果 - ひらがな/カタカナ）
+    public let reading: String
+    /// 表示（正しい表記 - 漢字/英語等）
+    public let display: String
+
+    public init(id: UUID, reading: String, display: String) {
+        self.id = id
+        self.reading = reading
+        self.display = display
     }
 }

@@ -215,12 +215,32 @@ public final class BackupImporter: @unchecked Sendable {
             importedCount += 1
         }
 
+        // カスタム辞書のインポート（ID が一致するエントリはスキップ、既存優先）
+        var dictionaryImportedCount = 0
+        let existingDictDescriptor = FetchDescriptor<CustomDictionaryEntryModel>()
+        let existingDictEntries = try context.fetch(existingDictDescriptor)
+        let existingDictIDs = Set(existingDictEntries.map(\.id))
+
+        for entry in payload.customDictionary {
+            if existingDictIDs.contains(entry.id) {
+                continue
+            }
+            let model = CustomDictionaryEntryModel(
+                id: entry.id,
+                reading: entry.reading,
+                display: entry.display
+            )
+            context.insert(model)
+            dictionaryImportedCount += 1
+        }
+
         try context.save()
 
         return BackupResult(
             importedCount: importedCount,
             skippedCount: skippedCount,
-            audioMissingCount: audioMissingCount
+            audioMissingCount: audioMissingCount,
+            dictionaryImportedCount: dictionaryImportedCount
         )
     }
 
