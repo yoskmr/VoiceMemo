@@ -92,6 +92,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUtil",
+                .product(name: "Dependencies", package: "swift-dependencies"),
             ],
             plugins: []
         ),
