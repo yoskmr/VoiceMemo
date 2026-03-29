@@ -99,11 +99,11 @@ public struct SubscriptionView: View {
             Divider().foregroundColor(.vmDivider)
 
             // いつでも使える
-            comparisonRow("声を残す", free: true, pro: true)
-            comparisonRow("ことばに変える", free: true, pro: true)
-            comparisonRow("きおくを探す", free: true, pro: true)
-            comparisonRow("やわらかく整える", free: true, pro: true)
-            comparisonRow("きおくを守る", free: true, pro: true)
+            comparisonRow("つぶやきを残す", free: true, pro: true)
+            comparisonRow("文字起こし", free: true, pro: true)
+            comparisonRow("きおくを検索", free: true, pro: true)
+            comparisonRow("AI整理", free: true, pro: true)
+            comparisonRow("バックアップ", free: true, pro: true)
 
             // Free/Pro 境界の区切り線
             Divider()
@@ -112,9 +112,9 @@ public struct SubscriptionView: View {
                 .padding(.horizontal, VMDesignTokens.Spacing.lg)
 
             // Proでもっと
-            comparisonRow("もっと丁寧に整える", free: false, pro: true)
-            comparisonRow("こころの動きを知る", free: false, pro: true)
-            comparisonRow("自分だけの文体で", free: false, pro: true)
+            comparisonRow("AI整理（高精度）", free: false, pro: true)
+            comparisonRow("こころの分析", free: false, pro: true)
+            comparisonRow("文体えらび", free: false, pro: true)
             comparisonRow("一週間をふりかえる", free: false, pro: true)
         }
         .background(Color.vmSurface)
