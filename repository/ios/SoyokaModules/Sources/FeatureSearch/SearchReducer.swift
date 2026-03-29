@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Domain
 import Foundation
+import SharedUtil
 
 /// 検索画面のTCA Reducer
 /// TASK-0016: 検索UI画面
@@ -130,6 +131,7 @@ public struct SearchReducer {
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
     @Dependency(\.calendar) var calendar
+    @Dependency(\.analyticsClient) var analyticsClient
 
     // MARK: - Cancellation IDs
 
@@ -183,6 +185,7 @@ public struct SearchReducer {
                 }
 
                 state.isSearching = true
+                analyticsClient.send("search.performed")
                 return .run { [fts5IndexManager, voiceMemoRepository] send in
                     do {
                         #if DEBUG

@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Domain
 import Foundation
+import SharedUtil
 
 /// メモテキスト編集のTCA Reducer
 /// TASK-0013: 文字起こしテキスト編集・自動保存（デバウンス2秒）
@@ -83,6 +84,7 @@ public struct MemoEditReducer {
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
     @Dependency(\.fts5IndexManager) var fts5IndexManager
     @Dependency(\.continuousClock) var clock
+    @Dependency(\.analyticsClient) var analyticsClient
 
     // MARK: - Cancellation IDs
 
@@ -144,6 +146,7 @@ public struct MemoEditReducer {
                 state.originalTranscriptionText = state.transcriptionText
                 state.hasUnsavedChanges = false
                 state.saveSuccessMessage = "書きとめました"
+                analyticsClient.send("memo.edited")
                 return .run { send in
                     try await clock.sleep(for: .seconds(2))
                     await send(.dismissSaveSuccess)

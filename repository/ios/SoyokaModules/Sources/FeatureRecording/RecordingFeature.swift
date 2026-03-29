@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Domain
 import Foundation
+import SharedUtil
 
 /// 録音画面のTCA Feature
 /// 設計書01-system-architecture.md セクション2.2 準拠
@@ -140,6 +141,7 @@ public struct RecordingFeature {
     @Dependency(\.continuousClock) var clock
     @Dependency(\.customDictionaryClient) var customDictionaryClient
     @Dependency(\.temporaryRecordingStore) var temporaryRecordingStore
+    @Dependency(\.analyticsClient) var analyticsClient
 
     // MARK: - Cancellation IDs
 
@@ -169,6 +171,7 @@ public struct RecordingFeature {
                 state.confirmedTranscription = ""
                 state.errorMessage = nil
                 state.wasAutoStopped = false
+                analyticsClient.send("recording.started")
                 return .merge(
                     startRecordingEffect(),
                     startTimerEffect()
@@ -271,6 +274,7 @@ public struct RecordingFeature {
                 // 完了画面を表示（リセットはviewMemoTapped/autoNavigateToMemoで行う）
                 state.recordingStatus = .saved(memo)
                 state.completionStage = .initial
+                analyticsClient.send("recording.completed")
                 return .merge(
                     // 段階的にトースト表示を進める
                     .run { send in

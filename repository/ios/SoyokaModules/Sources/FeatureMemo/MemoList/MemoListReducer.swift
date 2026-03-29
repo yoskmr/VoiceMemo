@@ -2,6 +2,7 @@ import ComposableArchitecture
 import Domain
 import Foundation
 import SharedUI
+import SharedUtil
 
 /// メモ一覧画面のTCA Reducer
 /// TASK-0011: メモ一覧画面
@@ -258,6 +259,7 @@ public struct MemoListReducer {
     @Dependency(\.calendar) var calendar
     @Dependency(\.aiQuota) var aiQuota
     @Dependency(\.subscriptionClient) var subscriptionClient
+    @Dependency(\.analyticsClient) var analyticsClient
 
     public init() {}
 
@@ -354,6 +356,7 @@ public struct MemoListReducer {
                 return .send(.deleteConfirmed(id: id))
 
             case let .deleteConfirmed(id):
+                analyticsClient.send("memo.deleted")
                 return .run { send in
                     let result = await Result {
                         try await voiceMemoRepository.delete(id)

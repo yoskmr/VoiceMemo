@@ -65,6 +65,19 @@ public struct AudioPlayerView: View {
             .padding(.vertical, VMDesignTokens.Spacing.sm)
             .background(Color.vmSurfaceVariant)
             .cornerRadius(VMDesignTokens.CornerRadius.small)
+
+            if let errorMessage = store.errorMessage {
+                Text(errorMessage)
+                    .font(.vmCaption1)
+                    .foregroundColor(.red)
+                    .padding(.horizontal, VMDesignTokens.Spacing.md)
+            }
+        }
+        .onAppear {
+            store.send(.onAppear(audioFilePath: store.audioFilePath, segments: store.timestampedSegments))
+        }
+        .onDisappear {
+            store.send(.onDisappear)
         }
     }
 

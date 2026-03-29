@@ -2,6 +2,7 @@ import ComposableArchitecture
 import Domain
 import FeatureSubscription
 import Foundation
+import SharedUtil
 
 /// 設定画面のTCA Reducer
 /// 設計書 04-ui-design-system.md セクション5.2 準拠
@@ -105,6 +106,7 @@ public struct SettingsReducer {
 
     @Dependency(\.aiQuota) var aiQuota
     @Dependency(\.subscriptionClient) var subscriptionClient
+    @Dependency(\.analyticsClient) var analyticsClient
 
     public init() {}
 
@@ -182,6 +184,7 @@ public struct SettingsReducer {
                 return .none
 
             case .onAppear:
+                analyticsClient.send("settings.opened")
                 return .run { [aiQuota] send in
                     let used = try await aiQuota.currentUsage()
                     let limit = aiQuota.monthlyLimit()

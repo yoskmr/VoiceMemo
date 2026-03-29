@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Domain
+import SharedUtil
 
 @Reducer
 public struct SubscriptionReducer {
@@ -35,6 +36,7 @@ public struct SubscriptionReducer {
     }
 
     @Dependency(\.subscriptionClient) var subscriptionClient
+    @Dependency(\.analyticsClient) var analyticsClient
 
     public init() {}
 
@@ -43,6 +45,7 @@ public struct SubscriptionReducer {
             switch action {
             case .onAppear:
                 state.isLoading = true
+                analyticsClient.send("subscription.viewOpened")
                 return .merge(
                     .run { send in
                         let result = await Result { try await subscriptionClient.fetchProducts() }
@@ -76,8 +79,11 @@ public struct SubscriptionReducer {
 
             case let .purchaseTapped(productID):
                 state.isPurchasing = true
-                return .run { send in
+                return .run { [analyticsClient] send in
                     let result = try await subscriptionClient.purchase(productID)
+                    if case .success = result {
+                        analyticsClient.sendWithParameters("subscription.purchased", ["plan": productID])
+                    }
                     await send(.purchaseCompleted(result))
                 }
 
