@@ -84,14 +84,18 @@ public struct BackupView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
-        // ShareSheet
-        .sheet(isPresented: Binding(
-            get: { store.showShareSheet },
-            set: { if !$0 { store.send(.shareSheetDismissed) } }
-        )) {
-            if let url = store.exportedFileURL {
-                ShareSheetView(activityItems: [url])
-            }
+        // ファイルエクスポート（ShareSheet の代わりに fileExporter を使用）
+        // UIActivityViewController は .soyokabackup カスタム UTType を認識できないため
+        .fileExporter(
+            isPresented: Binding(
+                get: { store.showShareSheet },
+                set: { if !$0 { store.send(.shareSheetDismissed) } }
+            ),
+            document: store.exportedFileURL.flatMap { BackupDocument(url: $0) },
+            contentType: .soyokaBackup,
+            defaultFilename: store.exportedFileURL?.lastPathComponent
+        ) { result in
+            store.send(.shareSheetDismissed)
         }
         // ファイルピッカー
         .fileImporter(
@@ -163,23 +167,29 @@ public struct BackupView: View {
     }
 }
 
-// MARK: - ShareSheetView (UIActivityViewController ラッパー)
+// MARK: - BackupDocument (fileExporter 用 FileDocument)
 
-#if os(iOS)
-struct ShareSheetView: UIViewControllerRepresentable {
-    let activityItems: [Any]
+import UniformTypeIdentifiers
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+struct BackupDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.soyokaBackup] }
+    static var writableContentTypes: [UTType] { [.soyokaBackup] }
+
+    let data: Data
+
+    init?(url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        self.data = data
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-#else
-struct ShareSheetView: View {
-    let activityItems: [Any]
-    var body: some View {
-        Text("ShareSheet は iOS のみ対応")
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.data = data
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
-#endif
