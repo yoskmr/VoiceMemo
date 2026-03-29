@@ -153,7 +153,7 @@ public struct PromptTemplate: Sendable, Equatable {
     /// - プロンプト言語: 日本語（入出力ともに日本語のため）
     /// - 出力形式: JSON（構造化データ抽出のため）
     public static let onDeviceSimple = PromptTemplate(
-        version: "3.1.0",
+        version: "3.2.0",
         userPromptTemplate: """
         以下は音声メモの文字起こしです。音声認識の特性上、言い間違い・繰り返し・フィラーが含まれています。これを読みやすい1つの文章に清書してください。
 
@@ -167,6 +167,8 @@ public struct PromptTemplate: Sendable, Equatable {
         - 堅い文体にしない。話していた時の自然なトーンを大切にする
         - タイトルは「音声メモの文字起こし」のような汎用的なものにせず、内容に基づいた具体的なものにする
         - 話題が複数ある場合は、話題ごとに「## 見出し」で区切る（Markdown形式）。話題が1つしかなければ見出しは不要
+        - 清書テキストは必ず最後まで書ききること。途中で終わらないこと
+        - 出力はJSON形式のみ。JSON以外のテキスト（説明文やプロンプトの繰り返し）を出力しないこと
         {custom_dictionary}
 
         メモ: {transcribed_text}

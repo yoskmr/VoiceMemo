@@ -101,8 +101,20 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
             try await loadModel()
         }
 
-        // 3. プロンプト構築（文体指示を含む）
-        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: request.text, customDictionary: request.customDictionary, style: request.writingStyle)
+        // 3. 入力テキストの長さ制御
+        // Apple Intelligence の出力トークン上限を考慮し、入力が長すぎる場合はトランケート
+        // 入力 + プロンプト指示 + JSON出力 がトークン上限に収まるよう、入力は1500文字以内に制限
+        let maxSafeInputLength = 1500
+        let inputText: String
+        if request.text.count > maxSafeInputLength {
+            inputText = String(request.text.prefix(maxSafeInputLength))
+            logger.info("[LLM] 入力テキストをトランケート: \(request.text.count)文字 → \(maxSafeInputLength)文字")
+        } else {
+            inputText = request.text
+        }
+
+        // 4. プロンプト構築（文体指示を含む）
+        let prompt = PromptTemplate.onDeviceSimple.buildUserPrompt(text: inputText, customDictionary: request.customDictionary, style: request.writingStyle)
         logger.debug("プロンプト構築完了: \(prompt.prefix(100))...")
         #if DEBUG
         if !request.customDictionary.isEmpty {
