@@ -43,6 +43,15 @@ public struct MemoDetailView: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(store.aiSummary?.summaryText ?? "AI整理待機中")
 
+                    // AIフィードバックボタン（AI整理結果がある場合のみ表示）
+                    if store.aiSummary != nil {
+                        AISummaryFeedbackRow(
+                            feedback: store.aiFeedback,
+                            onPositive: { store.send(.aiFeedbackTapped(isPositive: true)) },
+                            onNegative: { store.send(.aiFeedbackTapped(isPositive: false)) }
+                        )
+                    }
+
                     // AI処理中のみ小さなインジケーター表示
                     AIProcessingStatusView(
                         status: store.aiProcessingStatus,
@@ -530,6 +539,42 @@ struct AISummarySection: View {
         .padding(.vertical, VMDesignTokens.Spacing.lg)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("AI整理待機中")
+    }
+}
+
+/// AI整理結果のフィードバック行（控えめな表示）
+/// UX原則: 操作を止めない。タップしたらすぐ反映、確認ダイアログなし
+struct AISummaryFeedbackRow: View {
+    let feedback: AIFeedback?
+    let onPositive: () -> Void
+    let onNegative: () -> Void
+
+    var body: some View {
+        HStack(spacing: VMDesignTokens.Spacing.lg) {
+            Spacer()
+            if let feedback {
+                // フィードバック済み
+                Text(feedback.isPositive ? "\u{1F44D}" : "\u{1F44E}")
+                    .font(.system(size: 16))
+                    .foregroundColor(.vmTextTertiary)
+                    .accessibilityLabel(feedback.isPositive ? "高評価済み" : "低評価済み")
+            } else {
+                // 未フィードバック
+                Button(action: onPositive) {
+                    Text("\u{1F44D}")
+                        .font(.system(size: 16))
+                        .opacity(0.5)
+                }
+                .accessibilityLabel("AI整理を高評価する")
+                Button(action: onNegative) {
+                    Text("\u{1F44E}")
+                        .font(.system(size: 16))
+                        .opacity(0.5)
+                }
+                .accessibilityLabel("AI整理を低評価する")
+            }
+        }
+        .padding(.top, VMDesignTokens.Spacing.xs)
     }
 }
 

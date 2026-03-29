@@ -52,6 +52,9 @@ public struct MemoDetailReducer {
         // AIオンボーディング表示フラグ
         public var showAIOnboarding: Bool = false
 
+        // AIフィードバック（このメモへの既存フィードバック）
+        public var aiFeedback: AIFeedback?
+
         // 辞書レコメンド
         public var dictionaryRecommendation: DictionaryRecommendation?
         /// 編集差分検出用: メモロード時の文字起こしテキスト原文
@@ -84,6 +87,7 @@ public struct MemoDetailReducer {
             quotaLimit: Int = 15,
             isSummaryExpanded: Bool = false,
             showAIOnboarding: Bool = false,
+            aiFeedback: AIFeedback? = nil,
             dictionaryRecommendation: DictionaryRecommendation? = nil,
             originalTranscriptionText: String? = nil,
             isLoading: Bool = false,
@@ -111,6 +115,7 @@ public struct MemoDetailReducer {
             self.quotaLimit = quotaLimit
             self.isSummaryExpanded = isSummaryExpanded
             self.showAIOnboarding = showAIOnboarding
+            self.aiFeedback = aiFeedback
             self.dictionaryRecommendation = dictionaryRecommendation
             self.originalTranscriptionText = originalTranscriptionText
             self.isLoading = isLoading
@@ -192,6 +197,10 @@ public struct MemoDetailReducer {
         case aiOnboardingDismissed
         /// クォータ情報の受信（T09）
         case _quotaInfoLoaded(remaining: Int, limit: Int)
+
+        /// AIフィードバック
+        case aiFeedbackTapped(isPositive: Bool)
+        case aiFeedbackSaved
 
         /// 辞書レコメンド
         case checkDictionaryRecommendations
@@ -324,6 +333,9 @@ public struct MemoDetailReducer {
 
                 // 編集差分検出用に文字起こし原文を保存
                 state.originalTranscriptionText = detail.transcriptionText
+
+                // 既存のAIフィードバックを読み込み
+                state.aiFeedback = AIFeedbackStore.feedbackForMemo(detail.id)
 
                 // 音声プレイヤーの初期化（音声ファイルが存在する場合）
                 if !detail.audioFilePath.isEmpty {
@@ -550,6 +562,22 @@ public struct MemoDetailReducer {
             case let ._quotaInfoLoaded(remaining, limit):
                 state.remainingQuota = remaining
                 state.quotaLimit = limit
+                return .none
+
+            // MARK: - AIフィードバック
+
+            case let .aiFeedbackTapped(isPositive):
+                let feedback = AIFeedback(
+                    memoID: state.memoID,
+                    isPositive: isPositive,
+                    writingStyle: WritingStyle.current.rawValue,
+                    promptVersion: PromptTemplate.onDeviceSimple.version
+                )
+                state.aiFeedback = feedback
+                AIFeedbackStore.saveFeedback(feedback)
+                return .send(.aiFeedbackSaved)
+
+            case .aiFeedbackSaved:
                 return .none
 
             // MARK: - 辞書レコメンド
