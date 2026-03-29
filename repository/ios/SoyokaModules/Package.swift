@@ -49,7 +49,9 @@ let package = Package(
         // MARK: - Shared Modules
         .target(
             name: "SharedUtil",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Dependencies", package: "swift-dependencies"),
+            ],
             plugins: []
         ),
         .target(
@@ -111,6 +113,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUI",
+                "SharedUtil",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
@@ -120,6 +123,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUI",
+                "SharedUtil",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
@@ -138,6 +142,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUI",
+                "SharedUtil",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
@@ -158,6 +163,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUI",
+                "SharedUtil",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
