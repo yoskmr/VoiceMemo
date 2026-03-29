@@ -134,8 +134,8 @@ public final class HybridLLMRouter: @unchecked Sendable {
 
         // 4. 全て不可
         if !cloudAllowed {
-            logger.error("オンデバイスLLM不可かつクラウド使用不可（Freeプラン）")
-            throw LLMError.processingFailed("オンデバイスLLM不可かつクラウド使用不可（Freeプラン）")
+            logger.error("オンデバイスLLM不可かつクラウド使用不可（デバイス内のみモード）")
+            throw LLMError.processingFailed("デバイス内のみモードではこの機能は利用できません")
         }
         logger.error("全プロバイダ不可: オンデバイスLLM非対応かつネットワーク不達")
         throw LLMError.processingFailed("オンデバイスLLM非対応かつネットワーク不達")

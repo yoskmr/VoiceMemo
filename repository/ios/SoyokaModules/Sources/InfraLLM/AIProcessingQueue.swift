@@ -196,6 +196,7 @@ public actor AIProcessingQueue {
             // LLMRequest 構築
             // Free ユーザー: ローカルのみ（allowCloud = false）、感情分析なし
             // Pro ユーザー: ローカル + クラウド（allowCloud = true）
+            // ただし AIProcessingMode が .deviceOnly の場合はクラウド不可
             var tasks: Set<LLMTask> = [.summarize, .tagging]
             if sentimentEnabled {
                 tasks.insert(.sentimentAnalysis)
@@ -204,10 +205,14 @@ public actor AIProcessingQueue {
             // ユーザーが選択した文体を取得
             let writingStyle = WritingStyle.current
 
+            // ユーザーが選択した処理方法を取得
+            let processingMode = AIProcessingMode.current
+            let allowCloud = isProUser && processingMode == .auto
+
             let request = LLMRequest(
                 text: transcriptionText,
                 tasks: tasks,
-                allowCloud: isProUser,
+                allowCloud: allowCloud,
                 writingStyle: writingStyle
             )
 
