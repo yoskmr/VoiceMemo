@@ -35,9 +35,17 @@ public struct WeeklyReportView: View {
                         emotionSection(report)
                     }
 
+                    // 習慣
+                    habitSection(report)
+
                     // よく使ったタグ
                     if !report.topTags.isEmpty {
                         tagsSection(report)
+                    }
+
+                    // よく使った言葉
+                    if !report.topWords.isEmpty {
+                        wordsSection(report)
                     }
                 }
                 .padding(.horizontal, VMDesignTokens.Spacing.lg)
@@ -144,6 +152,59 @@ public struct WeeklyReportView: View {
                         .foregroundColor(.vmTextPrimary)
                     Spacer()
                     Text("\(tag.count)回")
+                        .font(.vmCaption1)
+                        .foregroundColor(.vmTextTertiary)
+                }
+            }
+        }
+        .padding(VMDesignTokens.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.medium)
+    }
+
+    private func habitSection(_ report: WeeklyReport) -> some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            Text("つづける力")
+                .font(.vmHeadline)
+                .foregroundColor(.vmTextPrimary)
+
+            HStack(spacing: VMDesignTokens.Spacing.xl) {
+                statView(value: "\(report.activeDays)/7", label: "記録した日")
+                if report.streakDays > 0 {
+                    statView(value: "\(report.streakDays)日", label: "連続記録")
+                }
+            }
+
+            if report.activeDays >= 5 {
+                Text("すばらしい！ほぼ毎日声を残していますね")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+            } else if report.activeDays >= 3 {
+                Text("いいペースです。無理せず続けていきましょう")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+            }
+        }
+        .padding(VMDesignTokens.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.medium)
+    }
+
+    private func wordsSection(_ report: WeeklyReport) -> some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            Text("よく使った言葉")
+                .font(.vmHeadline)
+                .foregroundColor(.vmTextPrimary)
+
+            ForEach(report.topWords, id: \.word) { word in
+                HStack {
+                    Text(word.word)
+                        .font(.vmCallout)
+                        .foregroundColor(.vmTextPrimary)
+                    Spacer()
+                    Text("\(word.count)回")
                         .font(.vmCaption1)
                         .foregroundColor(.vmTextTertiary)
                 }

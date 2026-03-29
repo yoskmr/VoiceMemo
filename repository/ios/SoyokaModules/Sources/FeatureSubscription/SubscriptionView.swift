@@ -111,10 +111,22 @@ public struct SubscriptionView: View {
                 .background(Color.vmDivider)
                 .padding(.horizontal, VMDesignTokens.Spacing.lg)
 
-            // Proでもっと
-            comparisonRow("こころの分析", free: false, pro: true)
-            comparisonRow("文体えらび", free: false, pro: true)
-            comparisonRow("一週間をふりかえる", free: false, pro: true)
+            // Proでもっと（説明付き）
+            proFeatureRow(
+                icon: "heart.text.square",
+                title: "こころの分析",
+                description: "メモから感情を読み取り、喜び・不安・期待など8つの気持ちで記録します"
+            )
+            proFeatureRow(
+                icon: "textformat.alt",
+                title: "文体えらび",
+                description: "「ふりかえり」「エッセイ」など、自分だけの文体でAI整理できます"
+            )
+            proFeatureRow(
+                icon: "calendar.badge.clock",
+                title: "一週間をふりかえる",
+                description: "きおくの数・こころの動き・よく使った言葉を、やさしくまとめてお届けします"
+            )
         }
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
@@ -323,6 +335,30 @@ public struct SubscriptionView: View {
                 .foregroundColor(isProCheck ? .vmPrimary : .vmTextTertiary)
                 .frame(width: 60)
                 .accessibilityLabel(isProCheck ? "対応" : "非対応")
+        }
+        .padding(.horizontal, VMDesignTokens.Spacing.lg)
+        .padding(.vertical, VMDesignTokens.Spacing.md)
+        .background(Color.vmSurface)
+    }
+
+    private func proFeatureRow(icon: String, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: VMDesignTokens.Spacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(.vmPrimary)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xxs) {
+                Text(title)
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+                Text(description)
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
         }
         .padding(.horizontal, VMDesignTokens.Spacing.lg)
         .padding(.vertical, VMDesignTokens.Spacing.md)
