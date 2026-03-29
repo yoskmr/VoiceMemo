@@ -76,6 +76,8 @@ public struct SubscriptionView: View {
     // MARK: - Feature Comparison
 
     private var featureComparisonSection: some View {
+        VStack(spacing: VMDesignTokens.Spacing.lg) {
+        // Free 機能テーブル
         VStack(spacing: 0) {
             // ヘッダー行
             HStack {
@@ -105,13 +107,31 @@ public struct SubscriptionView: View {
             comparisonRow("AI整理", free: true, pro: true)
             comparisonRow("バックアップ", free: true, pro: true)
 
-            // Free/Pro 境界の区切り線
-            Divider()
-                .frame(height: 1)
-                .background(Color.vmDivider)
-                .padding(.horizontal, VMDesignTokens.Spacing.lg)
+        }
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.medium)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
 
-            // Proでもっと（説明付き）
+        // MARK: Pro 限定機能
+        VStack(spacing: 0) {
+            // Pro ヘッダー
+            HStack {
+                Text("Pro")
+                    .font(.vmCaption1.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, VMDesignTokens.Spacing.sm)
+                    .padding(.vertical, VMDesignTokens.Spacing.xxs)
+                    .background(Color.vmPrimary)
+                    .cornerRadius(VMDesignTokens.CornerRadius.small)
+                Text("でひろがる体験")
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, VMDesignTokens.Spacing.lg)
+            .padding(.vertical, VMDesignTokens.Spacing.md)
+            .background(Color.vmPrimary.opacity(0.08))
+
             proFeatureRow(
                 icon: "heart.text.square",
                 title: "こころの分析",
@@ -131,6 +151,7 @@ public struct SubscriptionView: View {
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.medium)
         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+        } // end featureComparisonSection VStack
     }
 
     // MARK: - Plan Selection
