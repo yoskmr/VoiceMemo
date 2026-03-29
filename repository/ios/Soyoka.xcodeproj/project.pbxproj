@@ -471,6 +471,7 @@
 				678EAE23EC1F410AA27CFE58 /* InfraLLM */,
 				8E1C708AF8A92C649ED4A6F7 /* InfraStorage */,
 				E96F81162F189BD652860E9E /* InfraNetwork */,
+				F1A2B3C4D5E6F7081234ABCD /* TelemetryDeck */,
 			);
 			productName = Soyoka;
 			productReference = E68848AF9A32051EA70FA076 /* Soyoka.app */;
@@ -501,6 +502,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				2C6488E326B52DB5774D9FB7 /* XCLocalSwiftPackageReference "SoyokaModules" */,
+				81B5B57A2F79971B0090A5BD /* XCRemoteSwiftPackageReference "SwiftSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5557F09DB73B23CDD7282941 /* Products */;
@@ -853,6 +855,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		81B5B57A2F79971B0090A5BD /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		07915B97F083A9690B67FDB4 /* InfraSTT */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -941,6 +954,11 @@
 		EEAB5E6ACA4C108930EEC008 /* FeatureSettings */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FeatureSettings;
+		};
+		F1A2B3C4D5E6F7081234ABCD /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 81B5B57A2F79971B0090A5BD /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -4,9 +4,9 @@ import Domain
 import FeatureMemo
 import FeatureRecording
 import FeatureSettings
+import InfraNetwork
 import SharedUI
 import SharedUtil
-import InfraNetwork
 import SwiftUI
 import TelemetryDeck
 
@@ -18,7 +18,14 @@ struct SoyokaApp: App {
         let config = TelemetryDeck.Config(appID: "AEB9BDE7-7494-4C4F-A281-A6485D8CFE97")
         TelemetryDeck.initialize(config: config)
         prepareDependencies {
-            $0.analyticsClient = .live()
+            $0.analyticsClient = AnalyticsClient(
+                send: { event in
+                    TelemetryDeck.signal(event)
+                },
+                sendWithParameters: { event, parameters in
+                    TelemetryDeck.signal(event, parameters: parameters)
+                }
+            )
         }
     }
 
