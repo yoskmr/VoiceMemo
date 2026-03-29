@@ -33,16 +33,8 @@ public struct SettingsView: View {
                     }
                     .tint(.vmPrimary)
 
-                    // 文体選択
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("わたしの文体")
-                            .font(.vmHeadline)
-                        Text("AI整理の雰囲気を選べます")
-                            .font(.vmCaption1)
-                            .foregroundColor(.vmTextTertiary)
-                    }
-
-                    Picker("文体", selection: Binding(
+                    // 文体選択（メニュー形式でコンパクトに）
+                    Picker(selection: Binding(
                         get: { store.writingStyle },
                         set: { store.send(.writingStyleChanged($0)) }
                     )) {
@@ -51,14 +43,18 @@ public struct SettingsView: View {
                                 Text(style.displayName)
                                 if style.requiresPro {
                                     Text("Pro")
-                                        .font(.vmCaption2)
-                                        .foregroundColor(.vmAccent)
                                 }
                             }
                             .tag(style)
                         }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("わたしの文体")
+                            Text(store.writingStyle.description)
+                                .font(.vmCaption1)
+                                .foregroundColor(.vmTextTertiary)
+                        }
                     }
-                    .pickerStyle(.inline)
                 } header: {
                     Text("AI処理")
                 }

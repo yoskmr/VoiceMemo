@@ -65,6 +65,8 @@ public struct SettingsReducer {
         case emotionAnalysisToggled(Bool)
         /// AI整理の文体が変更された
         case writingStyleChanged(WritingStyle)
+        /// AI整理の文体変更確定（Pro検証後）
+        case writingStyleConfirmed(WritingStyle)
         /// カスタム辞書のサブ Action
         case customDictionary(CustomDictionaryReducer.Action)
         /// バックアップのサブ Action
@@ -88,6 +90,7 @@ public struct SettingsReducer {
     // MARK: - Reducer Body
 
     @Dependency(\.aiQuota) var aiQuota
+    @Dependency(\.subscriptionClient) var subscriptionClient
 
     public init() {}
 
@@ -112,8 +115,22 @@ public struct SettingsReducer {
 
             case let .writingStyleChanged(style):
                 // Pro限定チェック
-                // TODO: SubscriptionClient で Pro 判定。非 Pro なら Pro 案内
-                // MVP では全て許可（デバッグ用）
+                if style.requiresPro {
+                    return .run { send in
+                        let subState = await subscriptionClient.currentSubscription()
+                        if case .pro = subState {
+                            await send(.writingStyleConfirmed(style))
+                        } else {
+                            // Pro でない場合はプラン管理画面を表示
+                            await send(.planManagementTapped)
+                        }
+                    }
+                }
+                state.writingStyle = style
+                WritingStyle.setCurrent(style)
+                return .none
+
+            case let .writingStyleConfirmed(style):
                 state.writingStyle = style
                 WritingStyle.setCurrent(style)
                 return .none
