@@ -187,6 +187,7 @@ struct AppView: View {
                     store: store.scope(state: \.recording, action: \.recording)
                 )
                 .navigationTitle("つぶやき")
+                .navigationBarTitleDisplayMode(.inline)
             }
             .tabItem { Label("つぶやき", systemImage: "bubble.left.fill") }
             .tag(AppReducer.State.Tab.home)
