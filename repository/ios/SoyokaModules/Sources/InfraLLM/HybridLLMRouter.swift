@@ -59,6 +59,32 @@ public final class HybridLLMRouter: @unchecked Sendable {
     /// - Returns: LLM処理レスポンス（感情分析結果がマージされる場合あり）
     /// - Throws: `LLMError` 各種エラー
     public func process(_ request: LLMRequest) async throws -> LLMResponse {
+        #if DEBUG
+        // デバッグメニュー: LLM プロバイダ強制選択
+        if let forcedProvider = UserDefaults.standard.string(forKey: "debug_forceLLMProvider"),
+           forcedProvider != "auto" {
+            switch forcedProvider {
+            case "on_device_apple_intelligence":
+                logger.info("デバッグ: Apple Intelligence を強制使用")
+                return try await onDeviceProvider.process(request)
+            case "on_device_llama_cpp":
+                if let llamaCpp = llamaCppProvider {
+                    logger.info("デバッグ: llama.cpp を強制使用")
+                    return try await llamaCpp.process(request)
+                }
+                logger.warning("デバッグ: llama.cpp プロバイダ未設定 → 通常フローにフォールバック")
+            case "cloud_gpt4o_mini":
+                logger.info("デバッグ: Cloud (GPT-4o mini) を強制使用")
+                return try await cloudProvider.process(request)
+            case "mock":
+                logger.info("デバッグ: Mock プロバイダを強制使用")
+                return try await onDeviceProvider.process(request)
+            default:
+                logger.warning("デバッグ: 未知のプロバイダ '\(forcedProvider)' → 通常フローにフォールバック")
+            }
+        }
+        #endif
+
         let cloudAllowed = request.allowCloud
 
         // 1. オンデバイス処理を試行

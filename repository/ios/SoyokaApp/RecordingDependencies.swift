@@ -35,6 +35,27 @@ extension STTEngineClient: DependencyKey {
     private static let factory = STTEngineFactory()
 
     private static func resolveEngine() -> any STTEngineProtocol {
+        #if DEBUG
+        // デバッグメニュー: STT エンジン強制選択
+        if let forcedEngine = UserDefaults.standard.string(forKey: "debug_forceSTTEngine"),
+           forcedEngine != "auto" {
+            switch forcedEngine {
+            case "speech_analyzer":
+                if #available(iOS 26.0, *) {
+                    print("[STT] デバッグ強制: SpeechAnalyzer")
+                    return SpeechAnalyzerEngine()
+                }
+                print("[STT] デバッグ強制: SpeechAnalyzer 要求だが iOS 26 未満 → Apple Speech にフォールバック")
+                return AppleSpeechEngine()
+            case "whisper_kit":
+                print("[STT] デバッグ強制: Apple Speech")
+                return AppleSpeechEngine()
+            default:
+                print("[STT] デバッグ: 未知のエンジン '\(forcedEngine)' → 自動選択にフォールバック")
+            }
+        }
+        #endif
+
         if #available(iOS 26.0, *) {
             let engine = SpeechAnalyzerEngine()
             #if DEBUG

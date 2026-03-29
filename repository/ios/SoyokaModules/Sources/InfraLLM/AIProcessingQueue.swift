@@ -190,8 +190,15 @@ public actor AIProcessingQueue {
             }
 
             // 感情分析オプトイン設定の確認（Proユーザーのみ有効）
-            let sentimentEnabled = isProUser
+            var sentimentEnabled = isProUser
                 && UserDefaults.standard.bool(forKey: "sentimentAnalysisEnabled")
+
+            #if DEBUG
+            // デバッグメニュー: 感情分析強制ON（Pro でなくても実行）
+            if UserDefaults.standard.bool(forKey: "debug_forceSentimentAnalysis") {
+                sentimentEnabled = true
+            }
+            #endif
 
             // LLMRequest 構築
             // Free ユーザー: ローカルのみ（allowCloud = false）、感情分析なし

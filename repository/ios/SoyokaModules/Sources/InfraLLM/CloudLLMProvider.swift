@@ -95,9 +95,16 @@ public final class CloudLLMProvider: @unchecked Sendable {
     ///
     /// 現在は常に true を返す（ネットワーク到達性は実際のリクエスト時に確認）
     public func isAvailable() async -> Bool {
+        #if DEBUG
+        // デバッグメニュー: オフラインモード強制（クラウドアクセスを完全無効化）
+        if UserDefaults.standard.bool(forKey: "debug_forceOffline") {
+            logger.info("デバッグ: オフラインモード強制 → クラウド不可")
+            return false
+        }
+        #endif
         // 簡易チェック: ネットワーク到達性は URLSession のリクエスト時に確認される
         // 将来: NWPathMonitor によるリアルタイム監視に置き換え
-        true
+        return true
     }
 
     /// プロバイダ種別を返す

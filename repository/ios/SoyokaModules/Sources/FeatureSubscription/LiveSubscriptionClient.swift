@@ -51,6 +51,12 @@ extension SubscriptionClient {
                 }
             },
             currentSubscription: {
+                #if DEBUG
+                // デバッグメニュー: Pro プラン強制ON
+                if UserDefaults.standard.bool(forKey: "debug_forceProPlan") {
+                    return .pro(expiresAt: Date.distantFuture)
+                }
+                #endif
                 for await result in Transaction.currentEntitlements {
                     switch result {
                     case let .verified(transaction):

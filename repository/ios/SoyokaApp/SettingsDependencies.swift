@@ -17,7 +17,25 @@ import SwiftData
 // MARK: BackendProxyClient → Live実装（Backend Proxy 経由クラウドAI）
 
 /// Backend Proxy Base URL（Phase 3b: 環境変数 or Info.plist から取得予定）
-private let backendProxyBaseURL = URL(string: "https://api.soyoka.app")!
+private let backendProxyBaseURL: URL = {
+    #if DEBUG
+    // デバッグメニュー: Backend URL 切替
+    if let debugURL = UserDefaults.standard.string(forKey: "debug_backendURL") {
+        switch debugURL {
+        case "staging":
+            return URL(string: "https://staging-api.soyoka.app")!
+        case "custom":
+            // カスタムURLは将来的にユーザー入力に対応予定
+            // 現時点では localhost を使用
+            return URL(string: "http://localhost:8080")!
+        default:
+            // "dev" またはその他 → デフォルト
+            break
+        }
+    }
+    #endif
+    return URL(string: "https://api.soyoka.app")!
+}()
 
 extension BackendProxyClient: DependencyKey {
     public static let liveValue: BackendProxyClient = .live(baseURL: backendProxyBaseURL)
