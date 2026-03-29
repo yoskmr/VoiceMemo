@@ -106,6 +106,42 @@ public struct PromptTemplate: Sendable, Equatable {
         """
     }
 
+    // MARK: - リモートプロンプト変換
+
+    /// リモート配信レスポンスから文体指示マップを構築する
+    /// アプリ起動時にリモートから取得 → キャッシュ更新 → 次回以降はキャッシュ利用
+    public static func styleInstructionsFromRemote(_ templates: [String: String]) -> [WritingStyle: String] {
+        var map: [WritingStyle: String] = [:]
+        for style in WritingStyle.allCases {
+            map[style] = templates[style.rawValue] ?? ""
+        }
+        return map
+    }
+
+    /// UserDefaultsにキャッシュされた文体指示マップを取得する（なければnil）
+    public static var cachedStyleInstructions: [WritingStyle: String]? {
+        guard let data = UserDefaults.standard.data(forKey: "cachedRemoteStyleInstructions") else {
+            return nil
+        }
+        // [String: String] → [WritingStyle: String] に変換
+        guard let raw = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return nil
+        }
+        var map: [WritingStyle: String] = [:]
+        for (key, value) in raw {
+            if let style = WritingStyle(rawValue: key) {
+                map[style] = value
+            }
+        }
+        return map
+    }
+
+    /// 文体指示マップをUserDefaultsにキャッシュする
+    public static func cacheStyleInstructions(_ templates: [String: String]) {
+        guard let data = try? JSONEncoder().encode(templates) else { return }
+        UserDefaults.standard.set(data, forKey: "cachedRemoteStyleInstructions")
+    }
+
     // MARK: - 定義済みテンプレート
 
     /// Phase 3a: オンデバイス簡易プロンプト（整形+タグ統合）
