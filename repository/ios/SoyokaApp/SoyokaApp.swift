@@ -4,6 +4,7 @@ import FeatureMemo
 import FeatureRecording
 import FeatureSettings
 import SharedUI
+import InfraNetwork
 import SwiftUI
 
 @main
@@ -37,6 +38,8 @@ struct AppReducer {
         var recording = RecordingFeature.State()
         var memoList = MemoListReducer.State()
         var settings = SettingsReducer.State()
+        var forceUpdateStoreURL: URL?
+        var lastForceUpdateCheck: Date?
 
         enum Tab: Hashable {
             case home
@@ -52,10 +55,14 @@ struct AppReducer {
         case settings(SettingsReducer.Action)
         case openURL(URL)
         case aiProcessingCompleted(UUID)
+        case scenePhaseChanged(ScenePhase)
+        case forceUpdateCheckResponse(Result<ForceUpdateStatus, Error>)
     }
 
     @Dependency(\.fts5IndexManager) var fts5IndexManager
     @Dependency(\.aiProcessingQueue) var aiProcessingQueue
+    @Dependency(\.forceUpdateClient) var forceUpdateClient
+    @Dependency(\.date.now) var now
 
     var body: some ReducerOf<Self> {
         Scope(state: \.recording, action: \.recording) {
@@ -69,6 +76,37 @@ struct AppReducer {
         }
         Reduce { state, action in
             switch action {
+            // MARK: - 強制アップデートチェック
+
+            case .scenePhaseChanged(.active):
+                // スロットル: 前回チェックから5分未満ならスキップ
+                if let lastCheck = state.lastForceUpdateCheck,
+                   now.timeIntervalSince(lastCheck) < 300 {
+                    return .none
+                }
+                state.lastForceUpdateCheck = now
+                return .run { [forceUpdateClient] send in
+                    await send(.forceUpdateCheckResponse(
+                        Result { try await forceUpdateClient.check("https://api.soyoka.app") }
+                    ))
+                }
+
+            case .scenePhaseChanged:
+                return .none
+
+            case let .forceUpdateCheckResponse(.success(status)):
+                switch status {
+                case .upToDate:
+                    state.forceUpdateStoreURL = nil
+                case let .updateRequired(storeURL):
+                    state.forceUpdateStoreURL = storeURL
+                }
+                return .none
+
+            case .forceUpdateCheckResponse(.failure):
+                // ネットワークエラー時はブロックしない
+                return .none
+
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none
@@ -178,38 +216,55 @@ struct AppReducer {
 
 struct AppView: View {
     @Bindable var store: StoreOf<AppReducer>
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TabView(selection: $store.selectedTab.sending(\.tabSelected)) {
-            // ホームタブ: 録音画面
-            NavigationStack {
-                RecordingView(
-                    store: store.scope(state: \.recording, action: \.recording)
+        ZStack {
+            TabView(selection: $store.selectedTab.sending(\.tabSelected)) {
+                // ホームタブ: 録音画面
+                NavigationStack {
+                    RecordingView(
+                        store: store.scope(state: \.recording, action: \.recording)
+                    )
+                    .navigationTitle("つぶやき")
+                    .navigationBarTitleDisplayMode(.large)
+                }
+                .tabItem { Label("つぶやき", systemImage: "bubble.left.fill") }
+                .tag(AppReducer.State.Tab.home)
+
+                // メモ一覧タブ
+                MemoListView(
+                    store: store.scope(state: \.memoList, action: \.memoList)
                 )
-                .navigationTitle("つぶやき")
-                .navigationBarTitleDisplayMode(.large)
+                .tabItem { Label("きおく", systemImage: "book.fill") }
+                .tag(AppReducer.State.Tab.memoList)
+
+                // 設定タブ
+                SettingsView(
+                    store: store.scope(state: \.settings, action: \.settings)
+                )
+                .tabItem { Label("設定", systemImage: "gearshape") }
+                .tag(AppReducer.State.Tab.settings)
             }
-            .tabItem { Label("つぶやき", systemImage: "bubble.left.fill") }
-            .tag(AppReducer.State.Tab.home)
+            .tint(Color.vmPrimary)
 
-            // メモ一覧タブ
-            MemoListView(
-                store: store.scope(state: \.memoList, action: \.memoList)
-            )
-            .tabItem { Label("きおく", systemImage: "book.fill") }
-            .tag(AppReducer.State.Tab.memoList)
-
-            // 設定タブ
-            SettingsView(
-                store: store.scope(state: \.settings, action: \.settings)
-            )
-            .tabItem { Label("設定", systemImage: "gearshape") }
-            .tag(AppReducer.State.Tab.settings)
+            // 強制アップデートオーバーレイ
+            if let storeURL = store.forceUpdateStoreURL {
+                ForceUpdateOverlay(storeURL: storeURL)
+                    .transition(.opacity)
+                    .zIndex(999)
+            }
         }
-        .tint(Color.vmPrimary)
+        .animation(.easeInOut(duration: 0.3), value: store.forceUpdateStoreURL != nil)
         .preferredColorScheme(store.settings.themeType.colorScheme)
         .onOpenURL { url in
             store.send(.openURL(url))
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            store.send(.scenePhaseChanged(newPhase))
+        }
+        .onAppear {
+            store.send(.scenePhaseChanged(.active))
         }
     }
 }
