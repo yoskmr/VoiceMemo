@@ -41,6 +41,12 @@ extension BackendProxyClient: DependencyKey {
     public static let liveValue: BackendProxyClient = .live(baseURL: backendProxyBaseURL)
 }
 
+// MARK: ForceUpdateClient → Live実装（バージョンチェック）
+
+extension ForceUpdateClient: DependencyKey {
+    public static let liveValue = ForceUpdateClient.live()
+}
+
 // MARK: LLMProviderClient → HybridLLMRouter Live実装（オンデバイス優先 → クラウドフォールバック）
 
 /// Phase 3b: HybridLLMRouter でオンデバイス（Apple Intelligence）優先、
