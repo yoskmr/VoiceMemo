@@ -6,7 +6,7 @@ final class PromptTemplateTests: XCTestCase {
     // MARK: - onDeviceSimple テンプレート
 
     func testOnDeviceSimple_version() {
-        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.1.0")
+        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.3.0")
     }
 
     func testOnDeviceSimple_containsPlaceholder() {
@@ -74,6 +74,46 @@ final class PromptTemplateTests: XCTestCase {
         let prompt = template.buildUserPrompt(text: "Hello world")
 
         XCTAssertEqual(prompt, "Summarize: Hello world")
+    }
+
+    // MARK: - 主語補完指示テスト
+
+    func testStyleInstruction_formal_contains主語補完指示() {
+        let instruction = PromptTemplate.styleInstruction(for: .formal)
+        XCTAssertTrue(instruction.contains("主語が省略されている場合は文脈から補完する"))
+    }
+
+    func testStyleInstruction_essay_contains主語補完指示() {
+        let instruction = PromptTemplate.styleInstruction(for: .essay)
+        XCTAssertTrue(instruction.contains("主語が省略されている場合は文脈から自然に補う"))
+    }
+
+    func testStyleInstruction_casual_notContains主語補完指示() {
+        let instruction = PromptTemplate.styleInstruction(for: .casual)
+        XCTAssertFalse(instruction.contains("主語が省略"))
+    }
+
+    // MARK: - emotionAnalysis テンプレート
+
+    func testEmotionCategoryList_contains13Categories() {
+        let list = PromptTemplate.emotionCategoryList
+        // 13カテゴリ全てが含まれること
+        for category in EmotionCategory.allCases {
+            XCTAssertTrue(list.contains(category.rawValue), "\(category.rawValue) が emotionCategoryList に含まれていない")
+        }
+    }
+
+    func testEmotionAnalysis_buildUserPrompt_replacesPlaceholder() {
+        let prompt = PromptTemplate.emotionAnalysis.buildUserPrompt(text: "今日は楽しかった")
+        XCTAssertTrue(prompt.contains("今日は楽しかった"))
+        XCTAssertFalse(prompt.contains("{transcribed_text}"))
+    }
+
+    func testEmotionAnalysis_containsJSONFormatInstruction() {
+        let template = PromptTemplate.emotionAnalysis.userPromptTemplate
+        XCTAssertTrue(template.contains("JSON形式"))
+        XCTAssertTrue(template.contains("emotion"))
+        XCTAssertTrue(template.contains("confidence"))
     }
 
     // MARK: - Equatable テスト

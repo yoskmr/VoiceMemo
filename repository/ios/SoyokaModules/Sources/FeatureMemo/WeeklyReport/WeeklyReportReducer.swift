@@ -131,6 +131,11 @@ public struct WeeklyReportReducer {
             case .anger: return "もどかしさを感じることがあったようです"
             case .surprise: return "驚きのある一週間でした"
             case .neutral: return "落ち着いた一週間を過ごしました"
+            case .gratitude: return "感謝の気持ちに包まれた一週間でした"
+            case .achievement: return "達成感のある充実した一週間でした"
+            case .nostalgia: return "懐かしさを感じる一週間でした"
+            case .ambivalence: return "いろいろと考えさせられた一週間でした"
+            case .determination: return "決意を新たにした一週間でした"
             }
         }
 

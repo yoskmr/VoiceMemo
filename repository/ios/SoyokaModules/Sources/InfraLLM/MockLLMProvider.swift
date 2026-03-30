@@ -93,33 +93,7 @@ public final class MockLLMProvider: @unchecked Sendable {
         )
     }
 
-    // MARK: - フィラー除去・簡易清書
-
-    /// 除去対象のフィラーワード一覧
-    private static let fillerWords: [String] = [
-        "えっと", "えーっと", "えーと", "えっ", "えー",
-        "あの", "あのー", "あのう",
-        "まあ", "まぁ",
-        "なんか", "なんていうか",
-        "そのー", "その",
-        "うーん", "うん",
-        "ほら",
-    ]
-
-    /// テキストからフィラーワードを除去する
-    static func removeFillers(from text: String) -> String {
-        var result = text
-        for filler in fillerWords {
-            result = result.replacingOccurrences(of: filler, with: "")
-        }
-        // 連続する空白を1つにまとめ、前後の空白を除去
-        result = result.replacingOccurrences(
-            of: "\\s+",
-            with: " ",
-            options: .regularExpression
-        )
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    // MARK: - 簡易清書
 
     /// フィラー除去後のテキストから簡易タイトルを生成（先頭20文字）
     static func generateTitle(from cleanedText: String) -> String {
@@ -133,7 +107,7 @@ public final class MockLLMProvider: @unchecked Sendable {
 
     /// 清書テキストを生成（フィラー除去 + 末尾句点補完）
     static func generateCleanedText(from text: String) -> String {
-        let cleaned = removeFillers(from: text)
+        let cleaned = TextPreprocessor.removeFillers(text, level: .light)
         guard !cleaned.isEmpty else { return text }
         // 末尾に句点がなければ追加
         if !cleaned.hasSuffix("。") && !cleaned.hasSuffix("！") && !cleaned.hasSuffix("？") {
@@ -149,7 +123,7 @@ public final class MockLLMProvider: @unchecked Sendable {
     public static func defaultMockResponse(for request: LLMRequest) -> LLMResponse {
         let inputText = request.text
         let cleanedText = generateCleanedText(from: inputText)
-        let title = generateTitle(from: removeFillers(from: inputText))
+        let title = generateTitle(from: TextPreprocessor.removeFillers(inputText, level: .light))
 
         let summary: LLMSummaryResult? = request.tasks.contains(.summarize)
             ? LLMSummaryResult(

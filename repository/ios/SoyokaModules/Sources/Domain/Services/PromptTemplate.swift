@@ -48,6 +48,7 @@ public struct PromptTemplate: Sendable, Equatable {
             追加指示 - 文体「きちんと」:
             - 「です」「ます」調で統一する
             - 主語と述語を明確にする
+            - 主語が省略されている場合は文脈から補完する（例: 「モヤモヤした」→「自分はモヤモヤした」）
             - 感情的な表現は残しつつ、丁寧な言葉遣いに整える
             - カジュアルすぎる表現（「～じゃん」「マジで」等）は自然な丁寧語に言い換える
             """
@@ -79,6 +80,7 @@ public struct PromptTemplate: Sendable, Equatable {
             - 思考の流れに文学的なリズムを持たせる
             - 体言止め、倒置法、比喩を適度に使う
             - 日常のひとコマが作品のように感じられる文章に
+            - 主語が省略されている場合は文脈から自然に補う（随筆として読みやすくするため）
             """
         }
     }
@@ -153,7 +155,7 @@ public struct PromptTemplate: Sendable, Equatable {
     /// - プロンプト言語: 日本語（入出力ともに日本語のため）
     /// - 出力形式: JSON（構造化データ抽出のため）
     public static let onDeviceSimple = PromptTemplate(
-        version: "3.2.0",
+        version: "3.3.0",
         userPromptTemplate: """
         以下は音声メモの文字起こしです。音声認識の特性上、言い間違い・繰り返し・フィラーが含まれています。これを読みやすい1つの文章に清書してください。
 
@@ -175,6 +177,36 @@ public struct PromptTemplate: Sendable, Equatable {
 
         JSON形式で出力:
         {"title": "内容を表す短いタイトル（20文字以内）", "cleaned": "清書した文章（話題が複数あれば## 見出しで区切る）", "tags": ["タグ1", "タグ2", "タグ3"]}
+        """
+    )
+
+    /// 感情分析用の13カテゴリリスト（プロンプト注入用）
+    /// DES-006 セクション6 準拠
+    public static let emotionCategoryList: String = {
+        EmotionCategory.allCases
+            .map { "\($0.rawValue)（\($0.displayNameJA)）" }
+            .joined(separator: "、")
+    }()
+
+    /// 感情分析プロンプトテンプレート
+    /// 13カテゴリから最も適切な感情を判定する
+    public static let emotionAnalysis = PromptTemplate(
+        version: "1.0.0",
+        userPromptTemplate: """
+        以下の音声メモテキストから、話者の感情を分析してください。
+
+        感情カテゴリ（13種類）:
+        \(emotionCategoryList)
+
+        ルール:
+        - 上記13カテゴリの中から、最も当てはまるものを1つ選ぶ
+        - 確信度（0.0〜1.0）を付ける
+        - 出力はJSON形式のみ。JSON以外のテキストを出力しないこと
+
+        メモ: {transcribed_text}
+
+        JSON形式で出力:
+        {"emotion": "カテゴリのrawValue", "confidence": 0.85}
         """
     )
 }

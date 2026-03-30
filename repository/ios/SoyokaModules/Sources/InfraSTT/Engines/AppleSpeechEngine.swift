@@ -144,6 +144,8 @@ extension AppleSpeechEngine: STTEngineProtocol {
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        request.taskHint = .dictation           // 音声メモに最適な認識モード
+        request.addsPunctuation = true          // 句読点自動挿入（iOS 16+）
 
         if requiresOnDevice {
             request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition

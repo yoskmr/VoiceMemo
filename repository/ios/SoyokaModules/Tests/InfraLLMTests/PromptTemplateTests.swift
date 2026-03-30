@@ -6,8 +6,8 @@ final class PromptTemplateTests: XCTestCase {
 
     // MARK: - バージョン
 
-    func testOnDeviceSimple_version_is3_0_0() {
-        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.1.0")
+    func testOnDeviceSimple_version_is3_3_0() {
+        XCTAssertEqual(PromptTemplate.onDeviceSimple.version, "3.3.0")
     }
 
     // MARK: - プレースホルダー置換

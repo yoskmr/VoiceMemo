@@ -24,6 +24,13 @@ private final class LiveAudioPlayer: Sendable {
             throw AudioPlayerError.fileNotFound(path)
         }
 
+        // 再生用にオーディオセッションを設定（ロード時に1回だけ）
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default)
+        try session.setActive(true)
+        #endif
+
         let newPlayer = try AVAudioPlayer(contentsOf: url)
         newPlayer.prepareToPlay()
         self.player = newPlayer
@@ -34,6 +41,7 @@ private final class LiveAudioPlayer: Sendable {
     @MainActor
     func play(from time: TimeInterval) throws {
         guard let player else { throw AudioPlayerError.notLoaded }
+
         player.currentTime = time
         guard player.play() else { throw AudioPlayerError.playbackFailed }
     }
@@ -49,6 +57,13 @@ private final class LiveAudioPlayer: Sendable {
     func stop() {
         player?.stop()
         player?.currentTime = 0
+
+        // 他のオーディオアプリが再開できるようセッションを非アクティブ化
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setActive(
+            false, options: .notifyOthersOnDeactivation
+        )
+        #endif
     }
 
     /// 指定時間へシーク
