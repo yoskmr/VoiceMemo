@@ -48,7 +48,7 @@ function createMockD1(): D1Database {
 
 // --- Test Setup ---
 
-function createApp(kv: KVNamespace, maxRequests: number): Hono {
+function createApp(kv: KVNamespace, maxRequests: number): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   app.use("*", async (c, next) => {
