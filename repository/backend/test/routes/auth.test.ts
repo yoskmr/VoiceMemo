@@ -84,7 +84,7 @@ const VALID_DEVICE_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 // --- Test Setup ---
 
-function createApp(): Hono {
+function createApp(): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   // テスト用 env を注入
@@ -107,7 +107,7 @@ function createApp(): Hono {
 // --- Tests ---
 
 describe("POST /api/v1/auth/device", () => {
-  let app: Hono;
+  let app: Hono<{ Bindings: Env }>;
 
   beforeEach(() => {
     app = createApp();

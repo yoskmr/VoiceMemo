@@ -74,7 +74,7 @@ interface AppOptions {
   kvData?: Record<string, string>;
 }
 
-function createApp(options: AppOptions = {}): Hono {
+function createApp(options: AppOptions = {}): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   const devices = options.devices ?? [{ id: DEVICE_ID, plan: "free" }];

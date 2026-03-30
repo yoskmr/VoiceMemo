@@ -172,7 +172,7 @@ interface AppOptions {
   db?: D1Database;
 }
 
-function createFullApp(options: AppOptions = {}): Hono {
+function createFullApp(options: AppOptions = {}): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   const db = options.db ?? createMockD1();

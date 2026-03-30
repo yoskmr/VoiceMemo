@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { Env } from "../../src/types.js";
 import { promptRoutes } from "../../src/routes/prompts.js";
 
-function createApp(): Hono {
+function createApp(): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   app.use("*", async (c, next) => {

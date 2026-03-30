@@ -86,7 +86,7 @@ const DEVICE_ID = "550e8400-e29b-41d4-a716-446655440000";
 // --- Test Setup ---
 
 function createApp(mockD1?: ReturnType<typeof createMockD1>): {
-  app: Hono;
+  app: Hono<{ Bindings: Env }>;
   db: ReturnType<typeof createMockD1>;
 } {
   const app = new Hono<{ Bindings: Env }>();
@@ -116,7 +116,7 @@ async function getAuthHeader(): Promise<string> {
 // --- Tests ---
 
 describe("POST /api/v1/subscription/verify", () => {
-  let app: Hono;
+  let app: Hono<{ Bindings: Env }>;
   let db: ReturnType<typeof createMockD1>;
 
   beforeEach(() => {
@@ -212,7 +212,7 @@ describe("POST /api/v1/subscription/verify", () => {
 });
 
 describe("POST /api/v1/subscription/webhook", () => {
-  let app: Hono;
+  let app: Hono<{ Bindings: Env }>;
   let db: ReturnType<typeof createMockD1>;
 
   beforeEach(() => {
