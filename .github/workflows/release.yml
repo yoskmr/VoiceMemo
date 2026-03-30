@@ -1,0 +1,215 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  release:
+    types: [published]
+
+# 同時実行制御: リリースワークフローは1つだけ実行
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # ==============================
+  # Job 1: iOS ビルド → App Store Connect アップロード
+  # ==============================
+  ios-release:
+    name: iOS Release
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      # --- 証明書・Provisioning Profile の復元 ---
+      - name: Install certificates and provisioning profile
+        env:
+          CERTIFICATES_P12_BASE64: ${{ secrets.CERTIFICATES_P12_BASE64 }}
+          CERTIFICATES_P12_PASSWORD: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          # 一時 Keychain を作成
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # p12 証明書をインポート
+          CERT_PATH=$RUNNER_TEMP/certificate.p12
+          echo -n "$CERTIFICATES_P12_BASE64" | base64 --decode -o "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -P "$CERTIFICATES_P12_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          # Provisioning Profile を配置
+          PP_PATH=$RUNNER_TEMP/profile.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PP_PATH"))
+          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/"$PP_UUID".mobileprovision
+
+      # --- App Store Connect API Key の配置 ---
+      - name: Install App Store Connect API Key
+        env:
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/.private_keys
+          echo -n "$ASC_API_KEY_BASE64" | base64 --decode -o ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      # --- ビルド ---
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project repository/ios/Soyoka.xcodeproj \
+            -scheme Soyoka
+
+      - name: Archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -project repository/ios/Soyoka.xcodeproj \
+            -scheme Soyoka \
+            -archivePath $RUNNER_TEMP/Soyoka.xcarchive \
+            -destination 'generic/platform=iOS' \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            | xcbeautify || true
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Soyoka.xcarchive \
+            -exportPath $RUNNER_TEMP/export \
+            -exportOptionsPlist repository/ios/ExportOptions.plist
+
+      # --- アップロード ---
+      - name: Upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app \
+            -f $RUNNER_TEMP/export/Soyoka.ipa \
+            -t ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Upload IPA to Release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            $RUNNER_TEMP/export/Soyoka.ipa \
+            --clobber
+
+      # --- クリーンアップ ---
+      - name: Clean up keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
+          rm -f $RUNNER_TEMP/certificate.p12
+          rm -f $RUNNER_TEMP/profile.mobileprovision
+          rm -rf ~/.private_keys
+
+  # ==============================
+  # Job 2: Backend デプロイ
+  # ==============================
+  backend-deploy:
+    name: Backend Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: repository/backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: repository/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --env production
+
+  # ==============================
+  # Job 3: What's New テキスト生成
+  # ==============================
+  update-whats-new:
+    name: Update What's New
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [ios-release]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.target_commitish }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract What's New from release body
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p metadata/ja
+
+          # Release body をそのまま What's New テキストとして使用
+          # （4000文字制限に注意）
+          echo "$RELEASE_BODY" \
+            | sed 's/^## //g' \
+            | sed 's/^### //g' \
+            | sed '/^$/d' \
+            | head -c 4000 \
+            > metadata/ja/release_notes.txt
+
+          echo "--- Generated What's New for $RELEASE_TAG ---"
+          cat metadata/ja/release_notes.txt
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet metadata/ja/release_notes.txt 2>/dev/null; then
+            echo "No changes to commit"
+          else
+            git add metadata/ja/release_notes.txt
+            git commit -m "chore: What's New テキストを ${{ github.event.release.tag_name }} で更新"
+            git push
+          fi
