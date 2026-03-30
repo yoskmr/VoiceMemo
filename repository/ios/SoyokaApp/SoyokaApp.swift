@@ -15,7 +15,12 @@ struct SoyokaApp: App {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
 
     init() {
+        #if DEBUG
+        var config = TelemetryDeck.Config(appID: "0D62D235-992D-4FCC-9B99-22C717F94AA2")
+        config.testMode = true
+        #else
         let config = TelemetryDeck.Config(appID: "AEB9BDE7-7494-4C4F-A281-A6485D8CFE97")
+        #endif
         TelemetryDeck.initialize(config: config)
         prepareDependencies {
             $0.analyticsClient = AnalyticsClient(
