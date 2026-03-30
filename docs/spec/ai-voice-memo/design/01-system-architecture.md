@@ -304,7 +304,7 @@ struct AppReducer {
 ```mermaid
 graph TB
     subgraph "App Target"
-        APP["VoiceMemoApp"]
+        APP["SoyokaApp"]
     end
 
     subgraph "Feature Modules"
@@ -373,7 +373,7 @@ graph TB
 
 | モジュール名 | 責務 | 主要な型 | 依存先 |
 |:-------------|:-----|:---------|:-------|
-| **VoiceMemoApp** | アプリエントリポイント、DI構成、Root Reducer | `VoiceMemoApp`, `AppReducer` | 全Feature Module |
+| **SoyokaApp** | アプリエントリポイント、DI構成、Root Reducer | `SoyokaApp`, `AppReducer` | 全Feature Module |
 | **FeatureRecording** | 録音・リアルタイムSTT画面 (REQ-001, 002, 013, 014, 026) | `RecordingReducer`, `RecordingView` | Domain, SharedUI（※統合仕様書 v1.0 準拠: InfraSTTへはDomain層プロトコル経由） |
 | **FeatureMemo** | メモ一覧・詳細・編集・削除・再生 (REQ-015, 016, 017, 023) | `MemoListReducer`, `MemoDetailReducer` | Domain, SharedUI |
 | **FeatureAI** | AI要約・タグ付け・感情分析 (REQ-003, 004, 005, 021, 022) | `AIProcessingReducer`, `AISummaryView` | Domain, SharedUI（※統合仕様書 v1.0 準拠: InfraLLMへはDomain層プロトコル経由） |
@@ -394,7 +394,7 @@ graph TB
 ```swift
 // Package.swift (ルートワークスペース)
 let package = Package(
-    name: "VoiceMemoModules",
+    name: "SoyokaModules",
     platforms: [.iOS(.v17)],
     products: [
         .library(name: "FeatureRecording", targets: ["FeatureRecording"]),
@@ -428,7 +428,7 @@ let package = Package(
         .target(name: "Data", dependencies: ["Domain", "InfraStorage", "InfraNetwork"]),
         // ※統合仕様書 v1.0 準拠（H2）: Feature → Infra 直接依存を排除
         // Feature モジュールは Domain 層のプロトコル経由でのみ Infra にアクセス
-        // 実体の注入は VoiceMemoApp (DI構成) で @Dependency を通じて行う
+        // 実体の注入は SoyokaApp (DI構成) で @Dependency を通じて行う
         .target(name: "FeatureRecording", dependencies: [
             "Domain", "SharedUI",
             .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
@@ -1415,7 +1415,7 @@ import Foundation
 /// ※統合仕様書 v1.0 準拠: 全項目で ThisDeviceOnly を必須とする
 struct KeychainTokenStore {
 
-    private let service = "io.murmurnote.api"
+    private let service = "app.soyoka.api"
     private let account = "auth-token"
 
     func save(token: String) throws {

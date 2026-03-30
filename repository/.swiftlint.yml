@@ -1,12 +1,12 @@
-# SwiftLint Configuration for MurMurNote
+# SwiftLint Configuration for Soyoka
 # https://github.com/realm/SwiftLint
 
 included:
-  - VoiceMemoApp
-  - VoiceMemoModules/Sources
+  - SoyokaApp
+  - SoyokaModules/Sources
 
 excluded:
-  - VoiceMemoModules/.build
+  - SoyokaModules/.build
   - "**/.build"
   - "**/DerivedData"
 

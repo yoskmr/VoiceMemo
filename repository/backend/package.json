@@ -1,0 +1,27 @@
+{
+  "name": "soyoka-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy:dev": "wrangler deploy --env dev",
+    "deploy:staging": "wrangler deploy --env staging",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.7",
+    "@hono/zod-validator": "^0.5",
+    "jose": "^6.0",
+    "zod": "^3.24"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.13",
+    "@cloudflare/workers-types": "^4.20260101",
+    "vitest": "^4.1",
+    "typescript": "^5.8",
+    "wrangler": "^4.0"
+  }
+}

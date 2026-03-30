@@ -1,0 +1,33 @@
+name = "soyoka-api"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+
+[env.dev]
+name = "soyoka-api-dev"
+vars = { ENVIRONMENT = "dev" }
+routes = [{ pattern = "api-dev.soyoka.app", custom_domain = true }]
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "soyoka-dev"
+database_id = "170a587c-1d69-4c0c-bb12-130a6ea2aa43"
+migrations_dir = "migrations"
+
+[[env.dev.kv_namespaces]]
+binding = "KV"
+id = "d5c1acb3509b4c33bd7208c945bb3c69"
+
+[env.staging]
+name = "soyoka-api-staging"
+vars = { ENVIRONMENT = "staging" }
+routes = [{ pattern = "api-staging.soyoka.app", custom_domain = true }]
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "soyoka-staging"
+database_id = "bfaea955-b826-4434-9499-768fdde6bb1d"
+migrations_dir = "migrations"
+
+[[env.staging.kv_namespaces]]
+binding = "KV"
+id = "55dda6918f0742d49d87fdbdba2da77b"

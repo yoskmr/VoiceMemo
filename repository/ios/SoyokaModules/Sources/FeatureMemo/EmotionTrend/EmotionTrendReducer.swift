@@ -1,0 +1,215 @@
+import ComposableArchitecture
+import Domain
+import Foundation
+
+/// 感情トレンド画面のTCA Reducer
+/// 設計書 04-ui-design-system.md セクション5.2 準拠
+@Reducer
+public struct EmotionTrendReducer {
+
+    // MARK: - State
+
+    @ObservableState
+    public struct State: Equatable {
+        public var emotions: [EmotionEntry] = []
+        public var dailyEmotions: [DailyEmotion] = []
+        public var isLoading: Bool = false
+        public var selectedPeriod: Period = .week
+
+        public init(
+            emotions: [EmotionEntry] = [],
+            dailyEmotions: [DailyEmotion] = [],
+            isLoading: Bool = false,
+            selectedPeriod: Period = .week
+        ) {
+            self.emotions = emotions
+            self.dailyEmotions = dailyEmotions
+            self.isLoading = isLoading
+            self.selectedPeriod = selectedPeriod
+        }
+    }
+
+    /// 感情エントリ（日付ごとの感情データ）
+    public struct EmotionEntry: Equatable, Identifiable, Sendable {
+        public let id: UUID
+        public let date: Date
+        public let primaryEmotion: EmotionCategory
+        public let confidence: Double
+        public let memoTitle: String
+
+        public init(
+            id: UUID = UUID(),
+            date: Date,
+            primaryEmotion: EmotionCategory,
+            confidence: Double,
+            memoTitle: String = ""
+        ) {
+            self.id = id
+            self.date = date
+            self.primaryEmotion = primaryEmotion
+            self.confidence = confidence
+            self.memoTitle = memoTitle
+        }
+    }
+
+    /// 日別の感情集計データ（チャート描画用）
+    public struct DailyEmotion: Equatable, Identifiable, Sendable {
+        public var id: Date { date }
+        public let date: Date
+        public let emotions: [EmotionCategory: Double]
+        public let memoCount: Int
+
+        public init(date: Date, emotions: [EmotionCategory: Double], memoCount: Int) {
+            self.date = date
+            self.emotions = emotions
+            self.memoCount = memoCount
+        }
+    }
+
+    /// 表示期間
+    public enum Period: String, CaseIterable, Equatable, Sendable {
+        case week = "1週間"
+        case month = "1ヶ月"
+        case all = "全期間"
+
+        /// TCA Dependency 経由の now / calendar を受け取ってフィルター開始日を算出する
+        public func startDate(now: Date, calendar: Calendar) -> Date? {
+            switch self {
+            case .week: return calendar.date(byAdding: .day, value: -7, to: now)
+            case .month: return calendar.date(byAdding: .month, value: -1, to: now)
+            case .all: return nil
+            }
+        }
+    }
+
+    // MARK: - Action
+
+    public enum Action: Equatable, Sendable {
+        case onAppear
+        case periodChanged(Period)
+        case emotionsLoaded(Result<[EmotionEntry], EquatableError>)
+        case dailyEmotionsLoaded([DailyEmotion])
+    }
+
+    // MARK: - Cancellation IDs
+
+    private enum CancelID { case fetch }
+
+    // MARK: - Dependencies
+
+    @Dependency(\.voiceMemoRepository) var voiceMemoRepository
+    @Dependency(\.date.now) var now
+    @Dependency(\.calendar) var calendar
+
+    public init() {}
+
+    // MARK: - Reducer Body
+
+    public var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .onAppear:
+                state.isLoading = true
+                let period = state.selectedPeriod
+                return .run { send in
+                    let result = await Result {
+                        try await self.fetchEmotionEntries(period: period)
+                    }.mapError { EquatableError($0) }
+                    await send(.emotionsLoaded(result))
+                    let dailyEmotions = await self.aggregateDailyEmotions(period: period)
+                    await send(.dailyEmotionsLoaded(dailyEmotions))
+                }
+                .cancellable(id: CancelID.fetch, cancelInFlight: true)
+
+            case let .periodChanged(period):
+                state.selectedPeriod = period
+                state.isLoading = true
+                return .run { send in
+                    let result = await Result {
+                        try await self.fetchEmotionEntries(period: period)
+                    }.mapError { EquatableError($0) }
+                    await send(.emotionsLoaded(result))
+                    let dailyEmotions = await self.aggregateDailyEmotions(period: period)
+                    await send(.dailyEmotionsLoaded(dailyEmotions))
+                }
+                .cancellable(id: CancelID.fetch, cancelInFlight: true)
+
+            case let .emotionsLoaded(.success(entries)):
+                state.isLoading = false
+                state.emotions = entries
+                return .none
+
+            case .emotionsLoaded(.failure):
+                state.isLoading = false
+                state.emotions = []
+                state.dailyEmotions = []
+                return .none
+
+            case let .dailyEmotionsLoaded(dailyEmotions):
+                state.dailyEmotions = dailyEmotions
+                return .none
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// メモを日別に集計し、各感情カテゴリのスコアを算出する
+    private func aggregateDailyEmotions(period: Period) async -> [DailyEmotion] {
+        guard let allMemos = try? await voiceMemoRepository.fetchAll() else { return [] }
+        let startDate = period.startDate(now: now, calendar: calendar)
+
+        let filteredMemos = allMemos.filter { memo in
+            guard let analysis = memo.emotionAnalysis else { return false }
+            guard analysis.confidence > 0 else { return false }
+            if let startDate {
+                return memo.createdAt >= startDate
+            }
+            return true
+        }
+
+        // 日付ごとにグルーピング
+        var grouped: [Date: [Domain.VoiceMemoEntity]] = [:]
+        for memo in filteredMemos {
+            let dayStart = calendar.startOfDay(for: memo.createdAt)
+            grouped[dayStart, default: []].append(memo)
+        }
+
+        return grouped.map { date, memos in
+            var emotionScores: [EmotionCategory: Double] = [:]
+            for memo in memos {
+                guard let analysis = memo.emotionAnalysis else { continue }
+                let category = analysis.primaryEmotion
+                emotionScores[category, default: 0] += analysis.confidence
+            }
+            return DailyEmotion(date: date, emotions: emotionScores, memoCount: memos.count)
+        }
+        .sorted { $0.date < $1.date }
+    }
+
+    private func fetchEmotionEntries(period: Period) async throws -> [EmotionEntry] {
+        let allMemos = try await voiceMemoRepository.fetchAll()
+        let startDate = period.startDate(now: now, calendar: calendar)
+
+        return allMemos
+            .filter { memo in
+                guard let analysis = memo.emotionAnalysis else { return false }
+                // confidence が 0 より大きいもののみ（実際に分析済み）
+                guard analysis.confidence > 0 else { return false }
+                if let startDate {
+                    return memo.createdAt >= startDate
+                }
+                return true
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+            .map { memo in
+                EmotionEntry(
+                    id: memo.id,
+                    date: memo.createdAt,
+                    primaryEmotion: memo.emotionAnalysis!.primaryEmotion,
+                    confidence: memo.emotionAnalysis!.confidence,
+                    memoTitle: memo.title
+                )
+            }
+    }
+}

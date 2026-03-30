@@ -1,0 +1,2 @@
+OPENAI_API_KEY=sk-proj-your-key-here
+JWT_SECRET=local-dev-secret-minimum-32-characters-long
