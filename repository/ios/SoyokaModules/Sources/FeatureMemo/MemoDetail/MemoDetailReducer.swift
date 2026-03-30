@@ -43,6 +43,9 @@ public struct MemoDetailReducer {
         // AI処理ステータス
         public var aiProcessingStatus: AIProcessingStatus = .idle
 
+        // UIレベルのリトライ回数（再生成ボタン押下回数を追跡し上限を設ける）
+        public var aiRetryCount: Int = 0
+
         // AI クォータ情報（T09: AI処理連携拡張）
         public var remainingQuota: Int = 15
         public var quotaLimit: Int = 15
@@ -84,6 +87,7 @@ public struct MemoDetailReducer {
             deleteState: MemoDeleteReducer.State = .init(),
             audioPlayer: AudioPlayerReducer.State? = nil,
             aiProcessingStatus: AIProcessingStatus = .idle,
+            aiRetryCount: Int = 0,
             remainingQuota: Int = 15,
             quotaLimit: Int = 15,
             isSummaryExpanded: Bool = false,
@@ -112,6 +116,7 @@ public struct MemoDetailReducer {
             self.deleteState = deleteState
             self.audioPlayer = audioPlayer
             self.aiProcessingStatus = aiProcessingStatus
+            self.aiRetryCount = aiRetryCount
             self.remainingQuota = remainingQuota
             self.quotaLimit = quotaLimit
             self.isSummaryExpanded = isSummaryExpanded
@@ -454,6 +459,8 @@ public struct MemoDetailReducer {
             case let .aiProcessingStatusUpdated(status):
                 state.aiProcessingStatus = status
                 if case .completed = status {
+                    // AI処理成功時はリトライカウントをリセット
+                    state.aiRetryCount = 0
                     // AI整理完了時: STT原文とAI整理後テキストの差分からレコメンド候補を記録
                     let sttOriginal = state.transcriptionText
                     let aiText = state.aiSummary?.summaryText ?? ""
@@ -496,6 +503,13 @@ public struct MemoDetailReducer {
 
             // T09: AI要約の再生成（初回はオンボーディング表示）
             case .regenerateAISummary:
+                // UIレベルのリトライ上限チェック（maxRetries = 3）
+                let maxRetries = 3
+                if state.aiRetryCount >= maxRetries {
+                    state.errorMessage = "AI整理の上限回数（\(maxRetries)回）に達しました"
+                    return .none
+                }
+
                 // 初回オンボーディングチェック
                 let hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenAIOnboarding")
                 if !hasSeenOnboarding {
@@ -503,6 +517,7 @@ public struct MemoDetailReducer {
                     return .none
                 }
 
+                state.aiRetryCount += 1
                 state.aiProcessingStatus = .queued
                 let memoID = state.memoID
                 return .run { send in

@@ -90,6 +90,14 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     /// - Parameter memoId: 処理対象のメモID
     /// - Throws: 月次制限超過、メモ未発見等のエラー
     public func enqueueProcessing(_ memoId: UUID) async throws {
+        // 0. 同一memoIdの既存タスクのリトライ回数を確認し、上限に達していれば拒否
+        if let existingTask = try await fetchLatestTask(memoId: memoId),
+           existingTask.retryCount >= existingTask.maxRetries {
+            logger.warning("AI処理リトライ上限に達しました: memoId=\(memoId), retryCount=\(existingTask.retryCount)/\(existingTask.maxRetries)")
+            notifyStatus(memoId: memoId, status: .failed(.processingFailed("AI処理の上限回数に達しました")))
+            return
+        }
+
         // 1. タスクをSwiftDataに永続化
         let taskId = UUID()
         try await createTask(id: taskId, memoId: memoId)
@@ -383,6 +391,18 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     }
 
     // MARK: - SwiftData Operations
+
+    /// 同一memoIdの最新タスクを取得する
+    ///
+    /// - Returns: 最新の AIProcessingTaskModel（タスクが存在しない場合は nil）
+    @MainActor
+    private func fetchLatestTask(memoId: UUID) async throws -> AIProcessingTaskModel? {
+        let descriptor = FetchDescriptor<AIProcessingTaskModel>(
+            predicate: #Predicate { $0.memoId == memoId },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        return try context.fetch(descriptor).first
+    }
 
     /// タスクを SwiftData に作成
     private func createTask(id: UUID, memoId: UUID) async throws {
