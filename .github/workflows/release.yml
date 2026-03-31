@@ -88,8 +88,10 @@ jobs:
             -scheme Soyoka \
             -archivePath $RUNNER_TEMP/Soyoka.xcarchive \
             -destination 'generic/platform=iOS' \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            | xcbeautify || true
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+
+          # アーカイブ生成を確認
+          ls -la $RUNNER_TEMP/Soyoka.xcarchive
 
       - name: Export IPA
         run: |
@@ -163,7 +165,7 @@ jobs:
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --env production
+        run: npx wrangler deploy --env staging
 
   # ==============================
   # Job 3: What's New テキスト生成
