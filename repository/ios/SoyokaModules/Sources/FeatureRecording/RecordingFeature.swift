@@ -205,15 +205,17 @@ public struct RecordingFeature {
 
             case .stopButtonTapped:
                 state.recordingStatus = .saving
-                // UIに表示中のテキストを保存用に確保（STTのfinishに頼らない）
-                let currentTranscription = state.partialTranscription
+                // UIに表示中のテキストをフォールバックとして確保
+                // STTの最終結果を待つが、取得できなければこちらを使う
+                let fallbackText = state.partialTranscription
                 return .merge(
                     .cancel(id: CancelID.timer),
-                    .cancel(id: CancelID.audioLevel),
+                    // audioLevel（STTストリーム）はまだキャンセルしない
+                    // STTが残りバッファを処理する時間を与える
                     stopAndSaveEffect(
                         recordingID: state.recordingID,
                         elapsedTime: state.elapsedTime,
-                        transcriptionText: currentTranscription
+                        fallbackTranscription: fallbackText
                     )
                 )
 
@@ -419,19 +421,48 @@ public struct RecordingFeature {
         .cancellable(id: CancelID.timer)
     }
 
-    /// 録音停止 → 保存の一連フロー
-    /// transcriptionTextはUIに表示中のテキストを直接使う（STTのfinishに頼らない）
+    /// 録音停止 → STT最終結果待機 → 保存の一連フロー
+    /// STTの最終結果（finishTranscription）を最大10秒待ち、取得できなければフォールバックテキストを使用する
     /// 文字起こしテキストが空（無音）の場合は保存をスキップし、一時ファイルを削除する
     private func stopAndSaveEffect(
         recordingID: UUID,
         elapsedTime: TimeInterval,
-        transcriptionText: String
+        fallbackTranscription: String
     ) -> Effect<Action> {
-        .run { send in
-            // 1. 録音停止
+        .run { [sttEngine] send in
+            // 1. 録音停止（新規音声入力を止める）
             let result = try await audioRecorder.stopRecording()
 
-            // 2. 文字起こしテキストが空（無音）の場合は保存をスキップ
+            // 2. STTの最終結果を待つ（最大10秒タイムアウト）
+            var transcriptionText = fallbackTranscription
+            do {
+                let sttResult = try await withThrowingTaskGroup(of: TranscriptionResult.self) { group in
+                    group.addTask {
+                        try await sttEngine.finishTranscription()
+                    }
+                    group.addTask {
+                        try await Task.sleep(for: .seconds(10))
+                        throw CancellationError()
+                    }
+                    guard let first = try await group.next() else {
+                        throw CancellationError()
+                    }
+                    group.cancelAll()
+                    return first
+                }
+                // STT最終結果がフォールバックより内容が多ければ採用
+                if !sttResult.text.isEmpty, sttResult.text.count >= fallbackTranscription.count {
+                    transcriptionText = sttResult.text
+                }
+            } catch {
+                // タイムアウトまたはエラー: フォールバックテキストを使用
+                print("[Recording] STT finishTranscription タイムアウト/エラー: \(error.localizedDescription)")
+            }
+
+            // 3. STTを確実に停止
+            await sttEngine.stopTranscription()
+
+            // 4. テキストが空（無音）の場合は保存をスキップ
             if transcriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 // 一時ファイルを削除
                 try? temporaryRecordingStore.cleanup(recordingID)
@@ -440,7 +471,7 @@ public struct RecordingFeature {
                 return
             }
 
-            // 3. UIに表示されていたテキストでTranscriptionResultを作成
+            // 5. TranscriptionResult を作成して保存
             let transcriptionResult = TranscriptionResult(
                 text: transcriptionText,
                 confidence: 0.8,
@@ -449,7 +480,7 @@ public struct RecordingFeature {
                 segments: []
             )
 
-            // 4. SaveRecordingUseCase実行
+            // 6. SaveRecordingUseCase実行
             let input = SaveRecordingUseCase.Input(
                 recordingID: recordingID,
                 tempAudioURL: result.fileURL,

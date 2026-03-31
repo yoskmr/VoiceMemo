@@ -177,6 +177,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "テスト文字起こし（最終）", confidence: 0.9, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -234,6 +238,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.temporaryRecordingStore.cleanup = { _ in }
         }
 
@@ -274,6 +282,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.temporaryRecordingStore.cleanup = { _ in cleanupCalled.setValue(true) }
         }
 
@@ -312,6 +324,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "   \n  ", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.temporaryRecordingStore.cleanup = { _ in }
         }
 
@@ -353,6 +369,7 @@ final class RecordingFeatureTests: XCTestCase {
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
             $0.sttEngine.finishTranscription = { transcriptionResult }
+            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, _ in
                 throw SaveRecordingError.fileMoveFailed("ストレージ不足")
             }
@@ -658,6 +675,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
