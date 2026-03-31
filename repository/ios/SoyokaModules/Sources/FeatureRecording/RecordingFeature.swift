@@ -423,7 +423,7 @@ public struct RecordingFeature {
 
     /// 録音停止 → STT最終結果待機 → 保存の一連フロー
     /// STTの最終結果（finishTranscription）を最大10秒待ち、取得できなければフォールバックテキストを使用する
-    /// 文字起こしテキストが空（無音）の場合は保存をスキップし、一時ファイルを削除する
+    /// 文字起こしテキストが空の場合: 1秒以下なら誤タップとみなし削除、1秒超なら音声を保持して保存する
     private func stopAndSaveEffect(
         recordingID: UUID,
         elapsedTime: TimeInterval,
@@ -462,13 +462,18 @@ public struct RecordingFeature {
             // 3. STTを確実に停止
             await sttEngine.stopTranscription()
 
-            // 4. テキストが空（無音）の場合は保存をスキップ
+            // 4. テキストが空の場合の処理
             if transcriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                // 一時ファイルを削除
-                try? temporaryRecordingStore.cleanup(recordingID)
-                try? FileManager.default.removeItem(at: result.fileURL)
-                await send(.recordingFailed("何も話されませんでした"))
-                return
+                if elapsedTime <= 1.0 {
+                    // 1秒以下は誤タップとみなす — 音声ファイルを削除
+                    try? temporaryRecordingStore.cleanup(recordingID)
+                    try? FileManager.default.removeItem(at: result.fileURL)
+                    await send(.recordingFailed("何も話されませんでした"))
+                    return
+                }
+                // 1秒超は音声データを保持して保存（STTが間に合わなかった可能性）
+                // 音声を残すことで、ユーザーは後から聴き返せる
+                print("[Recording] テキスト空だが録音 \(Int(elapsedTime))秒 — 音声を保持して保存")
             }
 
             // 5. TranscriptionResult を作成して保存
