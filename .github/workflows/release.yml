@@ -165,7 +165,7 @@ jobs:
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --env staging
+        run: npx wrangler deploy --env production
 
   # ==============================
   # Job 3: What's New テキスト生成
