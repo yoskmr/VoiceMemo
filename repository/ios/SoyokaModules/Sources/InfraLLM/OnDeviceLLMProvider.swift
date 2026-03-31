@@ -106,9 +106,11 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
             try await loadModel()
         }
 
-        // 3. フィラー除去（ルールベース、LLM 不要）
-        let preprocessed = TextPreprocessor.removeFillers(request.text)
-        logger.info("[LLM] フィラー除去: \(request.text.count)文字 → \(preprocessed.count)文字")
+        // 3. テキスト前処理（ルールベース、LLM 不要）
+        let spaceCleaned = TextPreprocessor.removeUnnecessarySpaces(request.text)
+        let punctuated = TextPreprocessor.insertPunctuation(spaceCleaned)
+        let preprocessed = TextPreprocessor.removeFillers(punctuated)
+        logger.info("[LLM] 前処理: \(request.text.count)文字 → \(preprocessed.count)文字")
 
         // 4. 長さチェック → 通常処理 or 分割処理
         if preprocessed.count <= maxSafeInputLength {
