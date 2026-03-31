@@ -103,11 +103,18 @@ jobs:
           ls -la $RUNNER_TEMP/Soyoka.xcarchive
 
       - name: Export IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/Soyoka.xcarchive \
             -exportPath $RUNNER_TEMP/export \
-            -exportOptionsPlist repository/ios/ExportOptions.plist
+            -exportOptionsPlist repository/ios/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
       # --- アップロード ---
       - name: Upload to App Store Connect
