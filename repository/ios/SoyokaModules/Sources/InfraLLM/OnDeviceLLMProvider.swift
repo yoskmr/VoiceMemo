@@ -113,13 +113,30 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         logger.info("[LLM] 前処理: \(request.text.count)文字 → \(preprocessed.count)文字")
 
         // 4. 長さチェック → 通常処理 or 分割処理
+        var response: LLMResponse
         if preprocessed.count <= maxSafeInputLength {
             // 通常処理（1チャンクで収まる）
-            return try await processSingleChunk(preprocessed, request: request)
+            response = try await processSingleChunk(preprocessed, request: request)
         } else {
             // 分割処理（1500文字超）
-            return try await processChunked(preprocessed, request: request)
+            response = try await processChunked(preprocessed, request: request)
         }
+
+        // 5. 感情分析（オプション）
+        if request.tasks.contains(.sentimentAnalysis) {
+            let sentiment = try? await processEmotionAnalysis(preprocessed)
+            if let sentiment {
+                response = LLMResponse(
+                    summary: response.summary,
+                    tags: response.tags,
+                    sentiment: sentiment,
+                    processingTimeMs: response.processingTimeMs,
+                    provider: response.provider
+                )
+            }
+        }
+
+        return response
     }
 
     /// 単一チャンクの通常処理
@@ -275,6 +292,89 @@ public final class OnDeviceLLMProvider: @unchecked Sendable {
         await mockProvider.unloadModel()
         logger.info("LLMモデルをアンロードしました")
     }
+
+    // MARK: - 感情分析
+
+    /// オンデバイス感情分析
+    ///
+    /// `PromptTemplate.emotionAnalysis` テンプレートで推論を実行し、
+    /// 結果を `LLMSentimentResult` に変換する。
+    ///
+    /// `internalProcess` は `LLMResponseParser` で要約形式（title/cleaned/tags）にパースするため、
+    /// 感情分析の `{"emotion": ..., "confidence": ...}` 形式には対応しない。
+    /// そのため、推論バックエンドを直接呼び出して生テキストを取得し、
+    /// 感情分析専用の `parseEmotionOutput` でパースする。
+    private func processEmotionAnalysis(_ text: String) async throws -> LLMSentimentResult {
+        let prompt = PromptTemplate.emotionAnalysis.buildUserPrompt(text: text)
+        logger.info("[LLM] 感情分析開始")
+
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let rawOutput = try await runEmotionInference(prompt: prompt)
+        let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+
+        logger.info("[LLM] 感情分析推論完了: \(Int(elapsed * 1000))ms, 出力: \(rawOutput.prefix(100))...")
+        return parseEmotionOutput(rawOutput)
+    }
+
+    /// 感情分析専用の推論実行（生テキストを返す）
+    ///
+    /// `internalProcess` は `LLMResponseParser` で要約形式にパースするため、
+    /// 感情分析の `{"emotion": ..., "confidence": ...}` 形式には対応しない。
+    /// そのため、推論バックエンドを直接呼び出して生テキストを取得する。
+    private func runEmotionInference(prompt: String) async throws -> String {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), capabilityChecker.supportsAppleIntelligence {
+            let session = LanguageModelSession()
+            let response = try await session.respond(to: prompt)
+            return response.content
+        }
+        #endif
+        // フォールバック: モックでは感情分析の生テキストは得られないため、
+        // デフォルト値を返す
+        return #"{"emotion": "neutral", "confidence": 0.5}"#
+    }
+
+    /// 感情分析JSONをパースして `LLMSentimentResult` に変換する
+    ///
+    /// 期待するJSON形式: `{"emotion": "joy", "confidence": 0.85}`
+    /// パース失敗時は `.neutral` + confidence 0.5 にフォールバック
+    private func parseEmotionOutput(_ output: String) -> LLMSentimentResult {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // JSON部分を抽出（{ ... } を探す）
+        guard let openBrace = trimmed.firstIndex(of: "{"),
+              let closeBrace = trimmed.lastIndex(of: "}") else {
+            logger.warning("[LLM] 感情分析: JSON抽出失敗、フォールバック")
+            return Self.fallbackSentiment
+        }
+
+        let jsonString = String(trimmed[openBrace...closeBrace])
+        guard let jsonData = jsonString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+              let emotionRaw = json["emotion"] as? String else {
+            logger.warning("[LLM] 感情分析: JSONパース失敗、フォールバック")
+            return Self.fallbackSentiment
+        }
+
+        let emotion = EmotionCategory(rawValue: emotionRaw) ?? .neutral
+        let confidence = (json["confidence"] as? Double) ?? 0.5
+
+        // スコアマップ: 検出された感情のみスコアを設定
+        let scores: [EmotionCategory: Double] = [emotion: confidence]
+
+        return LLMSentimentResult(
+            primary: emotion,
+            scores: scores,
+            evidence: []  // オンデバイス版では根拠テキスト抽出は省略
+        )
+    }
+
+    /// 感情分析のフォールバック結果（パース失敗時）
+    private static let fallbackSentiment = LLMSentimentResult(
+        primary: .neutral,
+        scores: [.neutral: 0.5],
+        evidence: []
+    )
 
     // MARK: - カスタム辞書による後処理
 

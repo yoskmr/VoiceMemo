@@ -85,6 +85,11 @@ public struct MemoDetailView: View {
                         }
                     }
 
+                    // 感情バッジ（感情分析結果がある場合のみ表示）
+                    if let emotion = store.emotion {
+                        EmotionBadge(emotion: emotion.category)
+                    }
+
                     // 文字起こし（折りたたみ、デフォルト非表示）
                     TranscriptionSection(text: store.transcriptionText)
                 }

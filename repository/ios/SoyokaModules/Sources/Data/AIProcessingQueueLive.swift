@@ -261,14 +261,7 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
             // ユーザーが選択した文体を取得
             let writingStyle = WritingStyle.current
 
-            var tasks: Set<LLMTask> = [.summarize, .tagging]
-
-            #if DEBUG
-            // デバッグメニュー: 感情分析強制ON（Pro でなくても実行）
-            if UserDefaults.standard.bool(forKey: "debug_forceSentimentAnalysis") {
-                tasks.insert(.sentimentAnalysis)
-            }
-            #endif
+            var tasks: Set<LLMTask> = [.summarize, .tagging, .sentimentAnalysis]
 
             let request = LLMRequest(
                 text: correctedText,
