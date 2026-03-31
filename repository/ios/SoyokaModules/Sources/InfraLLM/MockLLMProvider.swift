@@ -137,9 +137,18 @@ public final class MockLLMProvider: @unchecked Sendable {
             ? generateSimpleTags(from: cleanedText)
             : []
 
+        let sentiment: LLMSentimentResult? = request.tasks.contains(.sentimentAnalysis)
+            ? LLMSentimentResult(
+                primary: .neutral,
+                scores: [.neutral: 0.5],
+                evidence: []
+            )
+            : nil
+
         return LLMResponse(
             summary: summary,
             tags: tags,
+            sentiment: sentiment,
             processingTimeMs: 150,
             provider: .onDeviceLlamaCpp
         )
