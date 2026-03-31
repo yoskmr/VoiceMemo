@@ -31,3 +31,18 @@ migrations_dir = "migrations"
 [[env.staging.kv_namespaces]]
 binding = "KV"
 id = "55dda6918f0742d49d87fdbdba2da77b"
+
+[env.production]
+name = "soyoka-api"
+vars = { ENVIRONMENT = "production" }
+routes = [{ pattern = "api.soyoka.app", custom_domain = true }]
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "soyoka-production"
+database_id = "4f5903fd-0ebc-428f-9ada-b3af5f998dd4"
+migrations_dir = "migrations"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "4904159470a146ae862e271311ccd87e"
