@@ -88,6 +88,8 @@ jobs:
             -scheme Soyoka \
             -archivePath $RUNNER_TEMP/Soyoka.xcarchive \
             -destination 'generic/platform=iOS' \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
 
           # アーカイブ生成を確認
