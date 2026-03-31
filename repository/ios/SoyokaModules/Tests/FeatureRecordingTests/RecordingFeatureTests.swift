@@ -177,6 +177,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "テスト文字起こし（最終）", confidence: 0.9, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -214,14 +218,16 @@ final class RecordingFeatureTests: XCTestCase {
         }
     }
 
-    /// 録音停止時にSTT確定が失敗しテキストが空の場合、保存をスキップする
-    func test_stopButtonTapped_STT失敗でテキスト空_保存スキップしrecordingFailedが送信される() async {
+    /// 録音停止時にSTT確定が失敗しテキストが空でも、1秒超なら音声を保持して保存する
+    func test_stopButtonTapped_STT失敗でテキスト空_1秒超なら音声を保持して保存する() async {
         let recordingID = UUID()
         let recordingResult = RecordingResult(
             fileURL: URL(fileURLWithPath: "/tmp/test.m4a"),
             duration: 5.0,
             format: .m4a
         )
+
+        let savedMemos = LockIsolated<[VoiceMemoEntity]>([])
 
         let store = TestStore(
             initialState: RecordingFeature.State(
@@ -234,24 +240,40 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
+            $0.audioFileStore.moveToDocuments = { _, id in
+                URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
+            }
+            $0.audioFileStore.setFileProtection = { _ in }
+            $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
             $0.temporaryRecordingStore.cleanup = { _ in }
+            $0.continuousClock = ImmediateClock()
         }
+        // exhaustivity = .off: テキスト空でも保存されるため、recordingSaved → completionStageAdvanced の
+        // 一連のエフェクト追跡が困難
+        store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
             $0.recordingStatus = .saving
         }
 
-        // テキストが空なので保存スキップ → recordingFailedが送信される
-        await store.receive(\.recordingFailed) {
-            $0.recordingStatus = .idle
-            $0.errorMessage = "何も話されませんでした"
+        // テキスト空でも1秒超のため保存される → recordingSavedが送信される
+        await store.receive(\.recordingSaved)
+
+        // VoiceMemoが保存されたことを確認
+        savedMemos.withValue { memos in
+            XCTAssertEqual(memos.count, 1)
+            XCTAssertEqual(memos.first?.id, recordingID)
         }
     }
 
-    // MARK: - 正常系: stopButtonTapped → 無音（空テキスト）で保存スキップ
+    // MARK: - 正常系: stopButtonTapped → 空テキスト + 1秒超で音声保持して保存
 
-    /// 文字起こしテキストが空の場合、保存をスキップして「何も話されませんでした」エラーを返す
-    func test_stopButtonTapped_空テキスト_保存スキップしrecordingFailedが送信される() async {
+    /// 文字起こしテキストが空でも1秒超なら音声を保持して保存する
+    func test_stopButtonTapped_空テキスト_1秒超なら音声を保持して保存する() async {
         let recordingID = UUID()
         let recordingResult = RecordingResult(
             fileURL: URL(fileURLWithPath: "/tmp/test.m4a"),
@@ -259,7 +281,7 @@ final class RecordingFeatureTests: XCTestCase {
             format: .m4a
         )
 
-        let cleanupCalled = LockIsolated(false)
+        let savedMemos = LockIsolated<[VoiceMemoEntity]>([])
 
         let store = TestStore(
             initialState: RecordingFeature.State(
@@ -274,30 +296,45 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
-            $0.temporaryRecordingStore.cleanup = { _ in cleanupCalled.setValue(true) }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
+            $0.audioFileStore.moveToDocuments = { _, id in
+                URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
+            }
+            $0.audioFileStore.setFileProtection = { _ in }
+            $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
+            $0.temporaryRecordingStore.cleanup = { _ in }
+            $0.continuousClock = ImmediateClock()
         }
+        // exhaustivity = .off: テキスト空でも保存されるため、recordingSaved → completionStageAdvanced の
+        // 一連のエフェクト追跡が困難
+        store.exhaustivity = .off
 
         await store.send(.stopButtonTapped) {
             $0.recordingStatus = .saving
         }
 
-        await store.receive(\.recordingFailed) {
-            $0.recordingStatus = .idle
-            $0.errorMessage = "何も話されませんでした"
-        }
+        // テキスト空でも1秒超のため保存される
+        await store.receive(\.recordingSaved)
 
-        // 一時ファイルのクリーンアップが呼ばれたことを確認
-        XCTAssertTrue(cleanupCalled.value)
+        savedMemos.withValue { memos in
+            XCTAssertEqual(memos.count, 1)
+            XCTAssertEqual(memos.first?.id, recordingID)
+        }
     }
 
-    /// 文字起こしテキストが空白のみの場合も保存をスキップする
-    func test_stopButtonTapped_空白のみテキスト_保存スキップしrecordingFailedが送信される() async {
+    /// 文字起こしテキストが空白のみでも1秒超なら音声を保持して保存する
+    func test_stopButtonTapped_空白のみテキスト_1秒超なら音声を保持して保存する() async {
         let recordingID = UUID()
         let recordingResult = RecordingResult(
             fileURL: URL(fileURLWithPath: "/tmp/test.m4a"),
             duration: 2.0,
             format: .m4a
         )
+
+        let savedMemos = LockIsolated<[VoiceMemoEntity]>([])
 
         let store = TestStore(
             initialState: RecordingFeature.State(
@@ -312,6 +349,108 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "   \n  ", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
+            $0.audioFileStore.moveToDocuments = { _, id in
+                URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
+            }
+            $0.audioFileStore.setFileProtection = { _ in }
+            $0.voiceMemoRepository.save = { memo in savedMemos.withValue { $0.append(memo) } }
+            $0.temporaryRecordingStore.cleanup = { _ in }
+            $0.continuousClock = ImmediateClock()
+        }
+        // exhaustivity = .off: テキスト空でも保存されるため、recordingSaved → completionStageAdvanced の
+        // 一連のエフェクト追跡が困難
+        store.exhaustivity = .off
+
+        await store.send(.stopButtonTapped) {
+            $0.recordingStatus = .saving
+        }
+
+        // 空白のみでも1秒超のため保存される
+        await store.receive(\.recordingSaved)
+
+        savedMemos.withValue { memos in
+            XCTAssertEqual(memos.count, 1)
+            XCTAssertEqual(memos.first?.id, recordingID)
+        }
+    }
+
+    // MARK: - 正常系: stopButtonTapped → 空テキスト + 1秒以下で誤タップとみなし削除
+
+    /// 1秒以下の空テキスト録音は誤タップとみなし、音声ファイルを削除する
+    func test_stopButtonTapped_空テキスト_1秒以下なら誤タップとみなし削除する() async {
+        let recordingID = UUID()
+        let recordingResult = RecordingResult(
+            fileURL: URL(fileURLWithPath: "/tmp/test.m4a"),
+            duration: 0.5,
+            format: .m4a
+        )
+
+        let cleanupCalled = LockIsolated(false)
+
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingID: recordingID,
+                recordingStatus: .recording,
+                elapsedTime: 0.5,
+                partialTranscription: "",
+                confirmedTranscription: "",
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        } withDependencies: {
+            $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
+            $0.temporaryRecordingStore.cleanup = { _ in cleanupCalled.setValue(true) }
+        }
+
+        await store.send(.stopButtonTapped) {
+            $0.recordingStatus = .saving
+        }
+
+        // 1秒以下の空テキストなので誤タップ → recordingFailedが送信される
+        await store.receive(\.recordingFailed) {
+            $0.recordingStatus = .idle
+            $0.errorMessage = "何も話されませんでした"
+        }
+
+        // 一時ファイルのクリーンアップが呼ばれたことを確認
+        XCTAssertTrue(cleanupCalled.value)
+    }
+
+    /// ちょうど1秒の空テキスト録音は誤タップとみなし、音声ファイルを削除する
+    func test_stopButtonTapped_空テキスト_ちょうど1秒なら誤タップとみなし削除する() async {
+        let recordingID = UUID()
+        let recordingResult = RecordingResult(
+            fileURL: URL(fileURLWithPath: "/tmp/test.m4a"),
+            duration: 1.0,
+            format: .m4a
+        )
+
+        let store = TestStore(
+            initialState: RecordingFeature.State(
+                recordingID: recordingID,
+                recordingStatus: .recording,
+                elapsedTime: 1.0,
+                partialTranscription: "",
+                confirmedTranscription: "",
+                isPermissionGranted: true
+            )
+        ) {
+            RecordingFeature()
+        } withDependencies: {
+            $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.temporaryRecordingStore.cleanup = { _ in }
         }
 
@@ -319,6 +458,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
+        // ちょうど1秒（<= 1.0）なので誤タップ → recordingFailedが送信される
         await store.receive(\.recordingFailed) {
             $0.recordingStatus = .idle
             $0.errorMessage = "何も話されませんでした"
@@ -353,6 +493,7 @@ final class RecordingFeatureTests: XCTestCase {
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
             $0.sttEngine.finishTranscription = { transcriptionResult }
+            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, _ in
                 throw SaveRecordingError.fileMoveFailed("ストレージ不足")
             }
@@ -658,6 +799,10 @@ final class RecordingFeatureTests: XCTestCase {
             RecordingFeature()
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
+            $0.sttEngine.finishTranscription = {
+                TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
+            }
+            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
