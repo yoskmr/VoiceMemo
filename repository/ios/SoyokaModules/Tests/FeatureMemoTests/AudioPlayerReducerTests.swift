@@ -292,4 +292,37 @@ final class AudioPlayerReducerTests: XCTestCase {
             $0.highlightedSegmentIndex = 1  // 15-30秒のセグメント
         }
     }
+
+    // MARK: - Test 14: _playerDurationLoaded(0) で初期 duration が保持される
+
+    func test_playerDurationLoaded_ゼロで初期値保持() async {
+        let store = TestStore(
+            initialState: AudioPlayerReducer.State(
+                audioFilePath: "Audio/test.m4a",
+                duration: 45.0  // エンティティから渡された初期値
+            )
+        ) {
+            AudioPlayerReducer()
+        }
+
+        await store.send(._playerDurationLoaded(0))
+        // duration は 45.0 のまま（0 で上書きされない）
+    }
+
+    // MARK: - Test 15: _playerDurationLoaded(正の値) で duration が更新される
+
+    func test_playerDurationLoaded_正の値で更新() async {
+        let store = TestStore(
+            initialState: AudioPlayerReducer.State(
+                audioFilePath: "Audio/test.m4a",
+                duration: 45.0  // エンティティから渡された初期値
+            )
+        ) {
+            AudioPlayerReducer()
+        }
+
+        await store.send(._playerDurationLoaded(47.5)) {
+            $0.duration = 47.5  // AVAudioPlayer の正確な値に更新
+        }
+    }
 }

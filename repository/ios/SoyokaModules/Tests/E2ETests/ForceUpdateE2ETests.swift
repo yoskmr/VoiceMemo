@@ -37,6 +37,8 @@ final class ForceUpdateE2ETests: XCTestCase {
             XCTFail("エラーがスローされるべき")
         } catch let error as ForceUpdateError {
             XCTAssertEqual(error, .networkError("timeout"))
+        } catch {
+            XCTFail("予期しないエラー: \(error)")
         }
     }
 }
