@@ -77,9 +77,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため
@@ -135,9 +135,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
@@ -198,9 +198,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため
@@ -262,9 +262,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
         // exhaustivity = .off: onAppear の並行エフェクト（memosLoaded + aiQuotaLoaded）の順序が非決定的で、
@@ -355,9 +355,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
         // スワイプ → 確認ダイアログが表示される
@@ -405,9 +405,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
         // スワイプ → 確認ダイアログが表示される
@@ -445,9 +445,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: refreshCompleted.success が aiQuotaLoaded エフェクトを発火し、受信順序が非決定的なため
         store.exhaustivity = .off
@@ -495,9 +495,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = Date()
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため

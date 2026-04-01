@@ -272,7 +272,7 @@ final class AIProcessingQueueTests: XCTestCase {
 
     @MainActor
     func test_クォータ連携_処理完了後に使用記録が増える() async throws {
-        let repository = AIQuotaRepository(modelContainer: container, monthlyLimit: 15)
+        let repository = AIQuotaRepository(modelContainer: container, monthlyLimit: 10)
 
         // 初期状態: 使用回数0
         let beforeUsage = try await repository.currentUsage()
@@ -310,7 +310,7 @@ final class AIProcessingQueueTests: XCTestCase {
 
     @MainActor
     func test_クォータ連携_失敗タスクは使用回数にカウントしない() async throws {
-        let repository = AIQuotaRepository(modelContainer: container, monthlyLimit: 15)
+        let repository = AIQuotaRepository(modelContainer: container, monthlyLimit: 10)
 
         // タスクが失敗したケースではrecordUsageを呼ばないため、
         // 使用回数は増えない

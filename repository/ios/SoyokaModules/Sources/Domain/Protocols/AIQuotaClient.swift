@@ -2,16 +2,16 @@ import Dependencies
 import Foundation
 
 /// 月次AI処理回数のカウント管理を行うTCA Dependency
-/// Phase 3a: 月15回の無料枠制限を管理する
+/// Phase 3a: 月10回の無料枠制限を管理する
 /// P3A-REQ-012 準拠
 public struct AIQuotaClient: Sendable {
-    /// 今月のAI処理が可能か判定（月15回以内）
+    /// 今月のAI処理が可能か判定（月10回以内）
     public var canProcess: @Sendable () async throws -> Bool
     /// AI処理実行を記録（カウント+1）
     public var recordUsage: @Sendable () async throws -> Void
     /// 今月の使用回数を取得
     public var currentUsage: @Sendable () async throws -> Int
-    /// 月次上限（デフォルト15）
+    /// 月次上限（デフォルト10）
     public var monthlyLimit: @Sendable () -> Int
     /// 次回リセット日（翌月1日 JST 0:00）
     public var nextResetDate: @Sendable () -> Date
@@ -24,7 +24,7 @@ public struct AIQuotaClient: Sendable {
         canProcess: @escaping @Sendable () async throws -> Bool,
         recordUsage: @escaping @Sendable () async throws -> Void,
         currentUsage: @escaping @Sendable () async throws -> Int,
-        monthlyLimit: @escaping @Sendable () -> Int = { 15 },
+        monthlyLimit: @escaping @Sendable () -> Int = { 10 },
         nextResetDate: @escaping @Sendable () -> Date,
         remainingCount: @escaping @Sendable () async throws -> Int,
         resetUsage: @escaping @Sendable () async throws -> Void = { }
@@ -46,9 +46,9 @@ extension AIQuotaClient: TestDependencyKey {
         canProcess: unimplemented("AIQuotaClient.canProcess", placeholder: true),
         recordUsage: unimplemented("AIQuotaClient.recordUsage"),
         currentUsage: unimplemented("AIQuotaClient.currentUsage", placeholder: 0),
-        monthlyLimit: { 15 },
+        monthlyLimit: { 10 },
         nextResetDate: unimplemented("AIQuotaClient.nextResetDate", placeholder: Date()),
-        remainingCount: unimplemented("AIQuotaClient.remainingCount", placeholder: 15),
+        remainingCount: unimplemented("AIQuotaClient.remainingCount", placeholder: 10),
         resetUsage: unimplemented("AIQuotaClient.resetUsage")
     )
 }

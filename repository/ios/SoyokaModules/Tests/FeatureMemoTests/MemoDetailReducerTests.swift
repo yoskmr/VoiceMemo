@@ -43,8 +43,8 @@ final class MemoDetailReducerTests: XCTestCase {
     ) {
         deps.voiceMemoRepository.fetchMemoDetail = { _ in entity }
         deps.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
-        deps.aiQuota.remainingCount = { 15 }
-        deps.aiQuota.monthlyLimit = { 15 }
+        deps.aiQuota.remainingCount = { 10 }
+        deps.aiQuota.monthlyLimit = { 10 }
     }
 
     // MARK: - Test 1: メモ詳細データのロード
@@ -347,8 +347,8 @@ final class MemoDetailReducerTests: XCTestCase {
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "メモが見つかりません"])
             }
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
-            $0.aiQuota.remainingCount = { 15 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + _quotaInfoLoaded）の受信順序が非決定的なため
         store.exhaustivity = .off
@@ -538,15 +538,15 @@ final class MemoDetailReducerTests: XCTestCase {
         let store = TestStore(
             initialState: MemoDetailReducer.State(
                 memoID: testMemoID,
-                remainingQuota: 15,
-                quotaLimit: 15
+                remainingQuota: 10,
+                quotaLimit: 10
             )
         ) {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
             $0.aiQuota.remainingCount = { 14 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
 
         // exhaustivity = .off: completed 時に memoLoaded + _quotaInfoLoaded の並行エフェクトが発生し、受信順序が非決定的なため

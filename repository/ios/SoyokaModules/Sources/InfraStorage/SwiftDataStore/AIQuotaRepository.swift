@@ -18,7 +18,7 @@ public final class AIQuotaRepository: @unchecked Sendable {
 
     public init(
         modelContainer: ModelContainer,
-        monthlyLimit: Int = 15
+        monthlyLimit: Int = 10
     ) {
         self.modelContainer = modelContainer
         self.jst = TimeZone(identifier: "Asia/Tokyo")!

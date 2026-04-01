@@ -14,7 +14,7 @@ final class AIQuotaRepositoryTests: XCTestCase {
     override func setUp() {
         super.setUp()
         container = try! ModelContainerConfiguration.create(inMemory: true)
-        repository = AIQuotaRepository(modelContainer: container, monthlyLimit: 15)
+        repository = AIQuotaRepository(modelContainer: container, monthlyLimit: 10)
     }
 
     override func tearDown() {
@@ -30,9 +30,9 @@ final class AIQuotaRepositoryTests: XCTestCase {
         XCTAssertTrue(result)
     }
 
-    func test_canProcess_14件ならtrue() async throws {
-        // 14件の使用記録を追加
-        for _ in 0..<14 {
+    func test_canProcess_9件ならtrue() async throws {
+        // 9件の使用記録を追加
+        for _ in 0..<9 {
             try await repository.recordUsage()
         }
 
@@ -40,9 +40,9 @@ final class AIQuotaRepositoryTests: XCTestCase {
         XCTAssertTrue(result)
     }
 
-    func test_canProcess_15件ならfalse() async throws {
-        // 15件の使用記録を追加
-        for _ in 0..<15 {
+    func test_canProcess_10件ならfalse() async throws {
+        // 10件の使用記録を追加
+        for _ in 0..<10 {
             try await repository.recordUsage()
         }
 
@@ -131,13 +131,13 @@ final class AIQuotaRepositoryTests: XCTestCase {
 
     // MARK: - remainingCount テスト
 
-    func test_remainingCount_0件なら15() async throws {
+    func test_remainingCount_0件なら10() async throws {
         let remaining = try await repository.remainingCount()
-        XCTAssertEqual(remaining, 15)
+        XCTAssertEqual(remaining, 10)
     }
 
-    func test_remainingCount_10件なら5() async throws {
-        for _ in 0..<10 {
+    func test_remainingCount_5件なら5() async throws {
+        for _ in 0..<5 {
             try await repository.recordUsage()
         }
 
@@ -145,8 +145,8 @@ final class AIQuotaRepositoryTests: XCTestCase {
         XCTAssertEqual(remaining, 5)
     }
 
-    func test_remainingCount_15件なら0() async throws {
-        for _ in 0..<15 {
+    func test_remainingCount_10件なら0() async throws {
+        for _ in 0..<10 {
             try await repository.recordUsage()
         }
 
@@ -156,8 +156,8 @@ final class AIQuotaRepositoryTests: XCTestCase {
 
     // MARK: - monthlyLimit テスト
 
-    func test_monthlyLimit_デフォルト15() {
-        XCTAssertEqual(repository.monthlyLimit(), 15)
+    func test_monthlyLimit_デフォルト10() {
+        XCTAssertEqual(repository.monthlyLimit(), 10)
     }
 
     func test_monthlyLimit_カスタム値() {
@@ -210,7 +210,7 @@ final class AIQuotaRepositoryTests: XCTestCase {
         XCTAssertTrue(canProcess)
 
         // monthlyLimit が正しいこと
-        XCTAssertEqual(client.monthlyLimit(), 15)
+        XCTAssertEqual(client.monthlyLimit(), 10)
 
         // recordUsage + currentUsage が動作すること
         try await client.recordUsage()
@@ -219,7 +219,7 @@ final class AIQuotaRepositoryTests: XCTestCase {
 
         // remainingCount が動作すること
         let remaining = try await client.remainingCount()
-        XCTAssertEqual(remaining, 14)
+        XCTAssertEqual(remaining, 9)
     }
 
     // MARK: - AIQuotaRecordModel yearMonth キー テスト

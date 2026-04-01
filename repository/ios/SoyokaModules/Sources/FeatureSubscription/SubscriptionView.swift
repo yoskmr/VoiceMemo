@@ -60,12 +60,12 @@ public struct SubscriptionView: View {
                 .foregroundColor(.vmPrimary)
                 .accessibilityHidden(true)
 
-            Text("もっと自由に、整えよう。")
+            Text("きおくが、あなたを知る。")
                 .font(.vmTitle2)
                 .foregroundColor(.vmTextPrimary)
                 .multilineTextAlignment(.center)
 
-            Text("Proプランで、すべての機能を制限なくお使いいただけます")
+            Text("Proプランで、あなたのきおくがもっと深く、もっと自由に")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextSecondary)
                 .multilineTextAlignment(.center)
@@ -134,14 +134,24 @@ public struct SubscriptionView: View {
             .background(Color.vmPrimary.opacity(0.08))
 
             proFeatureRow(
-                icon: "heart.text.square",
-                title: "こころの分析",
-                description: "きおくから感情を読み取り、喜び・不安・期待など8つの気持ちで記録します"
+                icon: "bubble.left.and.text.bubble.right",
+                title: "きおくに聞く",
+                description: "蓄積されたきおくにAIで質問。「先週何に悩んでた？」と自分と対話できます"
             )
             proFeatureRow(
-                icon: "textformat.alt",
-                title: "文体えらび",
-                description: "「ふりかえり」「エッセイ」など、自分だけの文体でAI整理できます"
+                icon: "chart.line.text.clipboard",
+                title: "こころの流れ",
+                description: "感情のトレンドをグラフで可視化。AIがあなたの心の動きをやさしく言葉にします"
+            )
+            proFeatureRow(
+                icon: "infinity",
+                title: "AI整理 無制限",
+                description: "毎日のきおくを、何度でもAIが整えます"
+            )
+            proFeatureRow(
+                icon: "sparkle.magnifyingglass",
+                title: "高精度仕上げ",
+                description: "文字起こしをクラウドAIが日本語として完璧に仕上げます"
             )
             proFeatureRow(
                 icon: "calendar.badge.clock",

@@ -2,8 +2,8 @@
 
 **要件名**: Soyoka（つぶやき） - AI音声メモ・日記アプリ (ai-voice-memo)
 **作成日**: 2026-03-16
-**総タスク数**: 40件
-**推定総工数**: 264時間（約33営業日）
+**総タスク数**: 44件
+**推定総工数**: 367.5時間（約46営業日）
 **ステータス**: 計画完了
 
 ---
@@ -54,7 +54,7 @@ gantt
     メモ管理 + 検索 (8タスク, 52h) : 0, 52
 
     section Phase 3
-    AI要約 + 感情分析 + 課金 (12タスク, 80h) : 0, 80
+    AI要約 + 感情分析 + 課金 (16タスク, 183.5h) : 0, 183
 
     section Phase 4
     エクスポート + UI磨き込み + リリース (10タスク, 68h) : 0, 68
@@ -64,9 +64,9 @@ gantt
 |---------|------|---------|---------|
 | Phase 1 | 基盤構築 + 録音 + STT | 10 | 76h |
 | Phase 2 | メモ管理 + 検索 | 8 | 52h |
-| Phase 3 | AI要約 + 感情分析 + 課金 | 12 | 80h |
+| Phase 3 | AI要約 + 感情分析 + 課金 | 16 | 183.5h |
 | Phase 4 | エクスポート + UI磨き込み + リリース準備 | 10 | 68h |
-| **合計** | | **40** | **264h** |
+| **合計** | | **44** | **367.5h** |
 
 ---
 
@@ -100,7 +100,7 @@ gantt
 | [TASK-0017](TASK-0017.md) | メモ削除 + 確認ダイアログ | TDD | 4h | TASK-0011 |
 | [TASK-0018](TASK-0018.md) | カスタム辞書（STT精度向上） | TDD | 4h | TASK-0007 |
 
-### Phase 3: AI要約 + 感情分析 + 課金（12タスク、80h）
+### Phase 3: AI要約 + 感情分析 + 課金（16タスク、183.5h）
 
 | タスクID | タスク名 | タイプ | 工数 | 依存元 |
 |---------|---------|-------|------|--------|
@@ -115,7 +115,11 @@ gantt
 | [TASK-0027](TASK-0027.md) | LLMハイブリッドルーティングロジック | TDD | 8h | TASK-0025, TASK-0026 |
 | [TASK-0028](TASK-0028.md) | AI要約・タグ・感情分析結果のUI表示 | TDD | 8h | TASK-0012, TASK-0027 |
 | [TASK-0029](TASK-0029.md) | StoreKit 2 サブスクリプション実装 | TDD | 8h | TASK-0022 |
-| [TASK-0030](TASK-0030.md) | 使用量管理（月5回制限）iOS側 | TDD | 4h | TASK-0029, TASK-0023 |
+| [TASK-0030](TASK-0030.md) | 使用量管理（月10回制限）iOS側 | TDD | 4h | TASK-0029, TASK-0023 |
+| [TASK-0041](TASK-0041.md) | きおくに聞く（AI対話） | TDD | 33h | TASK-0027, TASK-0015, TASK-0029 |
+| [TASK-0042](TASK-0042.md) | こころの流れ（感情タイムライン + AIインサイト） | TDD | 18h | TASK-0023, TASK-0029 |
+| [TASK-0043](TASK-0043.md) | きおくのつながり（関連メモ自動リンク） | TDD | 16.5h | TASK-0015, TASK-0023, TASK-0029 |
+| [TASK-0044](TASK-0044.md) | 高精度仕上げ | TDD | 36h | TASK-0027, TASK-0029 |
 
 ### Phase 4: エクスポート + UI磨き込み + リリース準備（10タスク、68h）
 
@@ -294,6 +298,7 @@ flowchart TD
     T0010["TASK-0010\nセキュリティ基盤"]
     T0002["TASK-0002\nSwiftDataモデル定義"]
     T0012["TASK-0012\nメモ詳細画面"]
+    T0015["TASK-0015\nFTS5全文検索"]
 
     T0019["TASK-0019\nCF Workers初期構築\nDIRECT 4h"]
     T0020["TASK-0020\nBackend AI処理API\nTDD 8h"]
@@ -306,7 +311,11 @@ flowchart TD
     T0027["TASK-0027\nLLMハイブリッド\nルーティング\nTDD 8h"]
     T0028["TASK-0028\nAI要約・感情分析UI\nTDD 8h"]
     T0029["TASK-0029\nStoreKit 2\nサブスクリプション\nTDD 8h"]
-    T0030["TASK-0030\n使用量管理\n月5回制限\nTDD 4h"]
+    T0030["TASK-0030\n使用量管理\n月10回制限\nTDD 4h"]
+    T0041["TASK-0041\nきおくに聞く\nAI対話\nTDD 33h"]
+    T0042["TASK-0042\nこころの流れ\n感情タイムライン\nTDD 18h"]
+    T0043["TASK-0043\nきおくのつながり\n関連メモ自動リンク\nTDD 16.5h"]
+    T0044["TASK-0044\n高精度仕上げ\nTDD 36h"]
 
     T0019 --> T0020
     T0019 --> T0021
@@ -332,9 +341,24 @@ flowchart TD
     T0029 --> T0030
     T0023 --> T0030
 
+    T0027 --> T0041
+    T0015 --> T0041
+    T0029 --> T0041
+
+    T0023 --> T0042
+    T0029 --> T0042
+
+    T0015 --> T0043
+    T0023 --> T0043
+    T0029 --> T0043
+
+    T0027 --> T0044
+    T0029 --> T0044
+
     style T0010 fill:#95a5a6,color:#fff
     style T0002 fill:#95a5a6,color:#fff
     style T0012 fill:#95a5a6,color:#fff
+    style T0015 fill:#95a5a6,color:#fff
     style T0019 fill:#4ecdc4,color:#fff
     style T0020 fill:#e74c3c,color:#fff
     style T0021 fill:#e74c3c,color:#fff
@@ -347,6 +371,10 @@ flowchart TD
     style T0028 fill:#e74c3c,color:#fff
     style T0029 fill:#e74c3c,color:#fff
     style T0030 fill:#e74c3c,color:#fff
+    style T0041 fill:#e74c3c,color:#fff
+    style T0042 fill:#e74c3c,color:#fff
+    style T0043 fill:#e74c3c,color:#fff
+    style T0044 fill:#e74c3c,color:#fff
 ```
 
 ### Phase 4: エクスポート + UI磨き込み + リリース準備
@@ -360,6 +388,7 @@ flowchart TD
     T0016["TASK-0016\n検索UI画面"]
     T0028["TASK-0028\nAI要約・感情分析UI"]
     T0029["TASK-0029\nStoreKit 2"]
+    T0041["TASK-0041\nきおくに聞く"]
 
     T0031["TASK-0031\nMarkdownエクスポート\nTDD 4h"]
     T0032["TASK-0032\nデザインシステム\nTDD 8h"]
@@ -386,6 +415,7 @@ flowchart TD
 
     T0038 --> T0039
     T0028 --> T0039
+    T0041 --> T0039
     T0039 --> T0040
 
     style T0008 fill:#95a5a6,color:#fff
@@ -395,6 +425,7 @@ flowchart TD
     style T0016 fill:#95a5a6,color:#fff
     style T0028 fill:#95a5a6,color:#fff
     style T0029 fill:#95a5a6,color:#fff
+    style T0041 fill:#95a5a6,color:#fff
     style T0031 fill:#9b59b6,color:#fff
     style T0032 fill:#9b59b6,color:#fff
     style T0033 fill:#9b59b6,color:#fff
@@ -435,7 +466,7 @@ flowchart TB
         T18["0018 カスタム辞書"]
     end
 
-    subgraph Phase3["Phase 3: AI要約 + 感情分析 + 課金 (80h)"]
+    subgraph Phase3["Phase 3: AI要約 + 感情分析 + 課金 (183.5h)"]
         T19["0019 CF Workers"]
         T20["0020 AI処理API"]
         T21["0021 認証API"]
@@ -448,6 +479,10 @@ flowchart TB
         T28["0028 AI結果UI"]
         T29["0029 StoreKit 2"]
         T30["0030 使用量管理"]
+        T41["0041 きおくに聞く"]
+        T42["0042 こころの流れ"]
+        T43["0043 きおくのつながり"]
+        T44["0044 高精度仕上げ"]
     end
 
     subgraph Phase4["Phase 4: エクスポート + UI + リリース (68h)"]
@@ -510,6 +545,19 @@ flowchart TB
     %% Phase 2 → Phase 3
     T12 --> T28
     T27 --> T28
+    T27 --> T41
+    T15 --> T41
+    T29 --> T41
+
+    T23 --> T42
+    T29 --> T42
+
+    T15 --> T43
+    T23 --> T43
+    T29 --> T43
+
+    T27 --> T44
+    T29 --> T44
 
     %% Phase 2/3 → Phase 4
     T12 --> T31
@@ -524,6 +572,7 @@ flowchart TB
     T36 --> T38
     T38 --> T39
     T28 --> T39
+    T41 --> T39
     T39 --> T40
 
     style Phase1 fill:#e8f4f8,stroke:#45b7d1
