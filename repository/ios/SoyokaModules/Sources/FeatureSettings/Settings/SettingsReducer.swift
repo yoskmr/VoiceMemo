@@ -31,7 +31,7 @@ public struct SettingsReducer {
         /// 今月のAI処理使用回数
         public var aiQuotaUsed: Int = 0
         /// AI処理月次上限
-        public var aiQuotaLimit: Int = 15
+        public var aiQuotaLimit: Int = 10
         /// サブスクリプション画面の表示状態
         @Presents public var subscription: SubscriptionReducer.State?
 
@@ -47,7 +47,7 @@ public struct SettingsReducer {
             backup: BackupReducer.State = .init(),
             showResetQuotaConfirmation: Bool = false,
             aiQuotaUsed: Int = 0,
-            aiQuotaLimit: Int = 15,
+            aiQuotaLimit: Int = 10,
             subscription: SubscriptionReducer.State? = nil
         ) {
             // UserDefaults から読み込み（明示的な値が渡された場合はそちらを優先）
@@ -156,17 +156,9 @@ public struct SettingsReducer {
                 return .none
 
             case let .writingStyleChanged(style):
-                // Pro限定チェック
-                if style.requiresPro {
-                    return .run { send in
-                        let subState = await subscriptionClient.currentSubscription()
-                        if case .pro = subState {
-                            await send(.writingStyleConfirmed(style))
-                        } else {
-                            // Pro でない場合はプラン管理画面を表示
-                            await send(.planManagementTapped)
-                        }
-                    }
+                // 近日公開の文体は選択不可
+                guard style.isAvailable else {
+                    return .none
                 }
                 state.writingStyle = style
                 WritingStyle.setCurrent(style)

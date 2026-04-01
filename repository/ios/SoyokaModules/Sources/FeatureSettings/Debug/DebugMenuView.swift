@@ -47,12 +47,12 @@ public struct DebugMenuView: View {
 
     var onResetQuota: (() -> Void)?
     var aiQuotaUsed: Int = 0
-    var aiQuotaLimit: Int = 15
+    var aiQuotaLimit: Int = 10
 
     public init(
         onResetQuota: (() -> Void)? = nil,
         aiQuotaUsed: Int = 0,
-        aiQuotaLimit: Int = 15
+        aiQuotaLimit: Int = 10
     ) {
         self.onResetQuota = onResetQuota
         self.aiQuotaUsed = aiQuotaUsed
