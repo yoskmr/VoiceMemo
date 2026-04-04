@@ -1,6 +1,7 @@
 import Dependencies
 import Domain
 import Foundation
+import InfraLogging
 import os.log
 
 private let logger = Logger(subsystem: "app.soyoka", category: "RemotePrompt")
@@ -71,21 +72,64 @@ extension RemotePromptClient {
                 request.httpMethod = "GET"
                 request.timeoutInterval = 10
 
-                let (data, response) = try await session.data(for: request)
+                let startTime = CFAbsoluteTimeGetCurrent()
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
 
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw RemotePromptError.networkError("Invalid response type")
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let error = RemotePromptError.networkError("Invalid response type")
+                        #if DEBUG
+                        await APIRequestLogStore.shared.append(APIRequestLog(
+                            source: .network, endpoint: "api/v1/prompts/latest", method: "GET",
+                            status: .failure(message: error.localizedDescription), duration: duration,
+                            request: RequestDetail(),
+                            response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                        ))
+                        #endif
+                        throw error
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let error = RemotePromptError.serverError(httpResponse.statusCode)
+                        #if DEBUG
+                        await APIRequestLogStore.shared.append(APIRequestLog(
+                            source: .network, endpoint: "api/v1/prompts/latest", method: "GET",
+                            status: .failure(message: error.localizedDescription), duration: duration,
+                            request: RequestDetail(),
+                            response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                        ))
+                        #endif
+                        throw error
+                    }
+
+                    let promptResponse = try JSONDecoder().decode(RemotePromptResponse.self, from: data)
+                    // キャッシュに保存
+                    RemotePromptClient.saveCache(promptResponse)
+                    logger.info("プロンプトテンプレート取得成功: version=\(promptResponse.version)")
+                    #if DEBUG
+                    await APIRequestLogStore.shared.append(APIRequestLog(
+                        source: .network, endpoint: "api/v1/prompts/latest", method: "GET",
+                        status: .success(statusCode: httpResponse.statusCode), duration: duration,
+                        request: RequestDetail(),
+                        response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                    ))
+                    #endif
+                    return promptResponse
+                } catch let error as RemotePromptError {
+                    throw error
+                } catch {
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    #if DEBUG
+                    await APIRequestLogStore.shared.append(APIRequestLog(
+                        source: .network, endpoint: "api/v1/prompts/latest", method: "GET",
+                        status: .failure(message: error.localizedDescription), duration: duration,
+                        request: RequestDetail(), response: nil
+                    ))
+                    #endif
+                    throw error
                 }
-
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    throw RemotePromptError.serverError(httpResponse.statusCode)
-                }
-
-                let promptResponse = try JSONDecoder().decode(RemotePromptResponse.self, from: data)
-                // キャッシュに保存
-                RemotePromptClient.saveCache(promptResponse)
-                logger.info("プロンプトテンプレート取得成功: version=\(promptResponse.version)")
-                return promptResponse
             }
         )
     }
