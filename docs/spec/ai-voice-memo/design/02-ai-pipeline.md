@@ -47,9 +47,9 @@ flowchart TB
 
     subgraph LLM["LLM処理フェーズ ※統合仕様書 v1.0 準拠"]
         K --> L{AI処理判定}
-        L -->|無料プラン<br/>月15回残あり| M{デバイス判定}
+        L -->|無料プラン<br/>月10回残あり| M{デバイス判定}
         L -->|Proプラン| M
-        L -->|無料プラン<br/>月15回到達| N[AI処理スキップ<br/>アップグレード案内]
+        L -->|無料プラン<br/>月10回到達| N[AI処理スキップ<br/>アップグレード案内]
         M -->|A16+, 6GB+<br/>短文 ≦500字| O[オンデバイスLLM<br/>llama.cpp Phi-3-mini]
         M -->|長文 or<br/>非対応端末| P[クラウドLLM<br/>GPT-4o mini]
         O -->|要約+タグのみ| Q1[オンデバイス結果]
@@ -104,11 +104,13 @@ import AVFoundation
 /// STTエンジンの識別子（統一enum）※統合仕様書 v1.0 準拠
 /// - `.speechAnalyzer`: iOS 26+ Apple SpeechAnalyzer
 /// - `.whisperKit`: iOS 17+ WhisperKit (whisper.cpp Swift wrapper)
-/// - `.cloudSTT`: Pro限定クラウドSTT
+/// - `.cloudSTT`: 【廃止予定】REQ-018再定義により、クラウドSTT（音声ファイル送信型）は廃止。
+///   「高精度仕上げ」はSTTフローとは独立したLLMテキスト後処理ステップとして再定義された。
+///   STTエンジンの選択肢としては `.speechAnalyzer` と `.whisperKit` のみ使用する。
 enum STTEngineType: String, Codable, Sendable {
     case speechAnalyzer = "speech_analyzer"   // ← 旧 appleSpeechAnalyzer を統一
     case whisperKit     = "whisper_kit"       // ← 旧 whisperCpp を統一
-    case cloudSTT       = "cloud_stt"         // Pro限定（REQ-018）
+    // case cloudSTT    = "cloud_stt"         // 【廃止】REQ-018再定義: 高精度仕上げはLLMテキスト後処理に移行
 }
 
 /// STT認識結果（統一型）※統合仕様書 v1.0 準拠
@@ -456,21 +458,22 @@ flowchart TD
     I --> J
 
     J -->|confidence >= 0.7| K[認識結果確定]
-    J -->|0.4 ≦ confidence < 0.7| L{Proプラン?}
+    J -->|0.4 ≦ confidence < 0.7| N[中信頼度で確定<br/>ユーザーに編集を促す]
     J -->|confidence < 0.4| N2[低信頼度で確定<br/>ユーザーに編集を促す]
-    L -->|Yes| M[".cloudSTT"<br/>クラウドSTTで再認識]
-    L -->|No| N[低信頼度で確定<br/>ユーザーに編集を促す]
-    M --> K
     N --> K
     N2 --> K
 
     K --> O[テキスト後処理へ]
+    O --> O2{高精度仕上げ<br/>ユーザーが明示的に実行?}
+    O2 -->|Yes| O3[Backend Proxy経由で<br/>クラウドLLMにテキスト送信<br/>固有名詞補正・句読点最適化<br/>フィラー除去・文体整形]
+    O2 -->|No| O4[テキスト後処理結果で確定]
+    O3 --> O4
 
     style E fill:#c8e6c9
     style F fill:#bbdefb
     style H fill:#bbdefb
     style I fill:#bbdefb
-    style M fill:#ffe0b2
+    style O3 fill:#ffe0b2
 ```
 
 > **STT信頼度しきい値の較正根拠** ※統合仕様書 v1.0 準拠
@@ -478,7 +481,7 @@ flowchart TD
 > | しきい値 | 判定 | 根拠 |
 > |:---------|:-----|:-----|
 > | `confidence >= 0.7` | 高信頼度 → そのまま確定 | 日本語STT（WhisperKit small）のWER 9%環境でconfidence 0.7以上はWER 5%以下に相当。実用上の誤り許容範囲 |
-> | `0.4 <= confidence < 0.7` | 中信頼度 → Proはクラウド再認識、Freeは確定+編集促進 | 雑音環境（SNR 15dB）でのWhisperKit出力が0.4-0.7帯に集中。クラウドSTTで10-15%の精度改善が見込める |
+> | `0.4 <= confidence < 0.7` | 中信頼度 → 確定+編集促進。高精度仕上げ（LLMテキスト後処理）を案内 | 雑音環境（SNR 15dB）でのWhisperKit出力が0.4-0.7帯に集中。高精度仕上げ（LLMテキスト後処理）による日本語品質の向上が見込める |
 > | `confidence < 0.4` | 低信頼度 → 確定+編集促進 | 認識結果の信頼性が低く、クラウド再認識でも改善幅が限定的。ユーザー手動編集を優先 |
 
 ### 2.5 テキスト後処理
@@ -1014,7 +1017,7 @@ final class CloudLLMProvider: LLMProviderProtocol {
         case 429:
             throw LLMError.rateLimited
         case 402:
-            throw LLMError.quotaExceeded  // 無料プラン月15回到達
+            throw LLMError.quotaExceeded  // 無料プラン月10回到達
         default:
             throw LLMError.serverError(statusCode: httpResponse.statusCode)
         }
@@ -1450,7 +1453,7 @@ struct RetryStrategy {
 - HTTP 401/403 (Auth Error) - 認証失敗
 - HTTP 402 (Payment Required) - クォータ超過
 
-### 5.4 無料プラン月15回制限のカウント管理（REQ-011）
+### 5.4 無料プラン月10回制限のカウント管理（REQ-011）
 
 ```swift
 // MARK: - AI処理クォータ管理
@@ -1484,7 +1487,7 @@ final class AIQuotaManager {
     /// 処理可否を判定
     func canProcess() async throws -> Bool {
         let usage = try await currentMonthUsage()
-        return usage < 15  // 月15回上限
+        return usage < 10  // 月10回上限
     }
 
     /// 使用記録
@@ -1495,7 +1498,7 @@ final class AIQuotaManager {
     /// 残り回数
     func remainingCount() async throws -> Int {
         let usage = try await currentMonthUsage()
-        return max(0, 15 - usage)
+        return max(0, 10 - usage)
     }
 }
 ```
@@ -1816,13 +1819,13 @@ final class AIMemoryManager {
 
 ### 8.2 ユーザーあたり月間コスト試算
 
-#### 無料プランユーザー（月15回AI処理）
+#### 無料プランユーザー（月10回AI処理）
 
 | 項目 | 計算 | コスト |
 |:-----|:-----|:------|
-| 平均入力トークン | 1,200 tokens x 15回 = 18,000 tokens | $0.0027 |
-| 平均出力トークン | 400 tokens x 15回 = 6,000 tokens | $0.0036 |
-| **月間合計** | | **$0.0063（約0.9円）** |
+| 平均入力トークン | 1,200 tokens x 10回 = 12,000 tokens | $0.0018 |
+| 平均出力トークン | 400 tokens x 10回 = 4,000 tokens | $0.0024 |
+| **月間合計** | | **$0.0042（約0.6円）** |
 
 #### Proプランユーザー（月60回AI処理想定）
 
@@ -1844,10 +1847,10 @@ final class AIMemoryManager {
 
 | スケール | 無料ユーザー | Proユーザー | LLM API月額 | Cloudflare Workers | 合計月額 |
 |:---------|:-----------|:-----------|:-----------|:------------------|:---------|
-| 初期（100人） | 80人 | 20人 | ~$1.1 | $5 (Free tier) | ~$6 |
-| 成長期（1,000人） | 800人 | 200人 | ~$10.6 | $5 | ~$16 |
-| 拡大期（10,000人） | 8,000人 | 2,000人 | ~$106 | $25 | ~$131 |
-| 目標（50,000人） | 40,000人 | 10,000人 | ~$531 | $50 | ~$581 |
+| 初期（100人） | 80人 | 20人 | ~$0.9 | $5 (Free tier) | ~$6 |
+| 成長期（1,000人） | 800人 | 200人 | ~$8.9 | $5 | ~$14 |
+| 拡大期（10,000人） | 8,000人 | 2,000人 | ~$89 | $25 | ~$114 |
+| 目標（50,000人） | 40,000人 | 10,000人 | ~$447 | $50 | ~$497 |
 
 ### 8.4 損益分岐分析
 
@@ -1858,9 +1861,9 @@ final class AIMemoryManager {
 | LLMコスト/Pro user | ~¥4.2 |
 | Infra按分コスト/Pro user | ~¥5 |
 | **Pro 1ユーザーあたり粗利** | **~¥416/月** |
-| 無料ユーザーコスト/user | ~¥0.9 |
-| 無料:Pro比率 4:1 の場合、無料ユーザー按分コスト | ~¥3.6/Pro user |
-| **実質粗利（按分後）** | **~¥412/月/Proユーザー** |
+| 無料ユーザーコスト/user | ~¥0.6 |
+| 無料:Pro比率 4:1 の場合、無料ユーザー按分コスト | ~¥2.4/Pro user |
+| **実質粗利（按分後）** | **~¥414/月/Proユーザー** |
 
 > GPT-4o miniの圧倒的な低コストにより、LLM APIコストはサービス全体のコスト構造においてほぼ無視できるレベルである。主要コストはCloudflare Workersのインフラ費用と、将来的にはカスタマーサポート・マーケティング費用となる。
 

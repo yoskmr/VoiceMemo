@@ -47,8 +47,8 @@ public struct MemoDetailReducer {
         public var aiRetryCount: Int = 0
 
         // AI クォータ情報（T09: AI処理連携拡張）
-        public var remainingQuota: Int = 15
-        public var quotaLimit: Int = 15
+        public var remainingQuota: Int = 10
+        public var quotaLimit: Int = 10
 
         // AI要約 UI 状態（T10: AI要約・タグUI実体化）
         public var isSummaryExpanded: Bool = false
@@ -88,8 +88,8 @@ public struct MemoDetailReducer {
             audioPlayer: AudioPlayerReducer.State? = nil,
             aiProcessingStatus: AIProcessingStatus = .idle,
             aiRetryCount: Int = 0,
-            remainingQuota: Int = 15,
-            quotaLimit: Int = 15,
+            remainingQuota: Int = 10,
+            quotaLimit: Int = 10,
             isSummaryExpanded: Bool = false,
             showAIOnboarding: Bool = false,
             aiFeedback: AIFeedback? = nil,
@@ -347,7 +347,8 @@ public struct MemoDetailReducer {
                 // 音声プレイヤーの初期化（音声ファイルが存在する場合）
                 if !detail.audioFilePath.isEmpty {
                     state.audioPlayer = AudioPlayerReducer.State(
-                        audioFilePath: detail.audioFilePath
+                        audioFilePath: detail.audioFilePath,
+                        duration: detail.durationSeconds
                     )
                 }
                 analyticsClient.send("memo.viewed")

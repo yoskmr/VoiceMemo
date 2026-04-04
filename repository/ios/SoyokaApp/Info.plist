@@ -24,6 +24,13 @@
 	<string>つぶやきの録音に使用します。音声データはデバイスにのみ保存され、外部に送信されることはありません。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>あなたの声をテキストに変換するために使用します。音声認識はデバイス上で処理されます。</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>CFBundleDocumentTypes</key>

@@ -17,7 +17,7 @@ public enum LLMError: Error, Equatable, Sendable {
     case invalidOutput
     /// LLM推論中のエラー
     case processingFailed(String)
-    /// 月15回制限到達
+    /// 月10回制限到達
     case quotaExceeded
     /// 非対応デバイス（A16 Bionic 未満またはメモリ6GB未満）
     case deviceNotSupported

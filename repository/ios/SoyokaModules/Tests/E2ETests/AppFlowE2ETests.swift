@@ -114,9 +114,9 @@ final class AppFlowE2ETests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため
@@ -266,9 +266,9 @@ final class AppFlowE2ETests: XCTestCase {
         let store = TestStore(
             initialState: AIProcessingReducer.State(
                 memoID: memoID,
-                remainingQuota: 15,
+                remainingQuota: 10,
                 quotaUsed: 0,
-                quotaLimit: 15
+                quotaLimit: 10
             )
         ) {
             AIProcessingReducer()
@@ -276,7 +276,7 @@ final class AppFlowE2ETests: XCTestCase {
             $0.aiQuota.canProcess = { true }
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.currentUsage = { 1 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { testResetDate }
             $0.aiProcessingQueue.enqueueProcessing = { id in
                 enqueuedMemoID.withValue { $0 = id }
@@ -293,7 +293,7 @@ final class AppFlowE2ETests: XCTestCase {
         await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 14, used: 1)) {
             $0.remainingQuota = 14
             $0.quotaUsed = 1
-            $0.quotaLimit = 15
+            $0.quotaLimit = 10
         }
 
         // enqueueProcessing が呼ばれたことを確認

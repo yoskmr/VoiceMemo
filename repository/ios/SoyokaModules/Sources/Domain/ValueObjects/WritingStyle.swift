@@ -8,9 +8,9 @@ public enum WritingStyle: String, CaseIterable, Codable, Sendable, Equatable {
     case formal
     /// ひとりごと — SNS的な短文、体言止め
     case casual
-    /// ふりかえり — 未来の自分が語りかけるような手紙風（Pro）
+    /// ふりかえり — 未来の自分が語りかけるような手紙風（近日公開）
     case reflection
-    /// エッセイ — 日常を短い随筆に（Pro）
+    /// エッセイ — 日常を短い随筆に（近日公開）
     case essay
 
     public var displayName: String {
@@ -33,11 +33,11 @@ public enum WritingStyle: String, CaseIterable, Codable, Sendable, Equatable {
         }
     }
 
-    /// Pro限定かどうか
-    public var requiresPro: Bool {
+    /// 現在利用可能かどうか（false = 近日公開）
+    public var isAvailable: Bool {
         switch self {
-        case .soft, .formal, .casual: return false
-        case .reflection, .essay: return true
+        case .soft, .formal, .casual: return true
+        case .reflection, .essay: return false
         }
     }
 

@@ -210,8 +210,10 @@ public enum EmotionCategory: String, Codable, CaseIterable, Sendable {
 | `.soft` | 話し言葉のニュアンスを残す |
 | `.formal` | 「です・ます」調に統一 |
 | `.casual` | 体言止め・SNS風 |
-| `.reflection` | 手紙風・共感トーン |
-| `.essay` | 随筆風 |
+| `.reflection` | 手紙風・共感トーン　※品質改善まで実装保留 |
+| `.essay` | 随筆風　※品質改善まで実装保留 |
+
+> ※v1.4対応: `.reflection`（手紙）と `.essay`（随筆）はオンデバイスLLM（Phi-3-mini）での日本語文体変換品質が不十分なため、品質改善まで実装を保留する。UIでは「Coming Soon」として表示し、選択不可とする。`.soft`/`.formal`/`.casual` の3スタイルは無料ユーザーにも開放する。
 
 ### 変更対象
 

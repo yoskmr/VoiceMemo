@@ -61,10 +61,11 @@ public struct SettingsView: View {
                         ForEach(WritingStyle.allCases, id: \.self) { style in
                             HStack {
                                 Text(style.displayName)
-                                if style.requiresPro {
-                                    Text("Pro")
-                                        .font(.caption2)
-                                        .foregroundColor(.vmAccent)
+                                    .foregroundColor(style.isAvailable ? .vmTextPrimary : .vmTextTertiary)
+                                if !style.isAvailable {
+                                    Text("近日公開")
+                                        .font(.vmCaption2)
+                                        .foregroundColor(.vmTextTertiary)
                                 }
                             }
                             .tag(style)

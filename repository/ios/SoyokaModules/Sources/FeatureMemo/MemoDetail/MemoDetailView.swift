@@ -463,7 +463,7 @@ struct AISummarySection: View {
     let summary: MemoDetailReducer.State.AISummaryState?
     var aiProcessingStatus: AIProcessingStatus = .idle
     var isExpanded: Bool = false
-    var remainingQuota: Int = 15
+    var remainingQuota: Int = 10
     var onToggleExpand: (() -> Void)?
     var onRegenerate: (() -> Void)?
     var onTriggerAI: (() -> Void)?

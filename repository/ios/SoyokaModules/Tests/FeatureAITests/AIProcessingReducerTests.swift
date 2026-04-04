@@ -29,7 +29,7 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiQuota.canProcess = { true }
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.currentUsage = { 1 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { self.testResetDate }
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
@@ -44,7 +44,7 @@ final class AIProcessingReducerTests: XCTestCase {
         await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 14, used: 1)) {
             $0.remainingQuota = 14
             $0.quotaUsed = 1
-            $0.quotaLimit = 15
+            $0.quotaLimit = 10
         }
 
         // ステータス更新: processing
@@ -78,16 +78,16 @@ final class AIProcessingReducerTests: XCTestCase {
         } withDependencies: {
             $0.aiQuota.canProcess = { false }
             $0.aiQuota.remainingCount = { 0 }
-            $0.aiQuota.currentUsage = { 15 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.currentUsage = { 10 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { self.testResetDate }
         }
         await store.send(.startProcessing)
 
-        await store.receive(._quotaCheckCompleted(canProcess: false, remaining: 0, used: 15)) {
+        await store.receive(._quotaCheckCompleted(canProcess: false, remaining: 0, used: 10)) {
             $0.remainingQuota = 0
-            $0.quotaUsed = 15
-            $0.quotaLimit = 15
+            $0.quotaUsed = 10
+            $0.quotaLimit = 10
             $0.processingStatus = .failed(.quotaExceeded(remaining: 0, resetDate: self.testResetDate))
         }
     }
@@ -111,7 +111,7 @@ final class AIProcessingReducerTests: XCTestCase {
             $0.aiQuota.canProcess = { true }
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.currentUsage = { 1 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { self.testResetDate }
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
@@ -130,7 +130,7 @@ final class AIProcessingReducerTests: XCTestCase {
         await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 14, used: 1)) {
             $0.remainingQuota = 14
             $0.quotaUsed = 1
-            $0.quotaLimit = 15
+            $0.quotaLimit = 10
         }
 
         statusStream.continuation.finish()
@@ -190,9 +190,9 @@ final class AIProcessingReducerTests: XCTestCase {
             AIProcessingReducer()
         } withDependencies: {
             $0.aiQuota.canProcess = { true }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { self.testResetDate }
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
@@ -208,7 +208,7 @@ final class AIProcessingReducerTests: XCTestCase {
         // onboardingDismissed は内部で startProcessing を送信
         await store.receive(.startProcessing)
         // _quotaCheckCompleted: remainingQuota/quotaUsed/quotaLimit は初期値と同一のため状態変化なし
-        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 15, used: 0))
+        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 10, used: 0))
 
         // UserDefaults にフラグが保存されたことを確認
         XCTAssertTrue(UserDefaults.standard.bool(forKey: "hasSeenAIOnboarding"))
@@ -222,7 +222,7 @@ final class AIProcessingReducerTests: XCTestCase {
         let store = TestStore(
             initialState: AIProcessingReducer.State(
                 memoID: testMemoID,
-                remainingQuota: 15,
+                remainingQuota: 10,
                 quotaUsed: 0
             )
         ) {
@@ -261,7 +261,7 @@ final class AIProcessingReducerTests: XCTestCase {
         let store = TestStore(
             initialState: AIProcessingReducer.State(
                 memoID: testMemoID,
-                remainingQuota: 15,
+                remainingQuota: 10,
                 quotaUsed: 0
             )
         ) {
@@ -302,9 +302,9 @@ final class AIProcessingReducerTests: XCTestCase {
             AIProcessingReducer()
         } withDependencies: {
             $0.aiQuota.canProcess = { true }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { self.testResetDate }
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiProcessingQueue.observeStatus = { _ in statusStream.stream }
@@ -317,7 +317,7 @@ final class AIProcessingReducerTests: XCTestCase {
 
         // オンボーディングは表示されず、直接クォータチェック
         // _quotaCheckCompleted: remainingQuota/quotaUsed/quotaLimit は初期値と同一のため状態変化なし
-        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 15, used: 0))
+        await store.receive(._quotaCheckCompleted(canProcess: true, remaining: 10, used: 0))
 
         statusStream.continuation.finish()
     }

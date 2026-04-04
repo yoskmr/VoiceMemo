@@ -77,9 +77,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため
@@ -135,9 +135,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
@@ -198,9 +198,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため
@@ -262,9 +262,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
         // exhaustivity = .off: onAppear の並行エフェクト（memosLoaded + aiQuotaLoaded）の順序が非決定的で、
@@ -355,29 +355,32 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
-        // スワイプ → 確認ダイアログが表示される
+        let memo = makeMemoItem(id: memoID, createdAt: now)
+
+        // スワイプ → 一覧から即座に除去、Undoスナックバー表示
         await store.send(.swipeToDelete(id: memoID)) {
-            $0.deletion.pendingID = memoID
-            $0.deletion.showConfirmation = true
+            $0.memos.remove(id: memoID)
+            $0.sections = MemoListReducer.buildSections(
+                from: $0.memos, now: now, calendar: Calendar.current
+            )
+            $0.deletion.recentlyDeletedMemo = memo
+            $0.deletion.showUndoSnackbar = true
         }
 
-        // 確認ボタン → 削除実行
-        await store.send(.confirmDelete) {
-            $0.deletion.showConfirmation = false
-            $0.deletion.pendingID = nil
+        // Undo期限切れ → 削除確定
+        await store.send(.undoExpired) {
+            $0.deletion.recentlyDeletedMemo = nil
+            $0.deletion.showUndoSnackbar = false
         }
 
         await store.receive(.deleteConfirmed(id: memoID))
 
-        await store.receive(\.memoDeleted.success) {
-            $0.memos = []
-            $0.sections = []
-        }
+        await store.receive(\.memoDeleted.success)
     }
 
     // MARK: - Test 7b: スワイプ削除 → キャンセル
@@ -405,21 +408,31 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
 
-        // スワイプ → 確認ダイアログが表示される
+        let memo = makeMemoItem(id: memoID, createdAt: now)
+
+        // スワイプ → 一覧から除去、Undoスナックバー表示
         await store.send(.swipeToDelete(id: memoID)) {
-            $0.deletion.pendingID = memoID
-            $0.deletion.showConfirmation = true
+            $0.memos.remove(id: memoID)
+            $0.sections = MemoListReducer.buildSections(
+                from: $0.memos, now: now, calendar: Calendar.current
+            )
+            $0.deletion.recentlyDeletedMemo = memo
+            $0.deletion.showUndoSnackbar = true
         }
 
-        // キャンセル → 削除されない
-        await store.send(.deleteCancelled) {
-            $0.deletion.showConfirmation = false
-            $0.deletion.pendingID = nil
+        // Undo → メモが復元される
+        await store.send(.undoDeleteTapped) {
+            $0.memos.append(memo)
+            $0.sections = MemoListReducer.buildSections(
+                from: $0.memos, now: now, calendar: Calendar.current
+            )
+            $0.deletion.recentlyDeletedMemo = nil
+            $0.deletion.showUndoSnackbar = false
         }
 
         // メモは残っている
@@ -445,9 +458,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = now
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: refreshCompleted.success が aiQuotaLoaded エフェクトを発火し、受信順序が非決定的なため
         store.exhaustivity = .off
@@ -495,9 +508,9 @@ final class MemoListReducerTests: XCTestCase {
             $0.date.now = Date()
             $0.calendar = Calendar.current
             $0.aiQuota.currentUsage = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
             $0.aiQuota.nextResetDate = { Date() }
-            $0.aiQuota.remainingCount = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
         }
         // exhaustivity = .off: onAppear が memosLoaded + aiQuotaLoaded の並行エフェクトを .merge で起動し、
         // 受信順序が非決定的なため

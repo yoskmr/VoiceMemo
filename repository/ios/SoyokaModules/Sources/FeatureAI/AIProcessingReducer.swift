@@ -17,20 +17,20 @@ public struct AIProcessingReducer {
         /// AI処理ステータス
         public var processingStatus: AIProcessingStatus = .idle
         /// 今月の残りクォータ
-        public var remainingQuota: Int = 15
+        public var remainingQuota: Int = 10
         /// 今月の使用回数
         public var quotaUsed: Int = 0
         /// 月次上限
-        public var quotaLimit: Int = 15
+        public var quotaLimit: Int = 10
         /// 初回オンボーディング表示フラグ
         public var showOnboarding: Bool = false
 
         public init(
             memoID: UUID,
             processingStatus: AIProcessingStatus = .idle,
-            remainingQuota: Int = 15,
+            remainingQuota: Int = 10,
             quotaUsed: Int = 0,
-            quotaLimit: Int = 15,
+            quotaLimit: Int = 10,
             showOnboarding: Bool = false
         ) {
             self.memoID = memoID

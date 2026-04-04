@@ -74,7 +74,7 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
                 enqueuedMemoID.withValue { $0 = id }
             }
             $0.aiQuota.remainingCount = { 14 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）と
         // AI処理完了時の並行エフェクト（memoLoaded + quotaInfoLoaded）の順序が非決定的なため
@@ -157,7 +157,7 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiQuota.remainingCount = { 0 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
@@ -243,7 +243,7 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
                 enqueuedMemoID.withValue { $0 = id }
             }
             $0.aiQuota.remainingCount = { 13 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）と
         // AI処理完了時の並行エフェクト（memoLoaded + quotaInfoLoaded）の順序が非決定的なため
@@ -303,8 +303,8 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
-            $0.aiQuota.remainingCount = { 15 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
@@ -354,8 +354,8 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
-            $0.aiQuota.remainingCount = { 15 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.remainingCount = { 10 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
@@ -404,16 +404,16 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
         let store = TestStore(
             initialState: MemoDetailReducer.State(
                 memoID: testMemoID,
-                remainingQuota: 15,
-                quotaLimit: 15
+                remainingQuota: 10,
+                quotaLimit: 10
             )
         ) {
             MemoDetailReducer()
         }
 
-        await store.send(._quotaInfoLoaded(remaining: 10, limit: 15)) {
-            $0.remainingQuota = 10
-            $0.quotaLimit = 15
+        await store.send(._quotaInfoLoaded(remaining: 5, limit: 10)) {
+            $0.remainingQuota = 5
+            $0.quotaLimit = 10
         }
     }
 
@@ -427,15 +427,15 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
         let store = TestStore(
             initialState: MemoDetailReducer.State(
                 memoID: testMemoID,
-                remainingQuota: 15,
-                quotaLimit: 15
+                remainingQuota: 10,
+                quotaLimit: 10
             )
         ) {
             MemoDetailReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchMemoDetail = { _ in entity }
-            $0.aiQuota.remainingCount = { 14 }
-            $0.aiQuota.monthlyLimit = { 15 }
+            $0.aiQuota.remainingCount = { 9 }
+            $0.aiQuota.monthlyLimit = { 10 }
         }
         await store.send(.aiProcessingStatusUpdated(.completed(isOnDevice: true))) {
             $0.aiProcessingStatus = .completed(isOnDevice: true)
@@ -445,8 +445,8 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
         await store.skipReceivedActions()
 
         // クォータ情報が更新されたことを確認
-        XCTAssertEqual(store.state.remainingQuota, 14)
-        XCTAssertEqual(store.state.quotaLimit, 15)
+        XCTAssertEqual(store.state.remainingQuota, 9)
+        XCTAssertEqual(store.state.quotaLimit, 10)
     }
 
     // MARK: - Test 9: triggerAIProcessing エラー時のフォールバック

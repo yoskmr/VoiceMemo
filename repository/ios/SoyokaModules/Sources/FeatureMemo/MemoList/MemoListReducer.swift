@@ -77,7 +77,7 @@ public struct MemoListReducer {
 
         /// AI分析クォータ情報（Phase 3 UXレビュー: 一覧上部に使用回数表示）
         public var aiQuotaUsed: Int = 0
-        public var aiQuotaLimit: Int = 15
+        public var aiQuotaLimit: Int = 10
         public var nextResetDate: Date?
 
         /// 月上限到達時のダイアログ表示フラグ（T11: 月次制限UI）
@@ -103,7 +103,7 @@ public struct MemoListReducer {
             pendingMemoID: UUID? = nil,
             deletion: DeletionState = DeletionState(),
             aiQuotaUsed: Int = 0,
-            aiQuotaLimit: Int = 15,
+            aiQuotaLimit: Int = 10,
             nextResetDate: Date? = nil,
             showQuotaExceededAlert: Bool = false,
             showProRequiredAlert: Bool = false

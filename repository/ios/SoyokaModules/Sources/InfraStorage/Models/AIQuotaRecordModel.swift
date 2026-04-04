@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// SwiftData @Model: AI処理の月次カウント記録
-/// Phase 3a: 月15回の無料枠を管理するための使用記録
+/// Phase 3a: 月10回の無料枠を管理するための使用記録
 /// 設計書 DES-PHASE3A-001 セクション8.2 準拠
 @Model
 public final class AIQuotaRecordModel {
