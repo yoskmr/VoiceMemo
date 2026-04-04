@@ -62,6 +62,13 @@ public struct MemoDetailReducer {
         // 辞書レコメンド
         public var dictionaryRecommendation: DictionaryRecommendation?
 
+        // TASK-0044: 高精度仕上げ
+        public var isPolishing: Bool = false
+        public var isPolished: Bool = false
+        public var polishOriginalText: String?
+        public var showOriginalText: Bool = false
+        public var polishError: String?
+
         // TASK-0043: つながるきおく（関連メモ）
         public var relatedMemos: [RelatedMemo] = []
         public var isLoadingRelated: Bool = false
@@ -99,6 +106,11 @@ public struct MemoDetailReducer {
             showAIOnboarding: Bool = false,
             aiFeedback: AIFeedback? = nil,
             dictionaryRecommendation: DictionaryRecommendation? = nil,
+            isPolishing: Bool = false,
+            isPolished: Bool = false,
+            polishOriginalText: String? = nil,
+            showOriginalText: Bool = false,
+            polishError: String? = nil,
             originalTranscriptionText: String? = nil,
             relatedMemos: [RelatedMemo] = [],
             isLoadingRelated: Bool = false,
@@ -131,6 +143,11 @@ public struct MemoDetailReducer {
             self.showAIOnboarding = showAIOnboarding
             self.aiFeedback = aiFeedback
             self.dictionaryRecommendation = dictionaryRecommendation
+            self.isPolishing = isPolishing
+            self.isPolished = isPolished
+            self.polishOriginalText = polishOriginalText
+            self.showOriginalText = showOriginalText
+            self.polishError = polishError
             self.originalTranscriptionText = originalTranscriptionText
             self.relatedMemos = relatedMemos
             self.isLoadingRelated = isLoadingRelated
@@ -225,6 +242,12 @@ public struct MemoDetailReducer {
         case acceptDictionaryRecommendation(DictionaryRecommendation)
         case dismissDictionaryRecommendation(DictionaryRecommendation)
 
+        /// TASK-0044: 高精度仕上げ
+        case polishButtonTapped
+        case polishCompleted(Result<PolishResult, EquatableError>)
+        case toggleOriginalText
+        case dismissPolishError
+
         /// TASK-0043: つながるきおく（関連メモ）
         case loadRelatedMemos
         case relatedMemosLoaded(Result<[RelatedMemo], EquatableError>)
@@ -302,6 +325,7 @@ public struct MemoDetailReducer {
     @Dependency(\.aiProcessingQueue) var aiProcessingQueue
     @Dependency(\.aiQuota) var aiQuota
     @Dependency(\.customDictionaryClient) var customDictionaryClient
+    @Dependency(\.textPolish) var textPolishClient
     @Dependency(\.relatedMemo) var relatedMemoClient
     @Dependency(\.subscriptionClient) var subscriptionClient
     @Dependency(\.uuid) var uuid
@@ -697,6 +721,44 @@ public struct MemoDetailReducer {
 
             case let .subscriptionStateChecked(isPro):
                 state.isPro = isPro
+                return .none
+
+            // MARK: - 高精度仕上げ（TASK-0044）
+
+            case .polishButtonTapped:
+                guard state.isPro else { return .send(.showProPlanTapped) }
+                guard !state.isPolishing else { return .none }
+                state.isPolishing = true
+                state.polishError = nil
+                let text = state.transcriptionText
+                return .run { [customDictionaryClient, textPolishClient] send in
+                    let dictPairs = try await customDictionaryClient.getDictionaryPairs()
+                    let result = await Result {
+                        try await textPolishClient.polish(text, dictPairs)
+                    }.mapError { EquatableError($0) }
+                    await send(.polishCompleted(result))
+                }
+
+            case let .polishCompleted(.success(result)):
+                state.isPolishing = false
+                if state.polishOriginalText == nil {
+                    state.polishOriginalText = state.transcriptionText
+                }
+                state.transcriptionText = result.polishedText
+                state.isPolished = true
+                return .none
+
+            case .polishCompleted(.failure):
+                state.isPolishing = false
+                state.polishError = "仕上げに失敗しました。もう一度お試しください。"
+                return .none
+
+            case .toggleOriginalText:
+                state.showOriginalText.toggle()
+                return .none
+
+            case .dismissPolishError:
+                state.polishError = nil
                 return .none
 
             case .showProPlanTapped:

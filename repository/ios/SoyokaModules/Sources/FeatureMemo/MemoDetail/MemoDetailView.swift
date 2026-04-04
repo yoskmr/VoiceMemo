@@ -111,6 +111,17 @@ public struct MemoDetailView: View {
                         )
                     }
 
+                    // MARK: - 高精度仕上げ（TASK-0044）
+                    // 仕上げボタン（Pro限定、未仕上げ時のみ表示）
+                    if store.isPro && !store.isPolished && !store.transcriptionText.isEmpty {
+                        polishButton
+                    }
+
+                    // 仕上げ済みバッジ + 元のテキスト切替
+                    if store.isPolished {
+                        polishedBadgeSection
+                    }
+
                     // 文字起こし（折りたたみ、デフォルト非表示）
                     TranscriptionSection(text: store.transcriptionText)
                 }
@@ -194,6 +205,18 @@ public struct MemoDetailView: View {
         } message: {
             Text("このきおくを完全に削除しますか？\nこの操作は取り消せません。")
         }
+        // 高精度仕上げエラーアラート（TASK-0044）
+        .alert(
+            "仕上げエラー",
+            isPresented: Binding(
+                get: { store.polishError != nil },
+                set: { if !$0 { store.send(.dismissPolishError) } }
+            )
+        ) {
+            Button("OK") { store.send(.dismissPolishError) }
+        } message: {
+            if let msg = store.polishError { Text(msg) }
+        }
         // AIオンボーディングシート（初回AI処理時に表示）
         .sheet(
             isPresented: Binding(
@@ -218,6 +241,69 @@ public struct MemoDetailView: View {
             return true
         case .idle, .completed, .failed:
             return false
+        }
+    }
+
+    // MARK: - 高精度仕上げ UI（TASK-0044）
+
+    /// 「高精度で仕上げる」ボタン（Pro限定、未仕上げ時のみ表示）
+    private var polishButton: some View {
+        Button {
+            store.send(.polishButtonTapped)
+        } label: {
+            HStack(spacing: VMDesignTokens.Spacing.sm) {
+                if store.isPolishing {
+                    ProgressView()
+                        .tint(.vmPrimary)
+                    Text("仕上げ中...")
+                } else {
+                    Image(systemName: "sparkle.magnifyingglass")
+                    Text("高精度で仕上げる")
+                }
+            }
+            .font(.vmCallout)
+            .foregroundColor(.vmPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, VMDesignTokens.Spacing.md)
+            .background(Color.vmPrimary.opacity(0.08))
+            .cornerRadius(VMDesignTokens.CornerRadius.medium)
+        }
+        .disabled(store.isPolishing)
+        .accessibilityLabel("高精度で仕上げる")
+        .accessibilityHint("クラウドAIが文字起こしを日本語として完璧に仕上げます")
+    }
+
+    /// 仕上げ済みバッジ + 元のテキスト切替
+    private var polishedBadgeSection: some View {
+        VStack(spacing: VMDesignTokens.Spacing.sm) {
+            // 仕上げ済みバッジ
+            HStack(spacing: VMDesignTokens.Spacing.xs) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(.vmSuccess)
+                Text("高精度仕上げ済み")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmSuccess)
+                Spacer()
+                // 元のテキスト切替ボタン
+                Button {
+                    store.send(.toggleOriginalText)
+                } label: {
+                    Text(store.showOriginalText ? "仕上げ後を見る" : "元のテキストを見る")
+                        .font(.vmCaption2)
+                        .foregroundColor(.vmTextTertiary)
+                }
+            }
+
+            // 元のテキスト表示（トグル時）
+            if store.showOriginalText, let original = store.polishOriginalText {
+                Text(original)
+                    .font(.vmBody())
+                    .foregroundColor(.vmTextSecondary)
+                    .lineSpacing(VMDesignTokens.LineSpacing.body)
+                    .padding(VMDesignTokens.Spacing.md)
+                    .background(Color.vmSurfaceVariant.opacity(0.5))
+                    .cornerRadius(VMDesignTokens.CornerRadius.small)
+            }
         }
     }
 

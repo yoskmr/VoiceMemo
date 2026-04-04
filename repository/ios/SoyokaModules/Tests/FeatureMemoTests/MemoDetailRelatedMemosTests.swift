@@ -135,8 +135,8 @@ final class MemoDetailRelatedMemosTests: XCTestCase {
         let store = TestStore(
             initialState: MemoDetailReducer.State(
                 memoID: testMemoID,
-                isPro: true,
-                isLoadingRelated: true
+                isLoadingRelated: true,
+                isPro: true
             )
         ) {
             MemoDetailReducer()
