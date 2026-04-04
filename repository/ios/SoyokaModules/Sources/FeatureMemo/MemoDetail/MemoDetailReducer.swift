@@ -720,7 +720,12 @@ public struct MemoDetailReducer {
                 return .none
 
             case let .subscriptionStateChecked(isPro):
+                let previousIsPro = state.isPro
                 state.isPro = isPro
+                // Pro に変わった場合は関連メモを再取得
+                if isPro && !previousIsPro && !state.relatedMemos.isEmpty {
+                    return .send(.loadRelatedMemos)
+                }
                 return .none
 
             // MARK: - 高精度仕上げ（TASK-0044）
@@ -746,7 +751,13 @@ public struct MemoDetailReducer {
                 }
                 state.transcriptionText = result.polishedText
                 state.isPolished = true
-                return .none
+                // 永続化: SwiftData に保存
+                let memoID = state.memoID
+                let title = state.title
+                let polishedText = result.polishedText
+                return .run { [voiceMemoRepository] _ in
+                    try await voiceMemoRepository.updateMemoText(memoID, title, polishedText)
+                }
 
             case .polishCompleted(.failure):
                 state.isPolishing = false

@@ -15,7 +15,7 @@ public struct ChatView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            if store.showProSheet {
+            if !store.isPro {
                 proRequiredContent
             } else if store.memoCount < ChatReducer.minimumMemoCount {
                 emptyStateContent

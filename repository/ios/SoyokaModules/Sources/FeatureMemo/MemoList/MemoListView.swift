@@ -80,7 +80,7 @@ public struct MemoListView: View {
                     Text("しばらく時間をおいて、もう一度お試しください")
                 }
                 .alert(
-                    "きおくに聞くはProプランの機能です",
+                    "Proプランの機能です",
                     isPresented: $store.showProRequiredAlert.sending(\.proRequiredAlertPresented)
                 ) {
                     Button("あとで", role: .cancel) {

@@ -183,7 +183,12 @@ public struct EmotionTrendReducer {
                 return .none
 
             case let .subscriptionStateLoaded(isPro):
+                let previousIsPro = state.isPro
                 state.isPro = isPro
+                // Pro に変わった場合は再取得（3件制限 → 全件取得）
+                if isPro && !previousIsPro && !state.emotions.isEmpty {
+                    return .send(.periodChanged(state.selectedPeriod))
+                }
                 return .none
 
             case .planManagementTapped:

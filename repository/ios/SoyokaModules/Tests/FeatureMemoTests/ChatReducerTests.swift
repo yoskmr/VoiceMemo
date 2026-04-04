@@ -326,18 +326,17 @@ final class ChatReducerTests: XCTestCase {
         // 空文字ではメッセージが追加されない
     }
 
-    // MARK: - Test 10: dismissProSheet
+    // MARK: - Test 10: dismissProSheet は親 Reducer に委譲（State 変更なし）
 
-    func test_dismissProSheet_シートが閉じる() async {
+    func test_dismissProSheet_親Reducerに委譲() async {
         let store = TestStore(
             initialState: ChatReducer.State(isPro: false, showProSheet: true)
         ) {
             ChatReducer()
         }
 
-        await store.send(.dismissProSheet) {
-            $0.showProSheet = false
-        }
+        // dismissProSheet は State を変更せず、親 Reducer（MemoListReducer）で chatState = nil にする
+        await store.send(.dismissProSheet)
     }
 
     // MARK: - Test 11: stopGenerationTapped でストリーミングが停止する

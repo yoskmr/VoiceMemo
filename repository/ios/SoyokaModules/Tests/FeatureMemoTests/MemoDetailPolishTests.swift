@@ -40,6 +40,7 @@ final class MemoDetailPolishTests: XCTestCase {
                     model: "gpt-4o-mini"
                 )
             }
+            $0.voiceMemoRepository.updateMemoText = { _, _, _ in }
         }
 
         await store.send(.polishButtonTapped) {
@@ -77,18 +78,29 @@ final class MemoDetailPolishTests: XCTestCase {
         await store.receive(\.showProPlanTapped)
     }
 
-    // MARK: - Test 3: 仕上げ成功時にテキスト更新とバッジ表示
+    // MARK: - Test 3: 仕上げ成功時にテキスト更新とバッジ表示 + 永続化
 
     func test_polishCompleted_success_テキスト更新とバッジ表示() async {
+        var savedMemoID: UUID?
+        var savedTitle: String?
+        var savedText: String?
+
         let store = TestStore(
             initialState: MemoDetailReducer.State(
                 memoID: testMemoID,
+                title: "テストきおく",
                 transcriptionText: "元のテキスト",
                 isPolishing: true,
                 isPro: true
             )
         ) {
             MemoDetailReducer()
+        } withDependencies: {
+            $0.voiceMemoRepository.updateMemoText = { id, title, text in
+                savedMemoID = id
+                savedTitle = title
+                savedText = text
+            }
         }
 
         let result = PolishResult(
@@ -103,6 +115,11 @@ final class MemoDetailPolishTests: XCTestCase {
             $0.transcriptionText = "仕上げ後のテキスト"
             $0.isPolished = true
         }
+
+        // 永続化が呼ばれたことを確認
+        XCTAssertEqual(savedMemoID, testMemoID)
+        XCTAssertEqual(savedTitle, "テストきおく")
+        XCTAssertEqual(savedText, "仕上げ後のテキスト")
     }
 
     // MARK: - Test 4: 仕上げ失敗時にエラーメッセージ表示

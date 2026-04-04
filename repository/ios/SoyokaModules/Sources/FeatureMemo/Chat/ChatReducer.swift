@@ -164,7 +164,7 @@ public struct ChatReducer {
                 return .none
 
             case .dismissProSheet:
-                state.showProSheet = false
+                // Free ユーザーが「あとで」をタップ → 親 Reducer で chatState = nil にして画面を閉じる
                 return .none
 
             case .stopGenerationTapped:

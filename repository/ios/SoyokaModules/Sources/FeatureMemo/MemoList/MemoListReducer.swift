@@ -553,6 +553,16 @@ public struct MemoListReducer {
                 state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
                 return .none
 
+            // Chat: Pro プラン案内
+            case .chat(.presented(.showProPlanTapped)):
+                state.chatState = nil
+                return .send(.showProPlanTapped)
+
+            // Chat: 「あとで」で画面を閉じる
+            case .chat(.presented(.dismissProSheet)):
+                state.chatState = nil
+                return .none
+
             case .chat:
                 return .none
 
@@ -576,6 +586,19 @@ public struct MemoListReducer {
             // メモ詳細: 編集保存完了 → 一覧をリフレッシュ
             case .memoDetail(.presented(._editSavedAndReload)):
                 return .send(.refreshRequested)
+
+            // つながるきおく: 関連メモタップ → メモ詳細を閉じて別メモを開く
+            case .memoDetail(.presented(.relatedMemoTapped(let memoID))):
+                state.selectedMemo = nil
+                // 次のRunLoopで新しいメモ詳細を開く
+                return .run { send in
+                    try await Task.sleep(for: .milliseconds(300))
+                    await send(.memoTapped(id: memoID))
+                }
+
+            // MemoDetail: Pro プラン案内
+            case .memoDetail(.presented(.showProPlanTapped)):
+                return .send(.showProPlanTapped)
 
             case .memoDetail:
                 return .none
