@@ -249,7 +249,23 @@ extension SpeechAnalyzerEngine: STTEngineProtocol {
             self.inputBuilder = nil
         }
         try? await currentAnalyzer?.finalizeAndFinishThroughEndOfInput()
-        try await Task.sleep(nanoseconds: 800_000_000)
+
+        // 結果が安定するまで待つ（最大10秒、1秒間変化なしで安定と判断）
+        var lastText = ""
+        var stableCount = 0
+        for _ in 0..<20 {  // 最大10秒 (20 × 0.5秒)
+            try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5秒
+            let currentText = withLock { self.lastResult?.text ?? "" }
+            if currentText == lastText && !currentText.isEmpty {
+                stableCount += 1
+                if stableCount >= 2 {  // 1秒間変化なし = 安定
+                    break
+                }
+            } else {
+                stableCount = 0
+                lastText = currentText
+            }
+        }
 
         let result = withLock { self.lastResult }
         withLock { cleanupRecognition() }
