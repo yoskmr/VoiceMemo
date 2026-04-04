@@ -3,8 +3,8 @@ import ComposableArchitecture
 import Foundation
 import InfraLogging
 
-/// デバッグ用 API リクエストログビューア Reducer
-/// InfraLogging の APIRequestLogClient を通じてログの取得・フィルタ・クリア・エクスポートを担う
+/// デバッグ用 API リクエストログビューアの Reducer
+/// 設計書 docs/superpowers/specs/2026-04-04-debug-api-log-viewer-design.md 準拠
 @Reducer
 public struct APILogViewer {
 

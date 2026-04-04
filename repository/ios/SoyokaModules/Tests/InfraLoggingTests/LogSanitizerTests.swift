@@ -1,6 +1,7 @@
 @testable import InfraLogging
 import XCTest
 
+@MainActor
 final class LogSanitizerTests: XCTestCase {
 
     // MARK: - ヘッダーマスキング

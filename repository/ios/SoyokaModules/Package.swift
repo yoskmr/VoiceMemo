@@ -119,7 +119,7 @@ let package = Package(
             plugins: []
         ),
 
-        // MARK: - Feature Modules (Feature -> Domain, SharedUI のみ。Infra直接依存禁止)
+        // MARK: - Feature Modules (Feature -> Domain, SharedUI, InfraLogging のみ。その他Infra直接依存禁止)
         .target(
             name: "FeatureRecording",
             dependencies: [
