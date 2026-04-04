@@ -24,6 +24,7 @@ public struct APILogListView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
+            #if os(iOS)
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
                     store.send(.exportTapped)
@@ -36,6 +37,20 @@ public struct APILogListView: View {
                     Image(systemName: "trash")
                 }
             }
+            #else
+            ToolbarItemGroup {
+                Button {
+                    store.send(.exportTapped)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                Button(role: .destructive) {
+                    store.send(.clearTapped)
+                } label: {
+                    Image(systemName: "trash")
+                }
+            }
+            #endif
         }
         .overlay {
             if store.filteredLogs.isEmpty {
@@ -46,7 +61,10 @@ public struct APILogListView: View {
                 )
             }
         }
-        .alert("ログをクリア", isPresented: $store.showClearConfirmation.sending(\.clearDismissed)) {
+        .alert("ログをクリア", isPresented: Binding(
+            get: { store.showClearConfirmation },
+            set: { if !$0 { store.send(.clearDismissed) } }
+        )) {
             Button("クリア", role: .destructive) {
                 store.send(.clearConfirmed)
             }
