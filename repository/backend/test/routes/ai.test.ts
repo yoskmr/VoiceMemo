@@ -613,6 +613,7 @@ describe("POST /api/v1/ai/polish", () => {
 
     // fetch が呼ばれたことを確認し、プロンプトにカスタム辞書が含まれる
     const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    if (!fetchCall) throw new Error("fetch was not called");
     const requestBody = JSON.parse(fetchCall[1].body as string);
     const systemContent = requestBody.messages[0].content as string;
     expect(systemContent).toContain("そよか");

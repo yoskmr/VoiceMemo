@@ -66,15 +66,6 @@ jobs:
           PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PP_PATH"))
           cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/"$PP_UUID".mobileprovision
 
-      # --- App Store Connect API Key の配置 ---
-      - name: Install App Store Connect API Key
-        env:
-          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        run: |
-          mkdir -p ~/.private_keys
-          echo -n "$ASC_API_KEY_BASE64" | base64 --decode -o ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
-
       # --- ビルド ---
       - name: Resolve SPM dependencies
         run: |
@@ -85,21 +76,17 @@ jobs:
       - name: Archive
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild archive \
             -project repository/ios/Soyoka.xcodeproj \
             -scheme Soyoka \
             -archivePath $RUNNER_TEMP/Soyoka.xcarchive \
             -destination 'generic/platform=iOS' \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             -skipMacroValidation \
             -skipPackagePluginValidation \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE="Manual" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             PRODUCT_BUNDLE_IDENTIFIER="app.soyoka.ios.staging"
 
           ls -la $RUNNER_TEMP/Soyoka.xcarchive
@@ -147,7 +134,6 @@ jobs:
           rm -f $RUNNER_TEMP/certificate.p12
           rm -f $RUNNER_TEMP/profile.mobileprovision
           rm -f $RUNNER_TEMP/firebase-sa.json
-          rm -rf ~/.private_keys
 
   # ==============================
   # Job 2: Backend ステージングデプロイ
