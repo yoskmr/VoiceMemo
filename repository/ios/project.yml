@@ -9,6 +9,9 @@ options:
 packages:
   SoyokaModules:
     path: SoyokaModules
+  TelemetryDeck:
+    url: https://github.com/TelemetryDeck/SwiftSDK
+    from: 2.0.0
 
 targets:
   Soyoka:
@@ -18,6 +21,7 @@ targets:
       - path: SoyokaApp
         type: group
     dependencies:
+      - package: TelemetryDeck
       - package: SoyokaModules
         product: FeatureRecording
       - package: SoyokaModules
