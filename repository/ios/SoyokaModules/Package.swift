@@ -136,6 +136,7 @@ let package = Package(
                 "Domain",
                 "SharedUI",
                 "SharedUtil",
+                "FeatureSubscription",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
