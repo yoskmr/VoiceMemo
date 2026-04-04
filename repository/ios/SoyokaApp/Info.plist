@@ -33,6 +33,8 @@
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
