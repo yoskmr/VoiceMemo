@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Domain
+import FeatureSubscription
 import SharedUI
 import SwiftUI
 
@@ -49,6 +50,20 @@ public struct MemoListView: View {
                 ) { (chatStore: StoreOf<ChatReducer>) in
                     ChatView(store: chatStore)
                 }
+                .sheet(
+                    item: $store.scope(
+                        state: \.subscription,
+                        action: \.subscription
+                    )
+                ) { subscriptionStore in
+                    NavigationStack {
+                        SubscriptionView(store: subscriptionStore)
+                            .navigationTitle("プラン管理")
+                            #if os(iOS)
+                            .navigationBarTitleDisplayMode(.inline)
+                            #endif
+                    }
+                }
                 .overlay(alignment: .bottom) { undoSnackbar }
                 .alert(
                     "AI整理を実行できませんでした",
@@ -58,7 +73,8 @@ public struct MemoListView: View {
                         store.send(.quotaExceededAlertPresented(false))
                     }
                     Button("Proを見る") {
-                        store.send(.showProPlanTapped)
+                        store.send(.quotaExceededAlertPresented(false))
+                        store.send(.showSubscription)
                     }
                 } message: {
                     Text("しばらく時間をおいて、もう一度お試しください")
@@ -72,7 +88,7 @@ public struct MemoListView: View {
                     }
                     Button("Proを見る") {
                         store.send(.proRequiredAlertPresented(false))
-                        // Phase 3c: ここでサブスクリプション画面に遷移
+                        store.send(.showSubscription)
                     }
                 } message: {
                     Text("この機能はProプランでご利用いただけます")

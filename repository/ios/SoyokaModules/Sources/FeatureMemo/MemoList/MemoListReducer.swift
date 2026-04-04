@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Domain
+import FeatureSubscription
 import Foundation
 import SharedUI
 import SharedUtil
@@ -72,6 +73,9 @@ public struct MemoListReducer {
         /// きおくに聞く画面（NavigationStack push用、nilで非表示）
         @Presents public var chatState: ChatReducer.State?
 
+        /// サブスクリプション画面（sheet表示用、nilで非表示）
+        @Presents public var subscription: SubscriptionReducer.State?
+
         /// 録音完了→メモ詳細遷移時の待機用ID（refreshCompleted前にselectMemoが届いた場合に保持）
         public var pendingMemoID: UUID?
 
@@ -104,6 +108,7 @@ public struct MemoListReducer {
             emotionTrendState: EmotionTrendReducer.State? = nil,
             weeklyReportState: WeeklyReportReducer.State? = nil,
             chatState: ChatReducer.State? = nil,
+            subscription: SubscriptionReducer.State? = nil,
             pendingMemoID: UUID? = nil,
             deletion: DeletionState = DeletionState(),
             aiQuotaUsed: Int = 0,
@@ -123,6 +128,7 @@ public struct MemoListReducer {
             self.emotionTrendState = emotionTrendState
             self.weeklyReportState = weeklyReportState
             self.chatState = chatState
+            self.subscription = subscription
             self.pendingMemoID = pendingMemoID
             self.deletion = deletion
             self.aiQuotaUsed = aiQuotaUsed
@@ -247,6 +253,10 @@ public struct MemoListReducer {
         case showProPlanTapped
         /// Pro限定機能ダイアログの表示制御
         case proRequiredAlertPresented(Bool)
+        /// サブスクリプション画面のアクション
+        case subscription(PresentationAction<SubscriptionReducer.Action>)
+        /// サブスクリプション画面を表示
+        case showSubscription
     }
 
     /// 検索結果のEquatable準拠ラッパー
@@ -275,7 +285,7 @@ public struct MemoListReducer {
     // MARK: - Reducer Body
 
     public var body: some ReducerOf<Self> {
-        Reduce { state, action in
+        Reduce<State, Action> { state, action in
             switch action {
             case .onAppear:
                 guard state.memos.isEmpty else { return .none }
@@ -591,6 +601,13 @@ public struct MemoListReducer {
             case let .proRequiredAlertPresented(isPresented):
                 state.showProRequiredAlert = isPresented
                 return .none
+
+            case .showSubscription:
+                state.subscription = SubscriptionReducer.State()
+                return .none
+
+            case .subscription:
+                return .none
             }
         }
         .ifLet(\.$selectedMemo, action: \.memoDetail) {
@@ -604,6 +621,9 @@ public struct MemoListReducer {
         }
         .ifLet(\.$chatState, action: \.chat) {
             ChatReducer()
+        }
+        .ifLet(\.$subscription, action: \.subscription) {
+            SubscriptionReducer()
         }
     }
 
