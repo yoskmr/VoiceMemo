@@ -87,7 +87,8 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Soyoka AdHoc"
+            PROVISIONING_PROFILE_SPECIFIER="Soyoka Staging AdHoc" \
+            PRODUCT_BUNDLE_IDENTIFIER="app.soyoka.ios.staging"
 
           ls -la $RUNNER_TEMP/Soyoka.xcarchive
 
