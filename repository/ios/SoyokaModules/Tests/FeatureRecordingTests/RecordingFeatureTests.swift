@@ -154,7 +154,7 @@ final class RecordingFeatureTests: XCTestCase {
 
     // MARK: - 正常系: stopButtonTapped → saving → 保存完了
 
-    /// 録音中に停止ボタンタップ → savingに遷移し完了画面（saved状態）に遷移する
+    /// 録音中に停止ボタンタップ → savingに遷移し、sttFinalized経由で完了画面（saved状態）に遷移する
     func test_stopButtonTapped_recording中_savingに遷移し保存完了する() async {
         let recordingID = UUID()
         let recordingResult = RecordingResult(
@@ -180,7 +180,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "テスト文字起こし（最終）", confidence: 0.9, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -189,7 +188,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
-        // exhaustivity = .off: stopButtonTapped → recordingSaved → completionStageAdvanced(.checkmark/.preview/.cta)の
+        // exhaustivity = .off: stopButtonTapped → sttFinalized → recordingSaved → completionStageAdvanced の
         // 一連のエフェクトが発生し、recordingSaved で動的に生成される VoiceMemoEntity の完全一致検証が困難なため
         store.exhaustivity = .off
 
@@ -197,7 +196,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
-        // recordingSaved → saved(memo) 状態に遷移（完了画面表示）
+        // sttFinalized → saveRecordingEffect → recordingSaved
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingSaved)
 
         // saved状態であることを確認
@@ -207,6 +207,7 @@ final class RecordingFeatureTests: XCTestCase {
         }
         XCTAssertEqual(savedMemo.id, recordingID)
         XCTAssertEqual(savedMemo.durationSeconds, 10.0)
+        // state.partialTranscription（最新テキスト）が使われるため、フォールバックではなくstate値が保存される
         XCTAssertEqual(savedMemo.transcription?.fullText, "テスト文字起こし")
 
         // VoiceMemoが正しく保存されたことを確認
@@ -243,7 +244,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -252,7 +252,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
-        // exhaustivity = .off: テキスト空でも保存されるため、recordingSaved → completionStageAdvanced の
+        // exhaustivity = .off: sttFinalized → recordingSaved → completionStageAdvanced の
         // 一連のエフェクト追跡が困難
         store.exhaustivity = .off
 
@@ -260,7 +260,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
-        // テキスト空でも1秒超のため保存される → recordingSavedが送信される
+        // sttFinalized → テキスト空でも1秒超のため保存される → recordingSavedが送信される
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingSaved)
 
         // VoiceMemoが保存されたことを確認
@@ -299,7 +300,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -308,7 +308,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
-        // exhaustivity = .off: テキスト空でも保存されるため、recordingSaved → completionStageAdvanced の
+        // exhaustivity = .off: sttFinalized → recordingSaved → completionStageAdvanced の
         // 一連のエフェクト追跡が困難
         store.exhaustivity = .off
 
@@ -316,7 +316,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
-        // テキスト空でも1秒超のため保存される
+        // sttFinalized → テキスト空でも1秒超のため保存される
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingSaved)
 
         savedMemos.withValue { memos in
@@ -352,7 +353,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "   \n  ", confidence: 0.0, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -361,7 +361,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
-        // exhaustivity = .off: テキスト空でも保存されるため、recordingSaved → completionStageAdvanced の
+        // exhaustivity = .off: sttFinalized → recordingSaved → completionStageAdvanced の
         // 一連のエフェクト追跡が困難
         store.exhaustivity = .off
 
@@ -369,7 +369,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
-        // 空白のみでも1秒超のため保存される
+        // sttFinalized → 空白のみでも1秒超のため保存される
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingSaved)
 
         savedMemos.withValue { memos in
@@ -407,7 +408,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.temporaryRecordingStore.cleanup = { _ in cleanupCalled.setValue(true) }
         }
 
@@ -415,7 +415,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
-        // 1秒以下の空テキストなので誤タップ → recordingFailedが送信される
+        // sttFinalized → saveRecordingEffect → 1秒以下の空テキストなので誤タップ → recordingFailed
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingFailed) {
             $0.recordingStatus = .idle
             $0.errorMessage = "何も話されませんでした"
@@ -450,7 +451,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.temporaryRecordingStore.cleanup = { _ in }
         }
 
@@ -458,7 +458,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
-        // ちょうど1秒（<= 1.0）なので誤タップ → recordingFailedが送信される
+        // sttFinalized → ちょうど1秒（<= 1.0）なので誤タップ → recordingFailedが送信される
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingFailed) {
             $0.recordingStatus = .idle
             $0.errorMessage = "何も話されませんでした"
@@ -493,7 +494,6 @@ final class RecordingFeatureTests: XCTestCase {
         } withDependencies: {
             $0.audioRecorder.stopRecording = { recordingResult }
             $0.sttEngine.finishTranscription = { transcriptionResult }
-            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, _ in
                 throw SaveRecordingError.fileMoveFailed("ストレージ不足")
             }
@@ -503,6 +503,8 @@ final class RecordingFeatureTests: XCTestCase {
             $0.recordingStatus = .saving
         }
 
+        // sttFinalized → saveRecordingEffect → 保存失敗 → recordingFailed
+        await store.receive(\.sttFinalized)
         await store.receive(\.recordingFailed) {
             $0.recordingStatus = .idle
             $0.errorMessage = SaveRecordingError.fileMoveFailed("ストレージ不足").localizedDescription
@@ -802,7 +804,6 @@ final class RecordingFeatureTests: XCTestCase {
             $0.sttEngine.finishTranscription = {
                 TranscriptionResult(text: "", confidence: 0.0, isFinal: true, language: "ja-JP")
             }
-            $0.sttEngine.stopTranscription = {}
             $0.audioFileStore.moveToDocuments = { _, id in
                 URL(fileURLWithPath: "/Documents/Audio/\(id.uuidString).m4a")
             }
@@ -811,7 +812,7 @@ final class RecordingFeatureTests: XCTestCase {
             $0.temporaryRecordingStore.cleanup = { _ in }
             $0.continuousClock = ImmediateClock()
         }
-        // exhaustivity = .off: timerTicked → stopButtonTapped → stopAndSaveEffect + timer/audioLevel キャンセルの
+        // exhaustivity = .off: timerTicked → stopButtonTapped → finalizeSttEffect → sttFinalized → saveRecordingEffect の
         // 一連のエフェクトが発生し、保存完了後の completionStageAdvanced 等を全て追跡するのが困難なため
         store.exhaustivity = .off
 

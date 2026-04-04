@@ -536,4 +536,27 @@ final class MemoListReducerTests: XCTestCase {
         )
         XCTAssertTrue(sections.isEmpty)
     }
+
+    // MARK: - Test 11: emotionTrend planManagementTapped → showProPlanTapped 親委譲
+
+    func test_emotionTrend_planManagementTapped_showProPlanTappedに委譲() async {
+        let store = TestStore(
+            initialState: MemoListReducer.State(
+                emotionTrendState: EmotionTrendReducer.State()
+            )
+        ) {
+            MemoListReducer()
+        }
+
+        // EmotionTrend の「Proプランを見てみる」タップ
+        await store.send(.emotionTrend(.presented(.planManagementTapped))) {
+            // emotionTrendState が nil になる（シート閉じる）
+            $0.emotionTrendState = nil
+        }
+
+        // showProPlanTapped が親に委譲される
+        await store.receive(\.showProPlanTapped) {
+            $0.showProRequiredAlert = true
+        }
+    }
 }

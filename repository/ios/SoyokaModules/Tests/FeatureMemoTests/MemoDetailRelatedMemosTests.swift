@@ -188,7 +188,9 @@ final class MemoDetailRelatedMemosTests: XCTestCase {
             $0.isLoading = true
         }
 
-        // subscriptionStateChecked(true) が受信されることを確認
-        await store.receive(\.subscriptionStateChecked)
+        // subscriptionStateChecked(true) が受信されることを確認（isPro = true）
+        await store.receive(\.subscriptionStateChecked) {
+            XCTAssertTrue($0.isPro)
+        }
     }
 }

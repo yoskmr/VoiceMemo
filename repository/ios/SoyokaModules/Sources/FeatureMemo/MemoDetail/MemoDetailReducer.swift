@@ -230,6 +230,8 @@ public struct MemoDetailReducer {
         case relatedMemosLoaded(Result<[RelatedMemo], EquatableError>)
         case relatedMemoTapped(UUID)
         case subscriptionStateChecked(Bool)
+        /// Pro プラン表示（Free ユーザーからのアップグレード案内）
+        case showProPlanTapped
 
         // 子Reducerアクション
         case edit(MemoEditReducer.Action)
@@ -665,7 +667,6 @@ public struct MemoDetailReducer {
             // MARK: - つながるきおく（TASK-0043）
 
             case .loadRelatedMemos:
-                guard state.isPro else { return .none }
                 state.isLoadingRelated = true
                 let memoID = state.memoID
                 let title = state.title
@@ -679,7 +680,11 @@ public struct MemoDetailReducer {
 
             case let .relatedMemosLoaded(.success(memos)):
                 state.isLoadingRelated = false
-                state.relatedMemos = memos
+                if state.isPro {
+                    state.relatedMemos = memos  // Pro: 全件（最大5件）
+                } else {
+                    state.relatedMemos = Array(memos.prefix(1))  // Free: 1件のみ（プレビュー用）
+                }
                 return .none
 
             case .relatedMemosLoaded(.failure):
@@ -692,6 +697,10 @@ public struct MemoDetailReducer {
 
             case let .subscriptionStateChecked(isPro):
                 state.isPro = isPro
+                return .none
+
+            case .showProPlanTapped:
+                // 親Reducerに伝播（AppReducerでサブスクリプション画面遷移をハンドリング）
                 return .none
 
             case .tagTapped, .shareButtonTapped, .backButtonTapped:

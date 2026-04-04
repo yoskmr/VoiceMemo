@@ -91,10 +91,23 @@ public struct MemoDetailView: View {
                     }
 
                     // MARK: - つながるきおく（TASK-0043）
-                    if store.isPro && !store.relatedMemos.isEmpty {
-                        RelatedMemosSection(
-                            relatedMemos: store.relatedMemos,
-                            onTap: { id in store.send(.relatedMemoTapped(id)) }
+                    // 常にセクションを表示し、Pro/Free・データ有無で内容を切り替え
+                    if store.isPro {
+                        if !store.relatedMemos.isEmpty {
+                            // Pro + 関連あり: カード表示（現行通り）
+                            RelatedMemosSection(
+                                relatedMemos: store.relatedMemos,
+                                onTap: { id in store.send(.relatedMemoTapped(id)) }
+                            )
+                        } else if !store.isLoadingRelated {
+                            // Pro + 関連なし: エンプティステート
+                            RelatedMemosEmptyState()
+                        }
+                    } else {
+                        // Free: 機能の存在を見せる + アップグレード案内
+                        RelatedMemosLockedSection(
+                            previewMemo: store.relatedMemos.first,
+                            onUpgrade: { store.send(.showProPlanTapped) }
                         )
                     }
 
@@ -232,6 +245,123 @@ public struct MemoDetailView: View {
                 Image(systemName: "ellipsis.circle")
             }
         }
+    }
+
+    // MARK: - つながるきおく サブビュー
+
+    /// Pro + 関連なし: エンプティステート
+    private var relatedMemosEmptyState: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            HStack {
+                Image(systemName: "link")
+                    .foregroundColor(.vmPrimary)
+                Text("つながるきおく")
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+            }
+
+            HStack(spacing: VMDesignTokens.Spacing.md) {
+                Image(systemName: "text.badge.plus")
+                    .font(.system(size: 24))
+                    .foregroundColor(.vmTextTertiary)
+                Text("きおくが増えると、似たテーマのつぶやきが自動でつながります")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextSecondary)
+            }
+            .padding(VMDesignTokens.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.vmSurfaceVariant.opacity(0.5))
+            .cornerRadius(VMDesignTokens.CornerRadius.small)
+        }
+        .padding(VMDesignTokens.Spacing.lg)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.medium)
+    }
+
+    /// Free ユーザー用: 機能の存在を見せる + アップグレード案内
+    private func relatedMemosLockedSection(previewMemo: RelatedMemo?, onUpgrade: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            HStack {
+                Image(systemName: "link")
+                    .foregroundColor(.vmPrimary)
+                Text("つながるきおく")
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+                Spacer()
+                Image(systemName: "lock.fill")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+            }
+
+            // プレビュー: 1件だけ見せる（あれば）
+            if let memo = previewMemo {
+                lockedPreviewCard(memo)
+            }
+
+            // アップグレード案内
+            VStack(spacing: VMDesignTokens.Spacing.sm) {
+                Text("Proプランで、似たテーマのきおくが自動でつながります")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+                    .multilineTextAlignment(.center)
+
+                Button(action: onUpgrade) {
+                    Text("Proプランを見てみる")
+                        .font(.vmCaption1.bold())
+                        .foregroundColor(.vmPrimary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, VMDesignTokens.Spacing.xs)
+        }
+        .padding(VMDesignTokens.Spacing.lg)
+        .background(Color.vmSurface)
+        .cornerRadius(VMDesignTokens.CornerRadius.medium)
+    }
+
+    /// Free ユーザー向けプレビューカード（半透明 + オーバーレイ）
+    private func lockedPreviewCard(_ memo: RelatedMemo) -> some View {
+        HStack(spacing: VMDesignTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xxs) {
+                Text(memo.title)
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: VMDesignTokens.Spacing.sm) {
+                    Text(memo.createdAt, style: .date)
+                        .font(.vmCaption2)
+                        .foregroundColor(.vmTextTertiary)
+
+                    if let emotion = memo.emotion {
+                        EmotionBadge(emotion: emotion)
+                    }
+
+                    ForEach(memo.tags.prefix(2), id: \.self) { tag in
+                        Text(tag)
+                            .font(.vmCaption2)
+                            .foregroundColor(.vmTextSecondary)
+                            .padding(.horizontal, VMDesignTokens.Spacing.xs)
+                            .padding(.vertical, VMDesignTokens.Spacing.xxs)
+                            .background(Color.vmSurfaceVariant)
+                            .cornerRadius(VMDesignTokens.CornerRadius.small)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
+        }
+        .padding(VMDesignTokens.Spacing.md)
+        .background(Color.vmSurfaceVariant.opacity(0.5))
+        .cornerRadius(VMDesignTokens.CornerRadius.small)
+        .opacity(0.6)
+        .overlay(
+            Color.vmSurface.opacity(0.3)
+        )
     }
 }
 
@@ -610,6 +740,98 @@ struct AISummaryFeedbackRow: View {
             }
         }
         .padding(.top, VMDesignTokens.Spacing.xs)
+    }
+}
+
+/// つながるきおく: Pro + 関連なし時のエンプティステート
+struct RelatedMemosEmptyState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            HStack {
+                Image(systemName: "link")
+                    .foregroundColor(.vmPrimary)
+                Text("つながるきおく")
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+            }
+
+            HStack(spacing: VMDesignTokens.Spacing.md) {
+                Image(systemName: "text.badge.plus")
+                    .font(.system(size: 24))
+                    .foregroundColor(.vmTextTertiary)
+                Text("きおくが増えると、似たテーマのつぶやきが自動でつながります")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextSecondary)
+                    .lineSpacing(VMDesignTokens.LineSpacing.caption)
+            }
+            .padding(VMDesignTokens.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.vmSurfaceVariant.opacity(0.5))
+            .cornerRadius(VMDesignTokens.CornerRadius.small)
+        }
+    }
+}
+
+/// つながるきおく: Free ユーザー用ロックセクション
+struct RelatedMemosLockedSection: View {
+    let previewMemo: RelatedMemo?
+    let onUpgrade: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            HStack {
+                Image(systemName: "link")
+                    .foregroundColor(.vmPrimary)
+                Text("つながるきおく")
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+                Spacer()
+                Image(systemName: "lock.fill")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextTertiary)
+            }
+
+            if let memo = previewMemo {
+                previewCard(memo)
+            }
+
+            VStack(spacing: VMDesignTokens.Spacing.sm) {
+                Text("Proプランで、似たテーマのきおくが自動でつながります")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(VMDesignTokens.LineSpacing.caption)
+
+                Button(action: onUpgrade) {
+                    Text("Proプランを見てみる")
+                        .font(.vmCaption1.bold())
+                        .foregroundColor(.vmPrimary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, VMDesignTokens.Spacing.xs)
+        }
+    }
+
+    private func previewCard(_ memo: RelatedMemo) -> some View {
+        HStack(spacing: VMDesignTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xxs) {
+                Text(memo.title)
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextTertiary)
+                    .lineLimit(1)
+                Text(memo.createdAt, style: .date)
+                    .font(.vmCaption2)
+                    .foregroundColor(.vmTextTertiary)
+            }
+            Spacer()
+            Image(systemName: "lock.fill")
+                .font(.vmCaption2)
+                .foregroundColor(.vmTextTertiary)
+        }
+        .padding(VMDesignTokens.Spacing.md)
+        .background(Color.vmSurfaceVariant.opacity(0.3))
+        .cornerRadius(VMDesignTokens.CornerRadius.small)
     }
 }
 

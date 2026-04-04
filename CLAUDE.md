@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 Soyoka（AI音声メモアプリ）の開発ガイド。
 
 ## プロジェクト概要
@@ -10,11 +12,57 @@ Soyoka（AI音声メモアプリ）の開発ガイド。
 - **アーキテクチャ**: TCA (The Composable Architecture) + Clean Architecture
 - **Xcodeプロジェクト**: `repository/ios/Soyoka.xcodeproj`
 - **SPMパッケージ**: `repository/ios/SoyokaModules/`（マルチモジュール構成）
+- **プロジェクト生成**: XcodeGen（`repository/ios/project.yml`）
 
 ## 開発環境
 
 - Xcode 26.3 / macOS 26.3.1 / Swift 6.2.4
 - Xcode MCP ブリッジ対応（`xcrun mcpbridge`）
+- SwiftLint 0.55+（設定: `repository/.swiftlint.yml`、Xcode Build Phase で実行）
+
+## ビルド・テスト
+
+```bash
+# SPM 依存解決
+xcodebuild -resolvePackageDependencies \
+  -project repository/ios/Soyoka.xcodeproj -scheme Soyoka
+
+# アプリビルド
+xcodebuild build \
+  -project repository/ios/Soyoka.xcodeproj -scheme Soyoka \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+
+# 全テスト実行（369テスト）
+xcodebuild test \
+  -project repository/ios/Soyoka.xcodeproj -scheme Soyoka \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+
+# 単一モジュールのテスト実行（スキーム名 = モジュール名）
+xcodebuild test \
+  -project repository/ios/Soyoka.xcodeproj -scheme FeatureMemo \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+
+# 単一テストクラス / テストメソッド実行
+xcodebuild test \
+  -project repository/ios/Soyoka.xcodeproj -scheme FeatureMemo \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:'FeatureMemoTests/MemoDetailReducerTests/test_editButtonTapped_編集モードに遷移する'
+```
+
+### 利用可能なスキーム
+
+- **App**: `Soyoka`
+- **Feature**: `FeatureRecording`, `FeatureMemo`, `FeatureAI`, `FeatureSearch`, `FeatureSettings`, `FeatureSubscription`
+- **Domain/Data**: `Domain`, `Data`
+- **Infra**: `InfraSTT`, `InfraLLM`, `InfraStorage`, `InfraNetwork`
+- **Shared**: `SharedUI`, `SharedUtil`
+- **Integration**: `E2ETests`
+
+### CI/CD
+
+- `.github/workflows/release.yml`: GitHub Release 公開時に自動実行
+- iOS: Archive → IPA Export → App Store Connect アップロード（API Key 認証）
+- Backend: TypeCheck → Test → Cloudflare Workers デプロイ
 
 ## ディレクトリ構成
 
@@ -67,6 +115,21 @@ Infra層        InfraSTT / InfraStorage / InfraLLM / InfraNetwork
 - **TCA** (swift-composable-architecture 1.17+): 状態管理
 - **swift-dependencies**: DI コンテナ
 - **WhisperKit** (0.9+): オンデバイス STT エンジン（Apple Speech と切替可能）
+
+### DI（依存性注入）の仕組み
+
+Domain 層で `DependencyKey` プロトコル準拠の Client struct を定義し、アプリターゲット（`SoyokaApp/`）で `liveValue` を接続する:
+
+- **Domain 定義**: `STTEngineClient`, `VoiceMemoRepositoryClient` 等を `public struct` + `@Sendable` クロージャで定義。`testValue` は `unimplemented()` で宣言
+- **Live 接続**: `SoyokaApp/` 内の `*Dependencies.swift` ファイル群（`RecordingDependencies.swift`, `StorageDependencies.swift` 等）で `DependencyKey.liveValue` を実装
+- **SwiftData**: `sharedModelContainer` をシングルトンで共有（`StorageDependencies.swift`）
+- **STT エンジン選択**: iOS 26+ は `SpeechAnalyzerEngine`、それ以前は `AppleSpeechEngine`。デバッグ時は `UserDefaults` キー `debug_forceSTTEngine` で上書き可能
+
+### アプリエントリポイント
+
+`SoyokaApp.swift` で `AppReducer` を生成し、`Scope` で各 Feature Reducer を接続:
+- TabView 3タブ構成: Home（つぶやき）/ List（きおく）/ Settings（設定）
+- Deep Links: `soyoka://memo/{id}`, `soyoka://record`, `.soyokabackup` ファイルハンドリング
 
 ## コーディング規約
 

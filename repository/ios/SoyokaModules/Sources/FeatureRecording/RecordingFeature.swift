@@ -128,7 +128,9 @@ public struct RecordingFeature {
         case timerTicked
         case audioLevelUpdated(Float)
         case transcriptionUpdated(String, Double, Bool)  // text, confidence, isFinal
-        case recordingCompleted(URL)                // 音声ファイルURL
+        case recordingCompleted(URL)                // 音声ファイルURL（後方互換）
+        /// STT処理完了 → 最新テキスト（state.partialTranscription）で保存を開始
+        case sttFinalized(RecordingResult)
         case recordingSaved(VoiceMemoEntity)        // 保存完了
         case recordingFailed(String)                // エラーメッセージ
     }
@@ -205,18 +207,10 @@ public struct RecordingFeature {
 
             case .stopButtonTapped:
                 state.recordingStatus = .saving
-                // UIに表示中のテキストをフォールバックとして確保
-                // STTの最終結果を待つが、取得できなければこちらを使う
-                let fallbackText = state.partialTranscription
                 return .merge(
                     .cancel(id: CancelID.timer),
-                    // audioLevel（STTストリーム）はまだキャンセルしない
-                    // STTが残りバッファを処理する時間を与える
-                    stopAndSaveEffect(
-                        recordingID: state.recordingID,
-                        elapsedTime: state.elapsedTime,
-                        fallbackTranscription: fallbackText
-                    )
+                    // フェーズ1: 録音停止 + STT完了待ち → sttFinalized で最新テキストを使って保存
+                    finalizeSttEffect()
                 )
 
             case .permissionRequested:
@@ -267,6 +261,21 @@ public struct RecordingFeature {
                 }
                 state.confidenceLevel = ConfidenceLevel(confidence: confidence)
                 return .none
+
+            case let .sttFinalized(recordingResult):
+                // フェーズ2: STT処理完了 → state.partialTranscription は transcriptionUpdated で最新に更新済み
+                let finalText = state.partialTranscription
+                let recordingID = state.recordingID
+                let elapsedTime = state.elapsedTime
+                return .merge(
+                    .cancel(id: CancelID.audioLevel),  // STTストリームをキャンセル
+                    saveRecordingEffect(
+                        recordingID: recordingID,
+                        elapsedTime: elapsedTime,
+                        transcriptionText: finalText,
+                        audioFileURL: recordingResult.fileURL
+                    )
+                )
 
             case .recordingCompleted:
                 // 後方互換: 旧テストで使用
@@ -421,53 +430,40 @@ public struct RecordingFeature {
         .cancellable(id: CancelID.timer)
     }
 
-    /// 録音停止 → STT最終結果待機 → 保存の一連フロー
-    /// STTの最終結果（finishTranscription）を最大10秒待ち、取得できなければフォールバックテキストを使用する
-    /// 文字起こしテキストが空の場合: 1秒以下なら誤タップとみなし削除、1秒超なら音声を保持して保存する
-    private func stopAndSaveEffect(
-        recordingID: UUID,
-        elapsedTime: TimeInterval,
-        fallbackTranscription: String
-    ) -> Effect<Action> {
+    /// フェーズ1: 録音停止 + STT最終結果待機
+    /// 録音を停止し、STTの最終結果が安定するまで待つ。完了後に sttFinalized アクションを送信する。
+    /// sttFinalized 受信時点で state.partialTranscription は transcriptionUpdated により最新に更新済み。
+    private func finalizeSttEffect() -> Effect<Action> {
         .run { [sttEngine] send in
             // 1. 録音停止（新規音声入力を止める）
             let result = try await audioRecorder.stopRecording()
 
-            // 2. STTの最終結果を待つ（最大10秒タイムアウト）
-            var transcriptionText = fallbackTranscription
-            do {
-                let sttResult = try await withThrowingTaskGroup(of: TranscriptionResult.self) { group in
-                    group.addTask {
-                        try await sttEngine.finishTranscription()
-                    }
-                    group.addTask {
-                        try await Task.sleep(for: .seconds(10))
-                        throw CancellationError()
-                    }
-                    guard let first = try await group.next() else {
-                        throw CancellationError()
-                    }
-                    group.cancelAll()
-                    return first
-                }
-                // STT最終結果がフォールバックより内容が多ければ採用
-                if !sttResult.text.isEmpty, sttResult.text.count >= fallbackTranscription.count {
-                    transcriptionText = sttResult.text
-                }
-            } catch {
-                // タイムアウトまたはエラー: フォールバックテキストを使用
-                print("[Recording] STT finishTranscription タイムアウト/エラー: \(error.localizedDescription)")
-            }
+            // 2. STTの最終結果を待つ（finishTranscription内で最大10秒ポーリング）
+            _ = try? await sttEngine.finishTranscription()
 
-            // 3. STTを確実に停止
-            await sttEngine.stopTranscription()
+            // 3. STT処理完了を通知（state.partialTranscription が最新テキストを持っている）
+            await send(.sttFinalized(result))
+        } catch: { error, send in
+            await send(.recordingFailed(error.localizedDescription))
+        }
+    }
 
-            // 4. テキストが空の場合の処理
+    /// フェーズ2: 保存処理
+    /// sttFinalized から呼ばれ、state.partialTranscription（最新）を使って保存する。
+    /// 文字起こしテキストが空の場合: 1秒以下なら誤タップとみなし削除、1秒超なら音声を保持して保存する。
+    private func saveRecordingEffect(
+        recordingID: UUID,
+        elapsedTime: TimeInterval,
+        transcriptionText: String,
+        audioFileURL: URL
+    ) -> Effect<Action> {
+        .run { send in
+            // テキストが空の場合の処理
             if transcriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 if elapsedTime <= 1.0 {
                     // 1秒以下は誤タップとみなす — 音声ファイルを削除
                     try? temporaryRecordingStore.cleanup(recordingID)
-                    try? FileManager.default.removeItem(at: result.fileURL)
+                    try? FileManager.default.removeItem(at: audioFileURL)
                     await send(.recordingFailed("何も話されませんでした"))
                     return
                 }
@@ -476,7 +472,6 @@ public struct RecordingFeature {
                 print("[Recording] テキスト空だが録音 \(Int(elapsedTime))秒 — 音声を保持して保存")
             }
 
-            // 5. TranscriptionResult を作成して保存
             let transcriptionResult = TranscriptionResult(
                 text: transcriptionText,
                 confidence: 0.8,
@@ -485,10 +480,9 @@ public struct RecordingFeature {
                 segments: []
             )
 
-            // 6. SaveRecordingUseCase実行
             let input = SaveRecordingUseCase.Input(
                 recordingID: recordingID,
-                tempAudioURL: result.fileURL,
+                tempAudioURL: audioFileURL,
                 durationSeconds: elapsedTime,
                 transcriptionResult: transcriptionResult
             )

@@ -1,6 +1,7 @@
 import Dependencies
 import Domain
 import Foundation
+import InfraLogging
 import os.log
 
 private let logger = Logger(subsystem: "app.soyoka", category: "BackendProxy")
@@ -292,6 +293,42 @@ extension BackendProxyClient {
             }
         }
 
+        @Sendable func logRequest(
+            endpoint: String,
+            method: String,
+            requestHeaders: [String: String]?,
+            requestBody: String?,
+            responseHeaders: [String: String]?,
+            responseBody: String?,
+            statusCode: Int?,
+            error: Error?,
+            duration: TimeInterval
+        ) async {
+            #if DEBUG
+            let status: LogStatus = if let error {
+                .failure(message: error.localizedDescription)
+            } else {
+                .success(statusCode: statusCode)
+            }
+
+            await APIRequestLogStore.shared.append(APIRequestLog(
+                source: .network,
+                endpoint: endpoint,
+                method: method,
+                status: status,
+                duration: duration,
+                request: RequestDetail(
+                    headers: LogSanitizer.sanitizeHeaders(requestHeaders),
+                    body: LogSanitizer.sanitizeBody(requestBody)
+                ),
+                response: ResponseDetail(
+                    headers: LogSanitizer.sanitizeHeaders(responseHeaders),
+                    body: LogSanitizer.sanitizeBody(responseBody)
+                )
+            ))
+            #endif
+        }
+
         return BackendProxyClient(
             authenticate: { deviceID, appVersion, osVersion in
                 let url = baseURL.appendingPathComponent("api/v1/auth/device")
@@ -306,23 +343,41 @@ extension BackendProxyClient {
                 ]
                 request.httpBody = try JSONEncoder().encode(body)
 
-                let (data, response) = try await session.data(for: request)
+                let requestBodyString = String(data: request.httpBody ?? Data(), encoding: .utf8)
+                let startTime = CFAbsoluteTimeGetCurrent()
 
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw BackendProxyError.networkError("Invalid response type")
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/auth/device", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    guard httpResponse.statusCode == 200 else {
+                        let authError = BackendProxyError.authenticationFailed("HTTP \(httpResponse.statusCode)")
+                        await logRequest(endpoint: "api/v1/auth/device", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: authError, duration: duration)
+                        throw authError
+                    }
+
+                    let authResponse = try decoder.decode(AuthResponse.self, from: data)
+
+                    // JWT を Keychain に保存
+                    try keychainManager.save(key: .accessToken, string: authResponse.accessToken)
+
+                    logger.info("デバイス認証成功: device_id=\(authResponse.deviceID)")
+                    await logRequest(endpoint: "api/v1/auth/device", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                    return authResponse
+                } catch let error as BackendProxyError {
+                    throw error
+                } catch {
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/auth/device", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
                 }
-
-                guard httpResponse.statusCode == 200 else {
-                    throw BackendProxyError.authenticationFailed("HTTP \(httpResponse.statusCode)")
-                }
-
-                let authResponse = try decoder.decode(AuthResponse.self, from: data)
-
-                // JWT を Keychain に保存
-                try keychainManager.save(key: .accessToken, string: authResponse.accessToken)
-
-                logger.info("デバイス認証成功: device_id=\(authResponse.deviceID)")
-                return authResponse
             },
 
             processAI: { text, language, options in
@@ -351,33 +406,55 @@ extension BackendProxyClient {
                 ]
                 request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-                let (data, response) = try await session.data(for: request)
-
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw BackendProxyError.networkError("Invalid response type")
-                }
-
-                // 401: トークン期限切れ → 再認証が必要
-                if httpResponse.statusCode == 401 {
-                    logger.warning("AI処理: 401 Unauthorized → 再認証が必要")
-                    throw BackendProxyError.tokenNotFound
-                }
-
-                // 429: 使用量上限
-                if httpResponse.statusCode == 429 {
-                    throw BackendProxyError.quotaExceeded
-                }
-
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    throw BackendProxyError.serverError(httpResponse.statusCode)
-                }
+                let requestBodyString = String(data: request.httpBody ?? Data(), encoding: .utf8)
+                let startTime = CFAbsoluteTimeGetCurrent()
 
                 do {
-                    let aiResponse = try decoder.decode(CloudAIResponse.self, from: data)
-                    logger.info("AI処理成功: model=\(aiResponse.metadata?.model ?? "unknown")")
-                    return aiResponse
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/ai/process", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    // 401: トークン期限切れ → 再認証が必要
+                    if httpResponse.statusCode == 401 {
+                        logger.warning("AI処理: 401 Unauthorized → 再認証が必要")
+                        let authError = BackendProxyError.tokenNotFound
+                        await logRequest(endpoint: "api/v1/ai/process", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: authError, duration: duration)
+                        throw authError
+                    }
+
+                    // 429: 使用量上限
+                    if httpResponse.statusCode == 429 {
+                        let quotaError = BackendProxyError.quotaExceeded
+                        await logRequest(endpoint: "api/v1/ai/process", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: quotaError, duration: duration)
+                        throw quotaError
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let serverError = BackendProxyError.serverError(httpResponse.statusCode)
+                        await logRequest(endpoint: "api/v1/ai/process", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: serverError, duration: duration)
+                        throw serverError
+                    }
+
+                    do {
+                        let aiResponse = try decoder.decode(CloudAIResponse.self, from: data)
+                        logger.info("AI処理成功: model=\(aiResponse.metadata?.model ?? "unknown")")
+                        await logRequest(endpoint: "api/v1/ai/process", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                        return aiResponse
+                    } catch {
+                        throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    }
+                } catch let error as BackendProxyError {
+                    throw error
                 } catch {
-                    throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/ai/process", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
                 }
             },
 
@@ -392,22 +469,39 @@ extension BackendProxyClient {
                 request.httpMethod = "GET"
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-                let (data, response) = try await session.data(for: request)
-
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw BackendProxyError.networkError("Invalid response type")
-                }
-
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    throw BackendProxyError.serverError(httpResponse.statusCode)
-                }
+                let startTime = CFAbsoluteTimeGetCurrent()
 
                 do {
-                    let usageResponse = try decoder.decode(CloudUsageResponse.self, from: data)
-                    logger.info("使用量取得成功: \(usageResponse.used)/\(usageResponse.limit)")
-                    return usageResponse
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/usage", method: "GET", requestHeaders: request.allHTTPHeaderFields, requestBody: nil, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let serverError = BackendProxyError.serverError(httpResponse.statusCode)
+                        await logRequest(endpoint: "api/v1/usage", method: "GET", requestHeaders: request.allHTTPHeaderFields, requestBody: nil, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: serverError, duration: duration)
+                        throw serverError
+                    }
+
+                    do {
+                        let usageResponse = try decoder.decode(CloudUsageResponse.self, from: data)
+                        logger.info("使用量取得成功: \(usageResponse.used)/\(usageResponse.limit)")
+                        await logRequest(endpoint: "api/v1/usage", method: "GET", requestHeaders: request.allHTTPHeaderFields, requestBody: nil, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                        return usageResponse
+                    } catch {
+                        throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    }
+                } catch let error as BackendProxyError {
+                    throw error
                 } catch {
-                    throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/usage", method: "GET", requestHeaders: request.allHTTPHeaderFields, requestBody: nil, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
                 }
             },
 
@@ -433,26 +527,46 @@ extension BackendProxyClient {
                 ]
                 request.httpBody = try JSONEncoder().encode(body)
 
-                let (data, response) = try await session.data(for: request)
-
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw BackendProxyError.networkError("Invalid response type")
-                }
-
-                if httpResponse.statusCode == 401 {
-                    throw BackendProxyError.tokenNotFound
-                }
-
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    throw BackendProxyError.serverError(httpResponse.statusCode)
-                }
+                let requestBodyString = String(data: request.httpBody ?? Data(), encoding: .utf8)
+                let startTime = CFAbsoluteTimeGetCurrent()
 
                 do {
-                    let verifyResponse = try decoder.decode(SubscriptionVerifyResponse.self, from: data)
-                    logger.info("サブスクリプション検証成功: status=\(verifyResponse.status)")
-                    return verifyResponse
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    if httpResponse.statusCode == 401 {
+                        let authError = BackendProxyError.tokenNotFound
+                        await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: authError, duration: duration)
+                        throw authError
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let serverError = BackendProxyError.serverError(httpResponse.statusCode)
+                        await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: serverError, duration: duration)
+                        throw serverError
+                    }
+
+                    do {
+                        let verifyResponse = try decoder.decode(SubscriptionVerifyResponse.self, from: data)
+                        logger.info("サブスクリプション検証成功: status=\(verifyResponse.status)")
+                        await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                        return verifyResponse
+                    } catch {
+                        throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    }
+                } catch let error as BackendProxyError {
+                    throw error
                 } catch {
-                    throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
                 }
             }
         )
