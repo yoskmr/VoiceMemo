@@ -45,6 +45,8 @@ final class MemoDetailReducerTests: XCTestCase {
         deps.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
         deps.aiQuota.remainingCount = { 10 }
         deps.aiQuota.monthlyLimit = { 10 }
+        deps.subscriptionClient.currentSubscription = { .free }
+        deps.relatedMemo.findRelated = { _, _, _ in [] }
     }
 
     // MARK: - Test 1: メモ詳細データのロード

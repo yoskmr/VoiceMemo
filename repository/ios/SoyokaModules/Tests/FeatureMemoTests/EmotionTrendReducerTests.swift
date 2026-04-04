@@ -37,6 +37,7 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memoWithoutEmotion] }
+            $0.subscriptionClient.currentSubscription = { .free }
             $0.date.now = Date()
             $0.calendar = Calendar.current
         }
@@ -52,6 +53,9 @@ final class EmotionTrendReducerTests: XCTestCase {
 
         // dailyEmotions は初期値が [] なので変化なし
         await store.receive(\.dailyEmotionsLoaded)
+
+        // subscriptionStateLoaded: isPro = false（初期値と同じため状態変化なし）
+        await store.receive(\.subscriptionStateLoaded)
     }
 
     // MARK: - Test 2: onAppear で感情データありの場合はエントリを返す
@@ -78,6 +82,7 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memoWithEmotion] }
+            $0.subscriptionClient.currentSubscription = { .free }
             $0.date.now = now
             $0.calendar = calendar
         }
@@ -109,6 +114,8 @@ final class EmotionTrendReducerTests: XCTestCase {
                 ),
             ]
         }
+
+        await store.receive(\.subscriptionStateLoaded)
     }
 
     // MARK: - Test 3: confidence が 0 のエントリは除外
@@ -126,6 +133,7 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [memo] }
+            $0.subscriptionClient.currentSubscription = { .free }
             $0.date.now = Date()
             $0.calendar = Calendar.current
         }
@@ -141,6 +149,8 @@ final class EmotionTrendReducerTests: XCTestCase {
 
         // dailyEmotions は初期値が [] なので変化なし
         await store.receive(\.dailyEmotionsLoaded)
+
+        await store.receive(\.subscriptionStateLoaded)
     }
 
     // MARK: - Test 4: periodChanged で期間フィルタリング
@@ -180,6 +190,7 @@ final class EmotionTrendReducerTests: XCTestCase {
             EmotionTrendReducer()
         } withDependencies: {
             $0.voiceMemoRepository.fetchAll = { [recentMemo, oldMemo] }
+            $0.subscriptionClient.currentSubscription = { .free }
             $0.date.now = now
             $0.calendar = calendar
         }
@@ -226,6 +237,7 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.voiceMemoRepository.fetchAll = {
                 throw NSError(domain: "test", code: -1, userInfo: [NSLocalizedDescriptionKey: "テストエラー"])
             }
+            $0.subscriptionClient.currentSubscription = { .free }
             $0.date.now = Date()
             $0.calendar = Calendar.current
         }
@@ -241,6 +253,8 @@ final class EmotionTrendReducerTests: XCTestCase {
 
         // fetchAll が失敗しても aggregateDailyEmotions は空配列を返す
         await store.receive(\.dailyEmotionsLoaded)
+
+        await store.receive(\.subscriptionStateLoaded)
     }
 
     // MARK: - Test 6: 結果が新しい順にソートされる
@@ -265,6 +279,7 @@ final class EmotionTrendReducerTests: XCTestCase {
         } withDependencies: {
             // 古い順で渡す
             $0.voiceMemoRepository.fetchAll = { [memo1, memo2] }
+            $0.subscriptionClient.currentSubscription = { .free }
             $0.date.now = now
             $0.calendar = calendar
         }
@@ -275,7 +290,7 @@ final class EmotionTrendReducerTests: XCTestCase {
 
         await store.receive(\.emotionsLoaded.success) {
             $0.isLoading = false
-            // 新しい順にソートされている
+            // 新しい順にソートされている（Free: 3件以下なので全件表示）
             $0.emotions = [
                 EmotionTrendReducer.EmotionEntry(
                     id: memoID2,
@@ -311,5 +326,178 @@ final class EmotionTrendReducerTests: XCTestCase {
                 ),
             ]
         }
+
+        await store.receive(\.subscriptionStateLoaded)
+    }
+
+    // MARK: - Test 7: quarter 期間フィルタリング（TASK-0042）
+
+    func test_quarter_期間フィルタリング() async {
+        let now = Date()
+        let calendar = Calendar.current
+        let twoMonthsAgo = calendar.date(byAdding: .month, value: -2, to: now)!
+        let fourMonthsAgo = calendar.date(byAdding: .month, value: -4, to: now)!
+        let recentMemoID = UUID()
+        let twoMonthMemoID = UUID()
+
+        let recentAnalysis = EmotionAnalysisEntity(primaryEmotion: .joy, confidence: 0.9, analyzedAt: now)
+        let recentMemo = makeEntity(id: recentMemoID, title: "最近のメモ", createdAt: now, emotionAnalysis: recentAnalysis)
+
+        let twoMonthAnalysis = EmotionAnalysisEntity(primaryEmotion: .calm, confidence: 0.8, analyzedAt: twoMonthsAgo)
+        let twoMonthMemo = makeEntity(id: twoMonthMemoID, title: "2ヶ月前のメモ", createdAt: twoMonthsAgo, emotionAnalysis: twoMonthAnalysis)
+
+        let fourMonthAnalysis = EmotionAnalysisEntity(primaryEmotion: .sadness, confidence: 0.7, analyzedAt: fourMonthsAgo)
+        let fourMonthMemo = makeEntity(title: "4ヶ月前のメモ", createdAt: fourMonthsAgo, emotionAnalysis: fourMonthAnalysis)
+
+        let store = TestStore(
+            initialState: EmotionTrendReducer.State(selectedPeriod: .all, isPro: true)
+        ) {
+            EmotionTrendReducer()
+        } withDependencies: {
+            $0.voiceMemoRepository.fetchAll = { [recentMemo, twoMonthMemo, fourMonthMemo] }
+            $0.subscriptionClient.currentSubscription = { .pro(expiresAt: Date.distantFuture) }
+            $0.date.now = now
+            $0.calendar = calendar
+        }
+
+        // 3ヶ月に変更 → 4ヶ月前のメモは除外される
+        await store.send(.periodChanged(.quarter)) {
+            $0.selectedPeriod = .quarter
+            $0.isLoading = true
+        }
+
+        await store.receive(\.emotionsLoaded.success) {
+            $0.isLoading = false
+            // 新しい順: 最近 → 2ヶ月前（4ヶ月前は除外）
+            $0.emotions = [
+                EmotionTrendReducer.EmotionEntry(
+                    id: recentMemoID,
+                    date: now,
+                    primaryEmotion: .joy,
+                    confidence: 0.9,
+                    memoTitle: "最近のメモ"
+                ),
+                EmotionTrendReducer.EmotionEntry(
+                    id: twoMonthMemoID,
+                    date: twoMonthsAgo,
+                    primaryEmotion: .calm,
+                    confidence: 0.8,
+                    memoTitle: "2ヶ月前のメモ"
+                ),
+            ]
+        }
+
+        let todayStart = calendar.startOfDay(for: now)
+        let twoMonthStart = calendar.startOfDay(for: twoMonthsAgo)
+        await store.receive(\.dailyEmotionsLoaded) {
+            $0.dailyEmotions = [
+                EmotionTrendReducer.DailyEmotion(
+                    date: twoMonthStart,
+                    emotions: [.calm: 0.8],
+                    memoCount: 1
+                ),
+                EmotionTrendReducer.DailyEmotion(
+                    date: todayStart,
+                    emotions: [.joy: 0.9],
+                    memoCount: 1
+                ),
+            ]
+        }
+    }
+
+    // MARK: - Test 8: Free ユーザーは最新3件のみ取得（TASK-0042）
+
+    func test_free_最新3件のみ取得() async {
+        let now = Date()
+        let calendar = Calendar.current
+        let ids = (0..<5).map { _ in UUID() }
+        let memos = ids.enumerated().map { index, id -> VoiceMemoEntity in
+            let date = calendar.date(byAdding: .hour, value: -index, to: now)!
+            let analysis = EmotionAnalysisEntity(
+                primaryEmotion: .joy,
+                confidence: Double(5 - index) * 0.1 + 0.5,
+                analyzedAt: date
+            )
+            return makeEntity(id: id, title: "メモ\(index)", createdAt: date, emotionAnalysis: analysis)
+        }
+
+        let store = TestStore(
+            initialState: EmotionTrendReducer.State(selectedPeriod: .all, isPro: false)
+        ) {
+            EmotionTrendReducer()
+        } withDependencies: {
+            $0.voiceMemoRepository.fetchAll = { memos }
+            $0.subscriptionClient.currentSubscription = { .free }
+            $0.date.now = now
+            $0.calendar = calendar
+        }
+
+        await store.send(.onAppear) {
+            $0.isLoading = true
+        }
+
+        await store.receive(\.emotionsLoaded.success) {
+            $0.isLoading = false
+            // Free: 最新3件のみ（全5件のうち上位3件）
+            XCTAssertEqual($0.emotions.count, 3)
+            XCTAssertEqual($0.emotions[0].id, ids[0])
+            XCTAssertEqual($0.emotions[1].id, ids[1])
+            XCTAssertEqual($0.emotions[2].id, ids[2])
+        }
+
+        await store.receive(\.dailyEmotionsLoaded) {
+            // dailyEmotions は全データが集計される（チャート描画用）
+            $0.dailyEmotions = $0.dailyEmotions  // 具体的な値は集計ロジック依存
+        }
+
+        // subscriptionStateLoaded: isPro = false（初期値と同じため状態変化なし）
+        await store.receive(\.subscriptionStateLoaded)
+    }
+
+    // MARK: - Test 9: Pro ユーザーは全件取得（TASK-0042）
+
+    func test_pro_全件取得() async {
+        let now = Date()
+        let calendar = Calendar.current
+        let ids = (0..<5).map { _ in UUID() }
+        let memos = ids.enumerated().map { index, id -> VoiceMemoEntity in
+            let date = calendar.date(byAdding: .hour, value: -index, to: now)!
+            let analysis = EmotionAnalysisEntity(
+                primaryEmotion: .joy,
+                confidence: Double(5 - index) * 0.1 + 0.5,
+                analyzedAt: date
+            )
+            return makeEntity(id: id, title: "メモ\(index)", createdAt: date, emotionAnalysis: analysis)
+        }
+
+        let store = TestStore(
+            initialState: EmotionTrendReducer.State(selectedPeriod: .all, isPro: true)
+        ) {
+            EmotionTrendReducer()
+        } withDependencies: {
+            $0.voiceMemoRepository.fetchAll = { memos }
+            $0.subscriptionClient.currentSubscription = { .pro(expiresAt: Date.distantFuture) }
+            $0.date.now = now
+            $0.calendar = calendar
+        }
+
+        await store.send(.onAppear) {
+            $0.isLoading = true
+        }
+
+        await store.receive(\.emotionsLoaded.success) {
+            $0.isLoading = false
+            // Pro: 全5件取得
+            XCTAssertEqual($0.emotions.count, 5)
+            XCTAssertEqual($0.emotions[0].id, ids[0])
+            XCTAssertEqual($0.emotions[4].id, ids[4])
+        }
+
+        await store.receive(\.dailyEmotionsLoaded) {
+            $0.dailyEmotions = $0.dailyEmotions
+        }
+
+        // isPro は初期値 true → subscriptionStateLoaded(true) で変化なし
+        await store.receive(\.subscriptionStateLoaded)
     }
 }

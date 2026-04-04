@@ -221,6 +221,7 @@ public struct MemoListReducer {
         case searchQueryChanged(String)
         case searchCompleted(SearchResult)
         case trendIconTapped
+        case emotionTrendProChecked(Bool)
         case weeklyReportTapped
         case weeklyReportProVerified
         case weeklyReport(PresentationAction<WeeklyReportReducer.Action>)
@@ -482,7 +483,16 @@ public struct MemoListReducer {
                 return .none
 
             case .trendIconTapped:
-                state.emotionTrendState = EmotionTrendReducer.State()
+                // TASK-0042: Pro/Free 両方アクセス可。データ量差分はEmotionTrendReducer内で制御
+                return .run { [subscriptionClient] send in
+                    let subState = await subscriptionClient.currentSubscription()
+                    let isPro: Bool
+                    if case .pro = subState { isPro = true } else { isPro = false }
+                    await send(.emotionTrendProChecked(isPro))
+                }
+
+            case let .emotionTrendProChecked(isPro):
+                state.emotionTrendState = EmotionTrendReducer.State(isPro: isPro)
                 return .none
 
             case .weeklyReportTapped:
@@ -502,6 +512,11 @@ public struct MemoListReducer {
 
             case .weeklyReport:
                 return .none
+
+            case .emotionTrend(.presented(.planManagementTapped)):
+                // TASK-0042: EmotionTrend の「Proプランを見てみる」タップをProプランダイアログに委譲
+                state.emotionTrendState = nil
+                return .send(.showProPlanTapped)
 
             case .emotionTrend:
                 return .none

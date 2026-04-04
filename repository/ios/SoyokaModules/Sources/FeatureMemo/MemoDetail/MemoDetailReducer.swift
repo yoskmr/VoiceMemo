@@ -61,6 +61,11 @@ public struct MemoDetailReducer {
 
         // 辞書レコメンド
         public var dictionaryRecommendation: DictionaryRecommendation?
+
+        // TASK-0043: つながるきおく（関連メモ）
+        public var relatedMemos: [RelatedMemo] = []
+        public var isLoadingRelated: Bool = false
+        public var isPro: Bool = false
         /// 編集差分検出用: メモロード時の文字起こしテキスト原文
         public var originalTranscriptionText: String?
 
@@ -95,6 +100,9 @@ public struct MemoDetailReducer {
             aiFeedback: AIFeedback? = nil,
             dictionaryRecommendation: DictionaryRecommendation? = nil,
             originalTranscriptionText: String? = nil,
+            relatedMemos: [RelatedMemo] = [],
+            isLoadingRelated: Bool = false,
+            isPro: Bool = false,
             isLoading: Bool = false,
             errorMessage: String? = nil,
             showDeleteConfirmation: Bool = false
@@ -124,6 +132,9 @@ public struct MemoDetailReducer {
             self.aiFeedback = aiFeedback
             self.dictionaryRecommendation = dictionaryRecommendation
             self.originalTranscriptionText = originalTranscriptionText
+            self.relatedMemos = relatedMemos
+            self.isLoadingRelated = isLoadingRelated
+            self.isPro = isPro
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.showDeleteConfirmation = showDeleteConfirmation
@@ -214,6 +225,12 @@ public struct MemoDetailReducer {
         case acceptDictionaryRecommendation(DictionaryRecommendation)
         case dismissDictionaryRecommendation(DictionaryRecommendation)
 
+        /// TASK-0043: つながるきおく（関連メモ）
+        case loadRelatedMemos
+        case relatedMemosLoaded(Result<[RelatedMemo], EquatableError>)
+        case relatedMemoTapped(UUID)
+        case subscriptionStateChecked(Bool)
+
         // 子Reducerアクション
         case edit(MemoEditReducer.Action)
         case delete(MemoDeleteReducer.Action)
@@ -283,6 +300,8 @@ public struct MemoDetailReducer {
     @Dependency(\.aiProcessingQueue) var aiProcessingQueue
     @Dependency(\.aiQuota) var aiQuota
     @Dependency(\.customDictionaryClient) var customDictionaryClient
+    @Dependency(\.relatedMemo) var relatedMemoClient
+    @Dependency(\.subscriptionClient) var subscriptionClient
     @Dependency(\.uuid) var uuid
     @Dependency(\.analyticsClient) var analyticsClient
 
@@ -320,6 +339,15 @@ public struct MemoDetailReducer {
                         await send(._quotaInfoLoaded(remaining: remaining, limit: limit))
                     } catch: { _, _ in
                         // クォータ取得失敗は無視（デフォルト値が表示される）
+                    },
+                    // TASK-0043: サブスクリプション状態チェック（つながるきおく表示制御用）
+                    .run { send in
+                        let state = await self.subscriptionClient.currentSubscription()
+                        if case .pro = state {
+                            await send(.subscriptionStateChecked(true))
+                        } else {
+                            await send(.subscriptionStateChecked(false))
+                        }
                     }
                 )
 
@@ -352,7 +380,10 @@ public struct MemoDetailReducer {
                     )
                 }
                 analyticsClient.send("memo.viewed")
-                return .send(.checkDictionaryRecommendations)
+                return .merge(
+                    .send(.checkDictionaryRecommendations),
+                    .send(.loadRelatedMemos)
+                )
 
             case let .memoLoaded(.failure(error)):
                 state.isLoading = false
@@ -629,6 +660,38 @@ public struct MemoDetailReducer {
                     reading: recommendation.reading,
                     display: recommendation.display
                 )
+                return .none
+
+            // MARK: - つながるきおく（TASK-0043）
+
+            case .loadRelatedMemos:
+                guard state.isPro else { return .none }
+                state.isLoadingRelated = true
+                let memoID = state.memoID
+                let title = state.title
+                let tags = state.tags.map(\.name)
+                return .run { send in
+                    let result = await Result {
+                        try await relatedMemoClient.findRelated(memoID, title, tags)
+                    }.mapError { EquatableError($0) }
+                    await send(.relatedMemosLoaded(result))
+                }
+
+            case let .relatedMemosLoaded(.success(memos)):
+                state.isLoadingRelated = false
+                state.relatedMemos = memos
+                return .none
+
+            case .relatedMemosLoaded(.failure):
+                state.isLoadingRelated = false
+                return .none
+
+            case .relatedMemoTapped:
+                // 親Reducerに伝播（MemoListReducer等でハンドリング）
+                return .none
+
+            case let .subscriptionStateChecked(isPro):
+                state.isPro = isPro
                 return .none
 
             case .tagTapped, .shareButtonTapped, .backButtonTapped:

@@ -90,6 +90,14 @@ public struct MemoDetailView: View {
                         EmotionBadge(emotion: emotion.category)
                     }
 
+                    // MARK: - つながるきおく（TASK-0043）
+                    if store.isPro && !store.relatedMemos.isEmpty {
+                        RelatedMemosSection(
+                            relatedMemos: store.relatedMemos,
+                            onTap: { id in store.send(.relatedMemoTapped(id)) }
+                        )
+                    }
+
                     // 文字起こし（折りたたみ、デフォルト非表示）
                     TranscriptionSection(text: store.transcriptionText)
                 }
@@ -602,6 +610,79 @@ struct AISummaryFeedbackRow: View {
             }
         }
         .padding(.top, VMDesignTokens.Spacing.xs)
+    }
+}
+
+/// つながるきおくセクション（TASK-0043）
+/// 関連メモを最大5件表示し、タップで該当メモへ遷移する
+struct RelatedMemosSection: View {
+    let relatedMemos: [RelatedMemo]
+    let onTap: (UUID) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.md) {
+            HStack {
+                Image(systemName: "link")
+                    .foregroundColor(.vmPrimary)
+                Text("つながるきおく")
+                    .font(.vmHeadline)
+                    .foregroundColor(.vmTextPrimary)
+            }
+
+            ForEach(relatedMemos.prefix(5)) { memo in
+                Button {
+                    onTap(memo.id)
+                } label: {
+                    relatedMemoCard(memo)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("つながるきおく")
+    }
+
+    private func relatedMemoCard(_ memo: RelatedMemo) -> some View {
+        HStack(spacing: VMDesignTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: VMDesignTokens.Spacing.xxs) {
+                Text(memo.title)
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: VMDesignTokens.Spacing.sm) {
+                    Text(memo.createdAt, style: .date)
+                        .font(.vmCaption2)
+                        .foregroundColor(.vmTextTertiary)
+
+                    if let emotion = memo.emotion {
+                        EmotionBadge(emotion: emotion)
+                    }
+
+                    ForEach(memo.tags.prefix(2), id: \.self) { tag in
+                        Text(tag)
+                            .font(.vmCaption2)
+                            .foregroundColor(.vmTextSecondary)
+                            .padding(.horizontal, VMDesignTokens.Spacing.xs)
+                            .padding(.vertical, VMDesignTokens.Spacing.xxs)
+                            .background(Color.vmSurfaceVariant)
+                            .cornerRadius(VMDesignTokens.CornerRadius.small)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
+        }
+        .padding(VMDesignTokens.Spacing.md)
+        .background(Color.vmSurfaceVariant.opacity(0.5))
+        .cornerRadius(VMDesignTokens.CornerRadius.small)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(memo.title)")
+        .accessibilityHint("タップで詳細を表示")
     }
 }
 

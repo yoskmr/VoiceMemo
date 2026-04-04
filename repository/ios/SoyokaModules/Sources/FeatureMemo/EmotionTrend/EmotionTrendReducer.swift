@@ -4,6 +4,7 @@ import Foundation
 
 /// 感情トレンド画面のTCA Reducer
 /// 設計書 04-ui-design-system.md セクション5.2 準拠
+/// TASK-0042: 「こころの流れ」Pro機能拡張（REQ-032 / US-310 / AC-310）
 @Reducer
 public struct EmotionTrendReducer {
 
@@ -15,17 +16,20 @@ public struct EmotionTrendReducer {
         public var dailyEmotions: [DailyEmotion] = []
         public var isLoading: Bool = false
         public var selectedPeriod: Period = .week
+        public var isPro: Bool = false
 
         public init(
             emotions: [EmotionEntry] = [],
             dailyEmotions: [DailyEmotion] = [],
             isLoading: Bool = false,
-            selectedPeriod: Period = .week
+            selectedPeriod: Period = .week,
+            isPro: Bool = false
         ) {
             self.emotions = emotions
             self.dailyEmotions = dailyEmotions
             self.isLoading = isLoading
             self.selectedPeriod = selectedPeriod
+            self.isPro = isPro
         }
     }
 
@@ -68,15 +72,23 @@ public struct EmotionTrendReducer {
 
     /// 表示期間
     public enum Period: String, CaseIterable, Equatable, Sendable {
-        case week = "1週間"
-        case month = "1ヶ月"
-        case all = "全期間"
+        case week, month, quarter, all
+
+        public var displayName: String {
+            switch self {
+            case .week: return "1週間"
+            case .month: return "1ヶ月"
+            case .quarter: return "3ヶ月"
+            case .all: return "すべて"
+            }
+        }
 
         /// TCA Dependency 経由の now / calendar を受け取ってフィルター開始日を算出する
         public func startDate(now: Date, calendar: Calendar) -> Date? {
             switch self {
             case .week: return calendar.date(byAdding: .day, value: -7, to: now)
             case .month: return calendar.date(byAdding: .month, value: -1, to: now)
+            case .quarter: return calendar.date(byAdding: .month, value: -3, to: now)
             case .all: return nil
             }
         }
@@ -89,6 +101,8 @@ public struct EmotionTrendReducer {
         case periodChanged(Period)
         case emotionsLoaded(Result<[EmotionEntry], EquatableError>)
         case dailyEmotionsLoaded([DailyEmotion])
+        case subscriptionStateLoaded(Bool)
+        case planManagementTapped
     }
 
     // MARK: - Cancellation IDs
@@ -98,6 +112,7 @@ public struct EmotionTrendReducer {
     // MARK: - Dependencies
 
     @Dependency(\.voiceMemoRepository) var voiceMemoRepository
+    @Dependency(\.subscriptionClient) var subscriptionClient
     @Dependency(\.date.now) var now
     @Dependency(\.calendar) var calendar
 
@@ -111,15 +126,23 @@ public struct EmotionTrendReducer {
             case .onAppear:
                 state.isLoading = true
                 let period = state.selectedPeriod
-                return .run { send in
-                    let result = await Result {
-                        try await self.fetchEmotionEntries(period: period)
-                    }.mapError { EquatableError($0) }
-                    await send(.emotionsLoaded(result))
-                    let dailyEmotions = await self.aggregateDailyEmotions(period: period)
-                    await send(.dailyEmotionsLoaded(dailyEmotions))
-                }
-                .cancellable(id: CancelID.fetch, cancelInFlight: true)
+                return .merge(
+                    .run { send in
+                        let result = await Result {
+                            try await self.fetchEmotionEntries(period: period)
+                        }.mapError { EquatableError($0) }
+                        await send(.emotionsLoaded(result))
+                        let dailyEmotions = await self.aggregateDailyEmotions(period: period)
+                        await send(.dailyEmotionsLoaded(dailyEmotions))
+                    }
+                    .cancellable(id: CancelID.fetch, cancelInFlight: true),
+                    .run { [subscriptionClient] send in
+                        let subState = await subscriptionClient.currentSubscription()
+                        let isPro: Bool
+                        if case .pro = subState { isPro = true } else { isPro = false }
+                        await send(.subscriptionStateLoaded(isPro))
+                    }
+                )
 
             case let .periodChanged(period):
                 state.selectedPeriod = period
@@ -136,7 +159,11 @@ public struct EmotionTrendReducer {
 
             case let .emotionsLoaded(.success(entries)):
                 state.isLoading = false
-                state.emotions = entries
+                if state.isPro {
+                    state.emotions = entries
+                } else {
+                    state.emotions = Array(entries.prefix(3))
+                }
                 return .none
 
             case .emotionsLoaded(.failure):
@@ -147,6 +174,14 @@ public struct EmotionTrendReducer {
 
             case let .dailyEmotionsLoaded(dailyEmotions):
                 state.dailyEmotions = dailyEmotions
+                return .none
+
+            case let .subscriptionStateLoaded(isPro):
+                state.isPro = isPro
+                return .none
+
+            case .planManagementTapped:
+                // 親Reducerに委譲（MemoListReducerで処理）
                 return .none
             }
         }

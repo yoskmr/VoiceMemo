@@ -75,8 +75,10 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             }
             $0.aiQuota.remainingCount = { 14 }
             $0.aiQuota.monthlyLimit = { 10 }
+            $0.subscriptionClient.currentSubscription = { .free }
+            $0.relatedMemo.findRelated = { _, _, _ in [] }
         }
-        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）と
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded + subscriptionCheck）と
         // AI処理完了時の並行エフェクト（memoLoaded + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
@@ -158,8 +160,10 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiProcessingQueue.enqueueProcessing = { _ in }
             $0.aiQuota.remainingCount = { 0 }
             $0.aiQuota.monthlyLimit = { 10 }
+            $0.subscriptionClient.currentSubscription = { .free }
+            $0.relatedMemo.findRelated = { _, _, _ in [] }
         }
-        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded + subscriptionCheck）の順序が非決定的なため
         store.exhaustivity = .off
 
         // メモ詳細ロード
@@ -244,8 +248,10 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             }
             $0.aiQuota.remainingCount = { 13 }
             $0.aiQuota.monthlyLimit = { 10 }
+            $0.subscriptionClient.currentSubscription = { .free }
+            $0.relatedMemo.findRelated = { _, _, _ in [] }
         }
-        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）と
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded + subscriptionCheck）と
         // AI処理完了時の並行エフェクト（memoLoaded + quotaInfoLoaded）の順序が非決定的なため
         store.exhaustivity = .off
 
@@ -305,8 +311,10 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
             $0.aiQuota.remainingCount = { 10 }
             $0.aiQuota.monthlyLimit = { 10 }
+            $0.subscriptionClient.currentSubscription = { .free }
+            $0.relatedMemo.findRelated = { _, _, _ in [] }
         }
-        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded + subscriptionCheck）の順序が非決定的なため
         store.exhaustivity = .off
 
         // 初回ロード
@@ -356,8 +364,10 @@ final class MemoDetailAIIntegrationTests: XCTestCase {
             $0.aiProcessingQueue.observeStatus = { _ in AsyncStream { $0.finish() } }
             $0.aiQuota.remainingCount = { 10 }
             $0.aiQuota.monthlyLimit = { 10 }
+            $0.subscriptionClient.currentSubscription = { .free }
+            $0.relatedMemo.findRelated = { _, _, _ in [] }
         }
-        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded）の順序が非決定的なため
+        // exhaustivity = .off: onAppear の並行エフェクト（memoLoaded + observeStatus + quotaInfoLoaded + subscriptionCheck）の順序が非決定的なため
         store.exhaustivity = .off
 
         // 初回ロード
