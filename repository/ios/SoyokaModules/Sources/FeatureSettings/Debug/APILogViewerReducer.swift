@@ -2,6 +2,9 @@
 import ComposableArchitecture
 import Foundation
 import InfraLogging
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// デバッグ用 API リクエストログビューアの Reducer
 /// 設計書 docs/superpowers/specs/2026-04-04-debug-api-log-viewer-design.md 準拠

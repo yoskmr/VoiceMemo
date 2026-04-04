@@ -1,6 +1,6 @@
 name: Soyoka
 options:
-  bundleIdPrefix: app.soyoka
+  bundleIdPrefix: app.soyoka.ios
   deploymentTarget:
     iOS: "17.0"
   xcodeVersion: "16.4"
@@ -52,7 +52,7 @@ targets:
         product: InfraNetwork
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.soyoka
+        PRODUCT_BUNDLE_IDENTIFIER: app.soyoka.ios
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: SoyokaApp/Info.plist
