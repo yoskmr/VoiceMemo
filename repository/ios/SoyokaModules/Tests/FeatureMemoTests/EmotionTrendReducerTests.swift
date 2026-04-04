@@ -51,11 +51,15 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.emotions = []
         }
 
-        // dailyEmotions は初期値が [] なので変化なし
-        await store.receive(\.dailyEmotionsLoaded)
+        // dailyEmotions は初期値が [] なので変化なし（感情データなしのため空配列）
+        await store.receive(\.dailyEmotionsLoaded) {
+            XCTAssertTrue($0.dailyEmotions.isEmpty)
+        }
 
-        // subscriptionStateLoaded: isPro = false（初期値と同じため状態変化なし）
-        await store.receive(\.subscriptionStateLoaded)
+        // subscriptionStateLoaded: isPro = false（Free プラン）
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertFalse($0.isPro)
+        }
     }
 
     // MARK: - Test 2: onAppear で感情データありの場合はエントリを返す
@@ -115,7 +119,10 @@ final class EmotionTrendReducerTests: XCTestCase {
             ]
         }
 
-        await store.receive(\.subscriptionStateLoaded)
+        // subscriptionStateLoaded: isPro = false（Free プラン）
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertFalse($0.isPro)
+        }
     }
 
     // MARK: - Test 3: confidence が 0 のエントリは除外
@@ -147,10 +154,15 @@ final class EmotionTrendReducerTests: XCTestCase {
             $0.emotions = []
         }
 
-        // dailyEmotions は初期値が [] なので変化なし
-        await store.receive(\.dailyEmotionsLoaded)
+        // confidence == 0 のエントリは除外されるため dailyEmotions も空
+        await store.receive(\.dailyEmotionsLoaded) {
+            XCTAssertTrue($0.dailyEmotions.isEmpty)
+        }
 
-        await store.receive(\.subscriptionStateLoaded)
+        // subscriptionStateLoaded: isPro = false（Free プラン）
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertFalse($0.isPro)
+        }
     }
 
     // MARK: - Test 4: periodChanged で期間フィルタリング
@@ -252,9 +264,14 @@ final class EmotionTrendReducerTests: XCTestCase {
         }
 
         // fetchAll が失敗しても aggregateDailyEmotions は空配列を返す
-        await store.receive(\.dailyEmotionsLoaded)
+        await store.receive(\.dailyEmotionsLoaded) {
+            XCTAssertTrue($0.dailyEmotions.isEmpty)
+        }
 
-        await store.receive(\.subscriptionStateLoaded)
+        // subscriptionStateLoaded: isPro = false（Free プラン）
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertFalse($0.isPro)
+        }
     }
 
     // MARK: - Test 6: 結果が新しい順にソートされる
@@ -327,7 +344,10 @@ final class EmotionTrendReducerTests: XCTestCase {
             ]
         }
 
-        await store.receive(\.subscriptionStateLoaded)
+        // subscriptionStateLoaded: isPro = false（Free プラン）
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertFalse($0.isPro)
+        }
     }
 
     // MARK: - Test 7: quarter 期間フィルタリング（TASK-0042）
@@ -445,13 +465,24 @@ final class EmotionTrendReducerTests: XCTestCase {
             XCTAssertEqual($0.emotions[2].id, ids[2])
         }
 
+        let dayStart = calendar.startOfDay(for: now)
         await store.receive(\.dailyEmotionsLoaded) {
-            // dailyEmotions は全データが集計される（チャート描画用）
-            $0.dailyEmotions = $0.dailyEmotions  // 具体的な値は集計ロジック依存
+            // dailyEmotions は全データが集計される（チャート描画用、Free制限なし）
+            // 5件すべて同日・.joy なので1つの DailyEmotion に集約される
+            XCTAssertEqual($0.dailyEmotions.count, 1)
+            let daily = $0.dailyEmotions[0]
+            XCTAssertEqual(daily.date, dayStart)
+            XCTAssertEqual(daily.memoCount, 5)
+            XCTAssertNotNil(daily.emotions[.joy])
+            // joy のスコア合計: 1.0 + 0.9 + 0.8 + 0.7 + 0.6 = 4.0
+            XCTAssertEqual(daily.emotions[.joy]!, 4.0, accuracy: 0.01)
+            $0.dailyEmotions = $0.dailyEmotions
         }
 
-        // subscriptionStateLoaded: isPro = false（初期値と同じため状態変化なし）
-        await store.receive(\.subscriptionStateLoaded)
+        // subscriptionStateLoaded: isPro = false（Free プラン、初期値と同じため状態変化なし）
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertFalse($0.isPro)
+        }
     }
 
     // MARK: - Test 9: Pro ユーザーは全件取得（TASK-0042）
@@ -493,11 +524,22 @@ final class EmotionTrendReducerTests: XCTestCase {
             XCTAssertEqual($0.emotions[4].id, ids[4])
         }
 
+        let dayStart = calendar.startOfDay(for: now)
         await store.receive(\.dailyEmotionsLoaded) {
+            // 5件すべて同日・.joy なので1つの DailyEmotion に集約される
+            XCTAssertEqual($0.dailyEmotions.count, 1)
+            let daily = $0.dailyEmotions[0]
+            XCTAssertEqual(daily.date, dayStart)
+            XCTAssertEqual(daily.memoCount, 5)
+            XCTAssertNotNil(daily.emotions[.joy])
+            // joy のスコア合計: 1.0 + 0.9 + 0.8 + 0.7 + 0.6 = 4.0
+            XCTAssertEqual(daily.emotions[.joy]!, 4.0, accuracy: 0.01)
             $0.dailyEmotions = $0.dailyEmotions
         }
 
         // isPro は初期値 true → subscriptionStateLoaded(true) で変化なし
-        await store.receive(\.subscriptionStateLoaded)
+        await store.receive(\.subscriptionStateLoaded) {
+            XCTAssertTrue($0.isPro)
+        }
     }
 }
