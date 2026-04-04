@@ -135,3 +135,38 @@ jobs:
           rm -f $RUNNER_TEMP/certificate.p12
           rm -f $RUNNER_TEMP/profile.mobileprovision
           rm -f $RUNNER_TEMP/firebase-sa.json
+
+  # ==============================
+  # Job 2: Backend ステージングデプロイ
+  # ==============================
+  backend-staging:
+    name: Backend Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: repository/backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: repository/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Deploy to Cloudflare Workers (staging)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --env staging
