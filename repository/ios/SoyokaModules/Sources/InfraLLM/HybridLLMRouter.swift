@@ -1,5 +1,6 @@
 import Domain
 import Foundation
+import InfraLogging
 import InfraNetwork
 import os.log
 
@@ -59,6 +60,44 @@ public final class HybridLLMRouter: @unchecked Sendable {
     /// - Returns: LLM処理レスポンス（感情分析結果がマージされる場合あり）
     /// - Throws: `LLMError` 各種エラー
     public func process(_ request: LLMRequest) async throws -> LLMResponse {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        do {
+            let result = try await processInternal(request)
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            #if DEBUG
+            await APIRequestLogStore.shared.append(APIRequestLog(
+                source: .llm,
+                endpoint: result.provider.rawValue,
+                status: .success(statusCode: nil),
+                duration: duration,
+                request: RequestDetail(
+                    body: LogSanitizer.sanitizeBody(request.text)
+                ),
+                response: ResponseDetail(
+                    body: LogSanitizer.sanitizeBody(formatLLMResponse(result))
+                )
+            ))
+            #endif
+            return result
+        } catch {
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            #if DEBUG
+            await APIRequestLogStore.shared.append(APIRequestLog(
+                source: .llm,
+                endpoint: "HybridLLMRouter",
+                status: .failure(message: error.localizedDescription),
+                duration: duration,
+                request: RequestDetail(
+                    body: LogSanitizer.sanitizeBody(request.text)
+                ),
+                response: nil
+            ))
+            #endif
+            throw error
+        }
+    }
+
+    private func processInternal(_ request: LLMRequest) async throws -> LLMResponse {
         #if DEBUG
         // デバッグメニュー: LLM プロバイダ強制選択
         if let forcedProvider = UserDefaults.standard.string(forKey: "debug_forceLLMProvider"),
@@ -166,6 +205,23 @@ public final class HybridLLMRouter: @unchecked Sendable {
         logger.error("全プロバイダ不可: オンデバイスLLM非対応かつネットワーク不達")
         throw LLMError.processingFailed("オンデバイスLLM非対応かつネットワーク不達")
     }
+
+    #if DEBUG
+    private func formatLLMResponse(_ response: LLMResponse) -> String {
+        var parts: [String] = []
+        if let summary = response.summary {
+            parts.append("summary: \(summary.title)")
+        }
+        if !response.tags.isEmpty {
+            parts.append("tags: \(response.tags.map(\.label).joined(separator: ", "))")
+        }
+        if let sentiment = response.sentiment {
+            parts.append("sentiment: \(sentiment.primary.rawValue)")
+        }
+        parts.append("provider: \(response.provider.rawValue)")
+        return parts.joined(separator: "\n")
+    }
+    #endif
 
     /// プロバイダの利用可否チェック
     ///

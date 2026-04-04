@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "InfraNetwork", targets: ["InfraNetwork"]),
         .library(name: "SharedUI", targets: ["SharedUI"]),
         .library(name: "SharedUtil", targets: ["SharedUtil"]),
+        .library(name: "InfraLogging", targets: ["InfraLogging"]),
     ],
     dependencies: [
         .package(
@@ -61,6 +62,14 @@ let package = Package(
             ],
             plugins: []
         ),
+        .target(
+            name: "InfraLogging",
+            dependencies: [
+                .product(name: "Dependencies", package: "swift-dependencies"),
+                .product(name: "DependenciesMacros", package: "swift-dependencies"),
+            ],
+            plugins: []
+        ),
 
         // MARK: - Infrastructure Modules (Infra -> Domain)
         .target(
@@ -75,6 +84,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "InfraNetwork",
+                "InfraLogging",
             ],
             plugins: []
         ),
@@ -92,6 +102,7 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "SharedUtil",
+                "InfraLogging",
                 .product(name: "Dependencies", package: "swift-dependencies"),
             ],
             plugins: []
@@ -108,7 +119,7 @@ let package = Package(
             plugins: []
         ),
 
-        // MARK: - Feature Modules (Feature -> Domain, SharedUI のみ。Infra直接依存禁止)
+        // MARK: - Feature Modules (Feature -> Domain, SharedUI, InfraLogging のみ。その他Infra直接依存禁止)
         .target(
             name: "FeatureRecording",
             dependencies: [
@@ -155,6 +166,7 @@ let package = Package(
                 "SharedUI",
                 "SharedUtil",
                 "FeatureSubscription",
+                "InfraLogging",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             plugins: []
@@ -183,7 +195,8 @@ let package = Package(
             .product(name: "ZIPFoundation", package: "ZIPFoundation"),
         ]),
         .testTarget(name: "FeatureSearchTests", dependencies: ["FeatureSearch", "Domain"]),
-        .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "FeatureSubscription", "Domain"]),
+        .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "FeatureSubscription", "Domain", "InfraLogging"]),
+        .testTarget(name: "InfraLoggingTests", dependencies: ["InfraLogging"]),
         .testTarget(name: "InfraNetworkTests", dependencies: ["InfraNetwork"]),
         .testTarget(name: "E2ETests", dependencies: [
             "FeatureRecording",

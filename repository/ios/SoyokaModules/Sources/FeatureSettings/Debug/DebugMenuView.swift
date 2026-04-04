@@ -1,4 +1,6 @@
 #if DEBUG
+import ComposableArchitecture
+import InfraLogging
 import SharedUI
 import SharedUtil
 import SwiftUI
@@ -65,6 +67,7 @@ public struct DebugMenuView: View {
             aiProcessingSection
             sttEngineSection
             networkSection
+            apiLogSection
             dataSection
             uiInfoSection
             dangerZoneSection
@@ -225,6 +228,27 @@ public struct DebugMenuView: View {
             .tint(.vmPrimary)
         } header: {
             Text("ネットワーク")
+        }
+    }
+
+    // MARK: - セクション: API ログ
+
+    private var apiLogSection: some View {
+        Section {
+            NavigationLink {
+                APILogListView(
+                    store: Store(initialState: APILogViewer.State()) {
+                        APILogViewer()
+                    }
+                )
+            } label: {
+                HStack {
+                    Image(systemName: "network")
+                    Text("API リクエストログ")
+                }
+            }
+        } header: {
+            Text("ログ")
         }
     }
 
