@@ -72,7 +72,7 @@ public struct ChatView: View {
                         }
 
                         ForEach(store.messages) { message in
-                            ChatBubble(message: message) { memoID in
+                            ChatBubble(message: message, referencedMemoTitles: store.referencedMemoTitles) { memoID in
                                 store.send(.referencedMemoTapped(memoID))
                             }
                             .id(message.id)
@@ -169,10 +169,16 @@ public struct ChatView: View {
         HStack(spacing: VMDesignTokens.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(.vmError)
-            Text("エラーが発生しました。もう一度お試しください。")
+            Text("うまくいきませんでした。もう一度お試しください")
                 .font(.vmCaption1)
                 .foregroundColor(.vmError)
             Spacer()
+            Button { store.send(.dismissError) } label: {
+                Image(systemName: "xmark")
+                    .font(.vmCaption2)
+                    .foregroundColor(.vmTextTertiary)
+            }
+            .accessibilityLabel("エラーを閉じる")
         }
         .padding(.horizontal, VMDesignTokens.Spacing.lg)
         .padding(.vertical, VMDesignTokens.Spacing.sm)
@@ -271,24 +277,36 @@ public struct ChatView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.vmPrimary)
 
-            Text("Proプランの機能です")
+            Text("きおくに聞くはProプランの機能です")
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextPrimary)
 
-            Text("「きおくに聞く」はProプランでご利用いただけます")
+            Text("蓄積されたきおくにAIで質問できます。\n「先週何に悩んでた？」と自分と対話してみましょう")
                 .font(.vmCallout)
                 .foregroundColor(.vmTextSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(VMDesignTokens.LineSpacing.body)
 
             Button {
+                store.send(.showProPlanTapped)
+            } label: {
+                Text("Proプランを見てみる")
+                    .font(.vmHeadline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, VMDesignTokens.Spacing.md)
+                    .background(Color.vmPrimary)
+                    .cornerRadius(VMDesignTokens.CornerRadius.medium)
+            }
+            .padding(.horizontal, VMDesignTokens.Spacing.xxl)
+            .accessibilityHint("Proプランの詳細画面に移動します")
+
+            Button {
                 store.send(.dismissProSheet)
             } label: {
-                Text("閉じる")
-                    .font(.vmHeadline)
-                    .foregroundColor(.vmPrimary)
-                    .padding(.horizontal, VMDesignTokens.Spacing.xl)
-                    .padding(.vertical, VMDesignTokens.Spacing.md)
+                Text("あとで")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmTextTertiary)
             }
 
             Spacer()
@@ -302,6 +320,7 @@ public struct ChatView: View {
 /// チャットバブルコンポーネント
 struct ChatBubble: View {
     let message: ChatMessage
+    let referencedMemoTitles: [UUID: String]
     let onReferencedMemoTapped: (UUID) -> Void
 
     var body: some View {
@@ -370,7 +389,7 @@ struct ChatBubble: View {
                         Image(systemName: "doc.text")
                             .font(.vmCaption1)
                             .foregroundColor(.vmPrimary)
-                        Text(memoID.uuidString.prefix(8) + "...")
+                        Text(referencedMemoTitles[memoID] ?? "きおく")
                             .font(.vmCaption1)
                             .foregroundColor(.vmPrimary)
                         Spacer()

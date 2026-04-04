@@ -80,7 +80,7 @@ public struct MemoListView: View {
                     Text("しばらく時間をおいて、もう一度お試しください")
                 }
                 .alert(
-                    "Proプランの機能です",
+                    "きおくに聞くはProプランの機能です",
                     isPresented: $store.showProRequiredAlert.sending(\.proRequiredAlertPresented)
                 ) {
                     Button("あとで", role: .cancel) {
@@ -260,9 +260,11 @@ public struct MemoListView: View {
             Button { store.send(.weeklyReportTapped) } label: {
                 Image(systemName: "doc.text.magnifyingglass")
             }
+            .accessibilityLabel("一週間をふりかえる")
             Button { store.send(.trendIconTapped) } label: {
                 Image(systemName: "chart.line.uptrend.xyaxis")
             }
+            .accessibilityLabel("こころの流れ")
         }
     }
 }

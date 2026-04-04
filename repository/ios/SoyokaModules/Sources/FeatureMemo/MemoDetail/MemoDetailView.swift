@@ -112,9 +112,13 @@ public struct MemoDetailView: View {
                     }
 
                     // MARK: - 高精度仕上げ（TASK-0044）
-                    // 仕上げボタン（Pro限定、未仕上げ時のみ表示）
-                    if store.isPro && !store.isPolished && !store.transcriptionText.isEmpty {
-                        polishButton
+                    // 仕上げボタン（未仕上げ時表示。FreeユーザーにはロックUI）
+                    if !store.isPolished && !store.transcriptionText.isEmpty {
+                        if store.isPro {
+                            polishButton
+                        } else {
+                            polishLockedButton
+                        }
                     }
 
                     // 仕上げ済みバッジ + 元のテキスト切替
@@ -270,7 +274,29 @@ public struct MemoDetailView: View {
         }
         .disabled(store.isPolishing)
         .accessibilityLabel("高精度で仕上げる")
-        .accessibilityHint("クラウドAIが文字起こしを日本語として完璧に仕上げます")
+        .accessibilityHint("文字起こしをより自然な日本語に仕上げます")
+    }
+
+    /// Free ユーザー用の仕上げロックボタン
+    private var polishLockedButton: some View {
+        Button {
+            store.send(.polishButtonTapped)
+        } label: {
+            HStack(spacing: VMDesignTokens.Spacing.sm) {
+                Image(systemName: "lock.fill")
+                    .font(.vmCaption1)
+                Image(systemName: "sparkle.magnifyingglass")
+                Text("高精度で仕上げる")
+            }
+            .font(.vmCallout)
+            .foregroundColor(.vmTextTertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, VMDesignTokens.Spacing.md)
+            .background(Color.vmSurfaceVariant.opacity(0.5))
+            .cornerRadius(VMDesignTokens.CornerRadius.medium)
+        }
+        .accessibilityLabel("高精度で仕上げる")
+        .accessibilityHint("Proプラン限定の機能です")
     }
 
     /// 仕上げ済みバッジ + 元のテキスト切替
@@ -437,8 +463,8 @@ public struct MemoDetailView: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.vmCaption1)
+            Image(systemName: "lock.fill")
+                .font(.vmCaption2)
                 .foregroundColor(.vmTextTertiary)
         }
         .padding(VMDesignTokens.Spacing.md)
@@ -855,6 +881,8 @@ struct RelatedMemosEmptyState: View {
             .background(Color.vmSurfaceVariant.opacity(0.5))
             .cornerRadius(VMDesignTokens.CornerRadius.small)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("つながるきおく: きおくが増えると自動でつながります")
     }
 }
 
@@ -893,10 +921,13 @@ struct RelatedMemosLockedSection: View {
                         .font(.vmCaption1.bold())
                         .foregroundColor(.vmPrimary)
                 }
+                .accessibilityHint("Proプランの詳細画面に移動します")
             }
             .frame(maxWidth: .infinity)
             .padding(.top, VMDesignTokens.Spacing.xs)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("つながるきおく: Proプラン限定")
     }
 
     private func previewCard(_ memo: RelatedMemo) -> some View {

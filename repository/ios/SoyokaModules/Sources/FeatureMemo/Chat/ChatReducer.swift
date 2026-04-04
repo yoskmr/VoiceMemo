@@ -34,6 +34,7 @@ public struct ChatReducer {
         public var memoCount: Int = 0
         public var showProSheet: Bool
         public var errorMessage: String?
+        public var referencedMemoTitles: [UUID: String] = [:]
 
         public init(
             messages: [ChatMessage] = [],
@@ -51,6 +52,7 @@ public struct ChatReducer {
             self.memoCount = memoCount
             self.showProSheet = showProSheet
             self.errorMessage = errorMessage
+            self.referencedMemoTitles = [:]
         }
     }
 
@@ -75,6 +77,12 @@ public struct ChatReducer {
         case clearConversation
         /// Proシート非表示
         case dismissProSheet
+        /// エラー消去
+        case dismissError
+        /// Proプラン案内（親に委譲）
+        case showProPlanTapped
+        /// 参照メモタイトル解決完了
+        case referencedMemoTitlesLoaded([UUID: String])
         /// 生成停止ボタンタップ
         case stopGenerationTapped
     }
@@ -130,7 +138,15 @@ public struct ChatReducer {
                     createdAt: date.now
                 )
                 state.messages.append(assistantMessage)
-                return .none
+                // 参照メモのタイトルを非同期で解決
+                guard !referencedIDs.isEmpty else { return .none }
+                return .run { [voiceMemoRepository] send in
+                    let memosDict = try await voiceMemoRepository.fetchMemosByIDs(referencedIDs)
+                    let titles = memosDict.reduce(into: [UUID: String]()) { result, pair in
+                        result[pair.key] = pair.value.title
+                    }
+                    await send(.referencedMemoTitlesLoaded(titles))
+                }
 
             case let .responseReceived(.failure(error)):
                 state.isStreaming = false
@@ -154,6 +170,18 @@ public struct ChatReducer {
             case .stopGenerationTapped:
                 state.isStreaming = false
                 return .cancel(id: CancelID.chat)
+
+            case .dismissError:
+                state.errorMessage = nil
+                return .none
+
+            case .showProPlanTapped:
+                // 親Reducerに委譲
+                return .none
+
+            case let .referencedMemoTitlesLoaded(titles):
+                state.referencedMemoTitles.merge(titles) { _, new in new }
+                return .none
             }
         }
     }
