@@ -44,11 +44,11 @@ describe("quota service", () => {
   });
 
   describe("getUsage", () => {
-    it("初期状態で used: 0, limit: 15 を返す（free プラン）", async () => {
+    it("初期状態で used: 0, limit: 10 を返す（free プラン）", async () => {
       const usage = await getUsage(kv, DEVICE_ID, "free");
 
       expect(usage.used).toBe(0);
-      expect(usage.limit).toBe(15);
+      expect(usage.limit).toBe(10);
       expect(usage.plan).toBe("free");
       expect(usage.resets_at).toBeDefined();
     });
@@ -100,9 +100,9 @@ describe("quota service", () => {
       expect(result).toBe(true);
     });
 
-    it("上限到達（15 回）で false を返す", async () => {
-      // 15 回インクリメント
-      for (let i = 0; i < 15; i++) {
+    it("上限到達（10 回）で false を返す", async () => {
+      // 10 回インクリメント
+      for (let i = 0; i < 10; i++) {
         await incrementUsage(kv, DEVICE_ID);
       }
 
@@ -110,8 +110,8 @@ describe("quota service", () => {
       expect(result).toBe(false);
     });
 
-    it("14 回使用で true（上限未到達）", async () => {
-      for (let i = 0; i < 14; i++) {
+    it("9 回使用で true（上限未到達）", async () => {
+      for (let i = 0; i < 9; i++) {
         await incrementUsage(kv, DEVICE_ID);
       }
 

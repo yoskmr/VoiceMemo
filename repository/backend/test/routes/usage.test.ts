@@ -123,7 +123,7 @@ describe("GET /api/v1/usage", () => {
     };
 
     expect(body.used).toBe(0);
-    expect(body.limit).toBe(15);
+    expect(body.limit).toBe(10);
     expect(body.plan).toBe("free");
     expect(body.resets_at).toBeDefined();
     expect(body.resets_at).not.toBeNull();
