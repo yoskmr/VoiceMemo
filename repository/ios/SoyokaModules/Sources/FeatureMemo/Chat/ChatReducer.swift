@@ -150,7 +150,14 @@ public struct ChatReducer {
 
             case let .responseReceived(.failure(error)):
                 state.isStreaming = false
-                state.errorMessage = error.localizedDescription
+                let message = error.localizedDescription
+                if message.contains("tokenNotFound") || message.contains("authenticate") {
+                    state.errorMessage = "サーバーへの接続に失敗しました。ネットワーク接続を確認してください"
+                } else if message.contains("timeout") || message.contains("Timeout") {
+                    state.errorMessage = "応答に時間がかかっています。もう一度お試しください"
+                } else {
+                    state.errorMessage = "うまくいきませんでした。もう一度お試しください"
+                }
                 return .none
 
             case .referencedMemoTapped:
@@ -206,36 +213,43 @@ public struct ChatReducer {
         state.errorMessage = nil
 
         return .run { [fts5IndexManager, voiceMemoRepository, memoConversation] send in
-            // 1. FTS5で関連メモを検索（上位10件）
-            let ftsResults = try fts5IndexManager.search(question)
-            let memoIDs = ftsResults
-                .prefix(Self.maxContextMemos)
-                .compactMap { UUID(uuidString: $0.memoID) }
-
-            // 2. メモの詳細を取得
-            var contextMemos: [MemoContext] = []
-            if !memoIDs.isEmpty {
-                let entities = try await voiceMemoRepository.fetchMemosByIDs(memoIDs)
-                let dateFormatter = DateFormatter()
-                dateFormatter.locale = Locale(identifier: "ja_JP")
-                dateFormatter.dateFormat = "yyyy年M月d日"
-
-                for memoID in memoIDs {
-                    guard let memo = entities[memoID] else { continue }
-                    contextMemos.append(MemoContext(
-                        id: memoID,
-                        title: memo.title,
-                        text: memo.title, // SearchableMemo にはフルテキストがないため title を使用
-                        date: dateFormatter.string(from: memo.createdAt),
-                        emotion: memo.emotion?.rawValue,
-                        tags: memo.tags
-                    ))
-                }
-            }
-
-            // 3. AI対話APIを呼び出し
             let result = await Result {
-                try await memoConversation.sendQuestion(question, contextMemos)
+                // 1. FTS5で関連メモを検索（失敗時は空配列にフォールバック）
+                var memoIDs: [UUID] = []
+                do {
+                    let ftsResults = try fts5IndexManager.search(question)
+                    memoIDs = ftsResults
+                        .prefix(Self.maxContextMemos)
+                        .compactMap { UUID(uuidString: $0.memoID) }
+                } catch {
+                    // FTS5未初期化やインデックス未作成時: 直近メモをフォールバックとして使用
+                    let allMemos = try await voiceMemoRepository.fetchAll()
+                    memoIDs = allMemos.prefix(Self.maxContextMemos).map(\.id)
+                }
+
+                // 2. メモの詳細を取得
+                var contextMemos: [MemoContext] = []
+                if !memoIDs.isEmpty {
+                    let entities = try await voiceMemoRepository.fetchMemosByIDs(memoIDs)
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.locale = Locale(identifier: "ja_JP")
+                    dateFormatter.dateFormat = "yyyy年M月d日"
+
+                    for memoID in memoIDs {
+                        guard let memo = entities[memoID] else { continue }
+                        contextMemos.append(MemoContext(
+                            id: memoID,
+                            title: memo.title,
+                            text: memo.title,
+                            date: dateFormatter.string(from: memo.createdAt),
+                            emotion: memo.emotion?.rawValue,
+                            tags: memo.tags
+                        ))
+                    }
+                }
+
+                // 3. コンテキストが空の場合もAPI呼び出し（AIが一般的な回答を返す）
+                return try await memoConversation.sendQuestion(question, contextMemos)
             }.mapError { EquatableError($0) }
 
             await send(.responseReceived(result))
