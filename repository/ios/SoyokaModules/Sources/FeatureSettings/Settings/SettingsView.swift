@@ -58,17 +58,9 @@ public struct SettingsView: View {
                         get: { store.writingStyle },
                         set: { store.send(.writingStyleChanged($0)) }
                     )) {
-                        ForEach(WritingStyle.allCases, id: \.self) { style in
-                            HStack {
-                                Text(style.displayName)
-                                    .foregroundColor(style.isAvailable ? .vmTextPrimary : .vmTextTertiary)
-                                if !style.isAvailable {
-                                    Text("近日公開")
-                                        .font(.vmCaption2)
-                                        .foregroundColor(.vmTextTertiary)
-                                }
-                            }
-                            .tag(style)
+                        ForEach(WritingStyle.allCases.filter(\.isAvailable), id: \.self) { style in
+                            Text(style.displayName)
+                                .tag(style)
                         }
                     } label: {
                         Label {
