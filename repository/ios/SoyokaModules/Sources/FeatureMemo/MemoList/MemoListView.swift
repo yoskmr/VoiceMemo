@@ -44,6 +44,11 @@ public struct MemoListView: View {
                         WeeklyReportView(store: reportStore)
                     }
                 }
+                .navigationDestination(
+                    item: $store.scope(state: \.chatState, action: \.chat)
+                ) { (chatStore: StoreOf<ChatReducer>) in
+                    ChatView(store: chatStore)
+                }
                 .overlay(alignment: .bottom) { undoSnackbar }
                 .alert(
                     "AI整理を実行できませんでした",
@@ -232,6 +237,10 @@ public struct MemoListView: View {
 
     private var toolbarButtons: some View {
         HStack(spacing: VMDesignTokens.Spacing.md) {
+            Button { store.send(.chatIconTapped) } label: {
+                Image(systemName: "bubble.left.and.text.bubble.right")
+            }
+            .accessibilityLabel("きおくに聞く")
             Button { store.send(.weeklyReportTapped) } label: {
                 Image(systemName: "doc.text.magnifyingglass")
             }

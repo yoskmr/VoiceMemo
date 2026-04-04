@@ -159,6 +159,60 @@ public struct CloudMetadata: Sendable, Equatable, Codable {
     }
 }
 
+/// AI対話リクエスト用のメモコンテキストDTO
+public struct MemoContextDTO: Sendable, Equatable, Codable {
+    public let id: String
+    public let title: String
+    public let text: String
+    public let date: String
+    public let emotion: String?
+    public let tags: [String]
+
+    public init(id: String, title: String, text: String, date: String, emotion: String?, tags: [String]) {
+        self.id = id
+        self.title = title
+        self.text = text
+        self.date = date
+        self.emotion = emotion
+        self.tags = tags
+    }
+}
+
+/// AI対話レスポンスDTO
+public struct ChatResponseDTO: Sendable, Equatable, Codable {
+    public let answer: String
+    public let referencedMemoIDs: [String]
+    public let metadata: ChatMetadataDTO?
+
+    public init(answer: String, referencedMemoIDs: [String], metadata: ChatMetadataDTO? = nil) {
+        self.answer = answer
+        self.referencedMemoIDs = referencedMemoIDs
+        self.metadata = metadata
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case answer
+        case referencedMemoIDs = "referenced_memo_ids"
+        case metadata
+    }
+}
+
+/// AI対話メタデータDTO
+public struct ChatMetadataDTO: Sendable, Equatable, Codable {
+    public let model: String?
+    public let tokensUsed: Int?
+
+    public init(model: String? = nil, tokensUsed: Int? = nil) {
+        self.model = model
+        self.tokensUsed = tokensUsed
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case model
+        case tokensUsed = "tokens_used"
+    }
+}
+
 /// Cloud使用量レスポンス（GET /api/v1/usage）
 public struct CloudUsageResponse: Sendable, Equatable, Codable {
     /// 使用済み回数
@@ -196,17 +250,21 @@ public struct BackendProxyClient: Sendable {
     public var getUsage: @Sendable () async throws -> CloudUsageResponse
     /// サブスクリプション検証
     public var verifySubscription: @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse
+    /// AI対話（きおくに聞く）
+    public var chatWithMemos: @Sendable (_ question: String, _ contextMemos: [MemoContextDTO]) async throws -> ChatResponseDTO
 
     public init(
         authenticate: @escaping @Sendable (_ deviceID: String, _ appVersion: String, _ osVersion: String) async throws -> AuthResponse,
         processAI: @escaping @Sendable (_ text: String, _ language: String, _ options: AIRequestOptions) async throws -> CloudAIResponse,
         getUsage: @escaping @Sendable () async throws -> CloudUsageResponse,
-        verifySubscription: @escaping @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse
+        verifySubscription: @escaping @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse,
+        chatWithMemos: @escaping @Sendable (_ question: String, _ contextMemos: [MemoContextDTO]) async throws -> ChatResponseDTO
     ) {
         self.authenticate = authenticate
         self.processAI = processAI
         self.getUsage = getUsage
         self.verifySubscription = verifySubscription
+        self.chatWithMemos = chatWithMemos
     }
 }
 
@@ -568,6 +626,90 @@ extension BackendProxyClient {
                     await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
                     throw error
                 }
+            },
+
+            chatWithMemos: { question, contextMemos in
+                guard let token = keychainManager.loadString(key: .accessToken) else {
+                    throw BackendProxyError.tokenNotFound
+                }
+
+                let url = baseURL.appendingPathComponent("api/v1/ai/chat")
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+                await applyAttestHeader(to: &request, attestManager: appAttestManager)
+
+                let memosPayload = contextMemos.map { memo -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": memo.id,
+                        "title": memo.title,
+                        "text": memo.text,
+                        "date": memo.date,
+                        "tags": memo.tags,
+                    ]
+                    if let emotion = memo.emotion {
+                        dict["emotion"] = emotion
+                    }
+                    return dict
+                }
+
+                let body: [String: Any] = [
+                    "question": question,
+                    "context_memos": memosPayload,
+                    "language": "ja",
+                ]
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                let requestBodyString = String(data: request.httpBody ?? Data(), encoding: .utf8)
+                let startTime = CFAbsoluteTimeGetCurrent()
+
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    if httpResponse.statusCode == 401 {
+                        logger.warning("AI対話: 401 Unauthorized → 再認証が必要")
+                        let authError = BackendProxyError.tokenNotFound
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: authError, duration: duration)
+                        throw authError
+                    }
+
+                    if httpResponse.statusCode == 429 {
+                        let quotaError = BackendProxyError.quotaExceeded
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: quotaError, duration: duration)
+                        throw quotaError
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let serverError = BackendProxyError.serverError(httpResponse.statusCode)
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: serverError, duration: duration)
+                        throw serverError
+                    }
+
+                    do {
+                        let chatResponse = try decoder.decode(ChatResponseDTO.self, from: data)
+                        logger.info("AI対話成功: referenced_memos=\(chatResponse.referencedMemoIDs.count)")
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                        return chatResponse
+                    } catch {
+                        throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    }
+                } catch let error as BackendProxyError {
+                    throw error
+                } catch {
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
+                }
             }
         )
     }
@@ -580,7 +722,8 @@ extension BackendProxyClient: TestDependencyKey {
         authenticate: unimplemented("BackendProxyClient.authenticate"),
         processAI: unimplemented("BackendProxyClient.processAI"),
         getUsage: unimplemented("BackendProxyClient.getUsage"),
-        verifySubscription: unimplemented("BackendProxyClient.verifySubscription")
+        verifySubscription: unimplemented("BackendProxyClient.verifySubscription"),
+        chatWithMemos: unimplemented("BackendProxyClient.chatWithMemos")
     )
 }
 

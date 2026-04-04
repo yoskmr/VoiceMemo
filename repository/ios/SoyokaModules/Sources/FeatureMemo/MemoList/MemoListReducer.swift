@@ -69,6 +69,9 @@ public struct MemoListReducer {
         /// 週次レポート画面（sheet表示用、nilで非表示）
         @Presents public var weeklyReportState: WeeklyReportReducer.State?
 
+        /// きおくに聞く画面（NavigationStack push用、nilで非表示）
+        @Presents public var chatState: ChatReducer.State?
+
         /// 録音完了→メモ詳細遷移時の待機用ID（refreshCompleted前にselectMemoが届いた場合に保持）
         public var pendingMemoID: UUID?
 
@@ -100,6 +103,7 @@ public struct MemoListReducer {
             selectedMemo: MemoDetailReducer.State? = nil,
             emotionTrendState: EmotionTrendReducer.State? = nil,
             weeklyReportState: WeeklyReportReducer.State? = nil,
+            chatState: ChatReducer.State? = nil,
             pendingMemoID: UUID? = nil,
             deletion: DeletionState = DeletionState(),
             aiQuotaUsed: Int = 0,
@@ -118,6 +122,7 @@ public struct MemoListReducer {
             self.selectedMemo = selectedMemo
             self.emotionTrendState = emotionTrendState
             self.weeklyReportState = weeklyReportState
+            self.chatState = chatState
             self.pendingMemoID = pendingMemoID
             self.deletion = deletion
             self.aiQuotaUsed = aiQuotaUsed
@@ -230,6 +235,9 @@ public struct MemoListReducer {
         case refreshCompleted(Result<[MemoItem], EquatableError>)
         case memoDetail(PresentationAction<MemoDetailReducer.Action>)
         case emotionTrend(PresentationAction<EmotionTrendReducer.Action>)
+        case chatIconTapped
+        case chatProChecked(Bool)
+        case chat(PresentationAction<ChatReducer.Action>)
 
         /// T11: AI月次クォータ情報の読み込み完了
         case aiQuotaLoaded(used: Int, limit: Int, resetDate: Date)
@@ -513,6 +521,31 @@ public struct MemoListReducer {
             case .weeklyReport:
                 return .none
 
+            case .chatIconTapped:
+                return .run { [subscriptionClient] send in
+                    let subState = await subscriptionClient.currentSubscription()
+                    let isPro: Bool
+                    if case .pro = subState { isPro = true } else { isPro = false }
+                    await send(.chatProChecked(isPro))
+                }
+
+            case let .chatProChecked(isPro):
+                if isPro {
+                    state.chatState = ChatReducer.State(isPro: true)
+                } else {
+                    state.chatState = ChatReducer.State(isPro: false, showProSheet: true)
+                }
+                return .none
+
+            case .chat(.presented(.referencedMemoTapped(let memoID))):
+                // 参照きおくタップ → メモ詳細に遷移
+                state.chatState = nil
+                state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
+                return .none
+
+            case .chat:
+                return .none
+
             case .emotionTrend(.presented(.planManagementTapped)):
                 // TASK-0042: EmotionTrend の「Proプランを見てみる」タップをProプランダイアログに委譲
                 state.emotionTrendState = nil
@@ -568,6 +601,9 @@ public struct MemoListReducer {
         }
         .ifLet(\.$weeklyReportState, action: \.weeklyReport) {
             WeeklyReportReducer()
+        }
+        .ifLet(\.$chatState, action: \.chat) {
+            ChatReducer()
         }
     }
 
