@@ -1,5 +1,6 @@
 import Dependencies
 import Foundation
+import InfraLogging
 import os.log
 
 private let logger = Logger(subsystem: "app.soyoka", category: "ForceUpdate")
@@ -78,34 +79,87 @@ extension ForceUpdateClient {
                 request.httpMethod = "GET"
                 request.timeoutInterval = 10
 
-                let (data, response) = try await session.data(for: request)
+                let startTime = CFAbsoluteTimeGetCurrent()
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
 
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    throw ForceUpdateError.networkError("Invalid response type")
-                }
-
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    throw ForceUpdateError.serverError(httpResponse.statusCode)
-                }
-
-                let decoder = JSONDecoder()
-                guard let versionCheck = try? decoder.decode(VersionCheckResponse.self, from: data) else {
-                    throw ForceUpdateError.decodingFailed
-                }
-
-                let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-
-                if isVersionLessThan(currentVersion, minimum: versionCheck.minimumVersion) {
-                    guard let storeURL = URL(string: versionCheck.storeUrl), !versionCheck.storeUrl.isEmpty else {
-                        logger.error("store_url が無効: '\(versionCheck.storeUrl)' — 強制アップデートをスキップ")
-                        return .upToDate
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let error = ForceUpdateError.networkError("Invalid response type")
+                        #if DEBUG
+                        await APIRequestLogStore.shared.append(APIRequestLog(
+                            source: .network, endpoint: "api/v1/version/check", method: "GET",
+                            status: .failure(message: error.localizedDescription), duration: duration,
+                            request: RequestDetail(),
+                            response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                        ))
+                        #endif
+                        throw error
                     }
-                    logger.info("強制アップデート: current=\(currentVersion) < minimum=\(versionCheck.minimumVersion)")
-                    return .updateRequired(storeURL: storeURL)
-                }
 
-                logger.debug("バージョンOK: current=\(currentVersion) >= minimum=\(versionCheck.minimumVersion)")
-                return .upToDate
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let error = ForceUpdateError.serverError(httpResponse.statusCode)
+                        #if DEBUG
+                        await APIRequestLogStore.shared.append(APIRequestLog(
+                            source: .network, endpoint: "api/v1/version/check", method: "GET",
+                            status: .failure(message: error.localizedDescription), duration: duration,
+                            request: RequestDetail(),
+                            response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                        ))
+                        #endif
+                        throw error
+                    }
+
+                    let decoder = JSONDecoder()
+                    guard let versionCheck = try? decoder.decode(VersionCheckResponse.self, from: data) else {
+                        #if DEBUG
+                        await APIRequestLogStore.shared.append(APIRequestLog(
+                            source: .network, endpoint: "api/v1/version/check", method: "GET",
+                            status: .failure(message: ForceUpdateError.decodingFailed.localizedDescription),
+                            duration: duration,
+                            request: RequestDetail(),
+                            response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                        ))
+                        #endif
+                        throw ForceUpdateError.decodingFailed
+                    }
+
+                    let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+
+                    #if DEBUG
+                    await APIRequestLogStore.shared.append(APIRequestLog(
+                        source: .network, endpoint: "api/v1/version/check", method: "GET",
+                        status: .success(statusCode: httpResponse.statusCode), duration: duration,
+                        request: RequestDetail(),
+                        response: ResponseDetail(body: LogSanitizer.sanitizeBody(responseBody))
+                    ))
+                    #endif
+
+                    if isVersionLessThan(currentVersion, minimum: versionCheck.minimumVersion) {
+                        guard let storeURL = URL(string: versionCheck.storeUrl), !versionCheck.storeUrl.isEmpty else {
+                            logger.error("store_url が無効: '\(versionCheck.storeUrl)' — 強制アップデートをスキップ")
+                            return .upToDate
+                        }
+                        logger.info("強制アップデート: current=\(currentVersion) < minimum=\(versionCheck.minimumVersion)")
+                        return .updateRequired(storeURL: storeURL)
+                    }
+
+                    logger.debug("バージョンOK: current=\(currentVersion) >= minimum=\(versionCheck.minimumVersion)")
+                    return .upToDate
+                } catch let error as ForceUpdateError {
+                    throw error
+                } catch {
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    #if DEBUG
+                    await APIRequestLogStore.shared.append(APIRequestLog(
+                        source: .network, endpoint: "api/v1/version/check", method: "GET",
+                        status: .failure(message: error.localizedDescription), duration: duration,
+                        request: RequestDetail(), response: nil
+                    ))
+                    #endif
+                    throw error
+                }
             }
         )
     }
