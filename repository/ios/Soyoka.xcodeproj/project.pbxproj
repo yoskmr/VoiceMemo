@@ -151,7 +151,7 @@
 		47C8E871837E41DB2F0D30D2 /* FeatureAITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureAITests.swift; sourceTree = "<group>"; };
 		493F2EF9D670EAE93CD79B5D /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		49E954AB50CDAE82E94E9CA8 /* UserSettingsEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettingsEntityTests.swift; sourceTree = "<group>"; };
-		4BEA758FC3E15E46384D0F70 /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
+		4BEA758FC3E15E46384D0F70 /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		4D5268B14F839659E0916C80 /* TranscriptionEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionEntityTests.swift; sourceTree = "<group>"; };
 		4EA7D5549EC92908D8B70D6C /* MemoDetailReducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailReducerTests.swift; sourceTree = "<group>"; };
 		4F4C37B8433745F03B38B46E /* AIQuotaRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQuotaRepositoryTests.swift; sourceTree = "<group>"; };
@@ -184,12 +184,12 @@
 		A2ACF1605967A4945E26636E /* InfraSTTTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfraSTTTests.swift; sourceTree = "<group>"; };
 		A36F51D6EA037EF7C84614FF /* SoyokaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyokaApp.swift; sourceTree = "<group>"; };
 		A455B8A76E734D4323819925 /* TagEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagEntityTests.swift; sourceTree = "<group>"; };
-		A6310CC7EC1F36C436C9A961 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A6310CC7EC1F36C436C9A961 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA0D96A6F9D0B4E024C1EFB9 /* MemoDetailRelatedMemosTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailRelatedMemosTests.swift; sourceTree = "<group>"; };
 		BC324E33E483D2324933BE5B /* STTEngineFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTEngineFactoryTests.swift; sourceTree = "<group>"; };
 		BC4F9C0FC364169A4B6EAE12 /* SwiftDataVoiceMemoRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataVoiceMemoRepositoryTests.swift; sourceTree = "<group>"; };
 		BD63715C70F1133D3BA4715A /* SaveRecordingUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveRecordingUseCaseTests.swift; sourceTree = "<group>"; };
-		BFEFF4C94E3BB138DEF0BE9B /* SoyokaModules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SoyokaModules; path = SoyokaModules; sourceTree = SOURCE_ROOT; };
+		BFEFF4C94E3BB138DEF0BE9B /* SoyokaModules */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SoyokaModules; sourceTree = SOURCE_ROOT; };
 		C215B0C1BC116ABE7564E46B /* RelatedMemoDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelatedMemoDependencies.swift; sourceTree = "<group>"; };
 		C4E73958B071F564D1250D0D /* BackupDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupDependencies.swift; sourceTree = "<group>"; };
 		CFB31C08AA5C6064C487DC9A /* TextPreprocessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreprocessorTests.swift; sourceTree = "<group>"; };
@@ -200,7 +200,7 @@
 		DC9FA28A0037F775D8709714 /* TemporaryRecordingStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryRecordingStoreTests.swift; sourceTree = "<group>"; };
 		DCDC86AB1124A81C92AA9CA8 /* BackupExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupExporterTests.swift; sourceTree = "<group>"; };
 		E0C2031FF8DEA6F28A552E13 /* STTErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = STTErrorTests.swift; sourceTree = "<group>"; };
-		E68848AF9A32051EA70FA076 /* Soyoka.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Soyoka.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E68848AF9A32051EA70FA076 /* Soyoka.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyoka.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E8392BC95ADACD56949BD661 /* LLMResponseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMResponseParserTests.swift; sourceTree = "<group>"; };
 		E8B3E0D2DFB4AD22E4DB1743 /* FillerRemovalLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillerRemovalLevelTests.swift; sourceTree = "<group>"; };
 		E8CEA24D3B13047FFF42BF43 /* AISummaryEntityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISummaryEntityTests.swift; sourceTree = "<group>"; };
@@ -708,6 +708,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BUX437B476;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyokaApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -817,6 +818,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BUX437B476;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyokaApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
