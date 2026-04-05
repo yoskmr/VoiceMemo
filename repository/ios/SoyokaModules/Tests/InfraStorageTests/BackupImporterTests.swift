@@ -4,6 +4,7 @@ import SwiftData
 import ZIPFoundation
 @testable import Domain
 @testable import InfraStorage
+import TestSupport
 
 @Suite("BackupImporter テスト")
 struct BackupImporterTests {
@@ -83,6 +84,10 @@ struct BackupImporterTests {
 
         let importer = BackupImporter(modelContainer: container)
         let result = try await importer.importBackup(fileURL: zipURL)
+        Attachment.record(
+            "importedCount: \(result.importedCount), skippedCount: \(result.skippedCount), audioMissing: \(result.audioMissingCount)",
+            named: "import-result.txt"
+        )
 
         #expect(result.importedCount == 1)
         #expect(result.skippedCount == 0)
@@ -118,6 +123,10 @@ struct BackupImporterTests {
 
         let importer = BackupImporter(modelContainer: container)
         let result = try await importer.importBackup(fileURL: zipURL)
+        Attachment.record(
+            "importedCount: \(result.importedCount), skippedCount: \(result.skippedCount)",
+            named: "import-result-skip.txt"
+        )
 
         #expect(result.importedCount == 0)
         #expect(result.skippedCount == 1)
@@ -196,5 +205,11 @@ struct BackupImporterTests {
         )
         let memos = try container.mainContext.fetch(descriptor)
         #expect(memos.count == 1)
+        if result.audioMissingCount > 0 {
+            Issue.record(
+                "音声ファイル \(result.audioMissingCount) 件が欠損（メタデータのみ復元）",
+                severity: .warning
+            )
+        }
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 @testable import Domain
 @testable import InfraStorage
 
@@ -88,6 +89,7 @@ struct TemporaryRecordingStoreTests {
             at: testDir, includingPropertiesForKeys: nil
         )
         let chunkFiles = contents.filter { $0.lastPathComponent.hasPrefix(recordingID.uuidString) }
+        attachFileSystemState(directory: testDir, named: "chunks-after-save")
         #expect(chunkFiles.count == 5)
     }
 
@@ -124,6 +126,7 @@ struct TemporaryRecordingStoreTests {
         }
 
         let urls = try store.chunkURLs(for: recordingID)
+        attachFileSystemState(directory: testDir, named: "chunks-sorted")
         #expect(urls.count == 3)
         #expect(urls[0].lastPathComponent.contains("_chunk_0"))
         #expect(urls[1].lastPathComponent.contains("_chunk_1"))
@@ -315,6 +318,7 @@ struct TemporaryRecordingStoreTests {
 
         // 4. チャンクが削除されたことを確認
         let afterDiscard = newStore.recoverUnfinishedRecordings()
+        attachFileSystemState(directory: testDir, named: "recovery-after-discard")
         #expect(afterDiscard.isEmpty)
     }
 
@@ -340,6 +344,7 @@ struct TemporaryRecordingStoreTests {
         // 1つだけ破棄
         try store.discardChunks(recordingID: ids[0])
         let afterDiscard = store.recoverUnfinishedRecordings()
+        attachFileSystemState(directory: testDir, named: "recovery-multi-after-discard")
         #expect(afterDiscard.count == 2)
         #expect(!afterDiscard.contains(ids[0]))
     }
