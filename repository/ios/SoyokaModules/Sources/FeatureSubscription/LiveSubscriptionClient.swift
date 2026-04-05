@@ -2,6 +2,32 @@ import Dependencies
 import Domain
 import StoreKit
 
+// MARK: - Subscription Cache
+
+/// サブスクリプション状態のキャッシュ（60秒間有効）
+/// currentSubscription が毎回 Transaction.currentEntitlements を全消費するのを回避する
+private actor SubscriptionCache {
+    private var cachedState: SubscriptionState?
+    private var cacheTime: Date?
+
+    func get() -> SubscriptionState? {
+        guard let time = cacheTime, Date().timeIntervalSince(time) < 60 else { return nil }
+        return cachedState
+    }
+
+    func set(_ state: SubscriptionState) {
+        cachedState = state
+        cacheTime = Date()
+    }
+
+    func invalidate() {
+        cachedState = nil
+        cacheTime = nil
+    }
+}
+
+private let subscriptionCache = SubscriptionCache()
+
 // MARK: - DependencyKey (liveValue)
 
 extension SubscriptionClient: DependencyKey {
@@ -57,19 +83,31 @@ extension SubscriptionClient {
                     return .pro(expiresAt: Date.distantFuture)
                 }
                 #endif
-                for await result in Transaction.currentEntitlements {
-                    switch result {
+
+                // キャッシュチェック（60秒間有効）
+                if let cached = await subscriptionCache.get() {
+                    return cached
+                }
+
+                // StoreKit から取得
+                var result: SubscriptionState = .free
+                for await entitlement in Transaction.currentEntitlements {
+                    switch entitlement {
                     case let .verified(transaction):
                         if transaction.productType == .autoRenewable,
                            let expirationDate = transaction.expirationDate,
                            expirationDate > Date() {
-                            return .pro(expiresAt: expirationDate)
+                            result = .pro(expiresAt: expirationDate)
+                            break
                         }
                     case .unverified:
                         continue
                     }
                 }
-                return .free
+
+                // キャッシュに保存
+                await subscriptionCache.set(result)
+                return result
             },
             observeTransactionUpdates: {
                 AsyncStream { continuation in
@@ -77,6 +115,8 @@ extension SubscriptionClient {
                         for await result in Transaction.updates {
                             if case let .verified(transaction) = result {
                                 await transaction.finish()
+                                // キャッシュを無効化して最新状態を取得
+                                await subscriptionCache.invalidate()
                                 // 状態を再判定
                                 var currentState: SubscriptionState = .free
                                 for await entitlement in Transaction.currentEntitlements {

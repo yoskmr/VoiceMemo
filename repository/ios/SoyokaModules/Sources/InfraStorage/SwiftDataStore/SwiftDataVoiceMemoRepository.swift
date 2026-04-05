@@ -148,6 +148,19 @@ public final class SwiftDataVoiceMemoRepository: VoiceMemoRepositoryProtocol, @u
         }
     }
 
+    /// SwiftData ネイティブページネーション（fetchOffset / fetchLimit）
+    /// StorageDependencies の fetchMemos で使用。全件取得→メモリスライスを回避する。
+    public func fetchPage(page: Int, pageSize: Int) async throws -> [VoiceMemoEntity] {
+        try await MainActor.run {
+            var descriptor = FetchDescriptor<VoiceMemoModel>(
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
+            descriptor.fetchOffset = page * pageSize
+            descriptor.fetchLimit = pageSize
+            return try context.fetch(descriptor).map { $0.toEntity() }
+        }
+    }
+
     public func delete(_ id: UUID) async throws {
         try await MainActor.run {
             let descriptor = FetchDescriptor<VoiceMemoModel>(

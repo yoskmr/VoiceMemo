@@ -36,14 +36,9 @@ extension VoiceMemoRepositoryClient: DependencyKey {
             fetchByID: { id in try await repo.fetchByID(id) },
             fetchAll: { try await repo.fetchAll() },
             delete: { id in try await repo.delete(id) },
-            // TODO: SwiftData のネイティブページネーション（FetchDescriptor の fetchOffset/fetchLimit）に移行する
-            // 現在は fetchAll() で全件取得後にメモリ上でスライスしているため、データ量増加時にパフォーマンス劣化の可能性あり
+            // SwiftData ネイティブページネーション（fetchOffset / fetchLimit）
             fetchMemos: { page, pageSize in
-                let all = try await repo.fetchAll()
-                let start = page * pageSize
-                guard start < all.count else { return [] }
-                let end = min(start + pageSize, all.count)
-                return Array(all[start..<end])
+                try await repo.fetchPage(page: page, pageSize: pageSize)
             },
             fetchMemoDetail: { id in
                 guard let memo = try await repo.fetchByID(id) else {

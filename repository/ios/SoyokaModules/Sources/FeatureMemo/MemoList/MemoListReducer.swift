@@ -288,7 +288,7 @@ public struct MemoListReducer {
         Reduce<State, Action> { state, action in
             switch action {
             case .onAppear:
-                guard state.memos.isEmpty else { return .none }
+                guard state.memos.isEmpty, !state.isLoading else { return .none }
                 state.isLoading = true
                 state.currentPage = 0
                 return .merge(
