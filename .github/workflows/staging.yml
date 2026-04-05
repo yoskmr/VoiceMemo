@@ -88,7 +88,8 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED="NO" \
             CODE_SIGNING_ALLOWED="NO" \
-            PRODUCT_BUNDLE_IDENTIFIER="app.soyoka.ios.staging"
+            PRODUCT_BUNDLE_IDENTIFIER="app.soyoka.ios.staging" \
+            INFOPLIST_KEY_CFBundleDisplayName="stg.Soyoka"
 
           ls -la $RUNNER_TEMP/Soyoka.xcarchive
 
