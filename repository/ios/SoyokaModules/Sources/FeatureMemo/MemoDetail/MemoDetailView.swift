@@ -111,6 +111,21 @@ public struct MemoDetailView: View {
                         )
                     }
 
+                    // MARK: - 高精度仕上げ（TASK-0044）
+                    // 仕上げボタン（未仕上げ時表示。FreeユーザーにはロックUI）
+                    if !store.isPolished && !store.transcriptionText.isEmpty {
+                        if store.isPro {
+                            polishButton
+                        } else {
+                            polishLockedButton
+                        }
+                    }
+
+                    // 仕上げ済みバッジ + 元のテキスト切替
+                    if store.isPolished {
+                        polishedBadgeSection
+                    }
+
                     // 文字起こし（折りたたみ、デフォルト非表示）
                     TranscriptionSection(text: store.transcriptionText)
                 }
@@ -194,6 +209,18 @@ public struct MemoDetailView: View {
         } message: {
             Text("このきおくを完全に削除しますか？\nこの操作は取り消せません。")
         }
+        // 高精度仕上げエラーアラート（TASK-0044）
+        .alert(
+            "仕上げエラー",
+            isPresented: Binding(
+                get: { store.polishError != nil },
+                set: { if !$0 { store.send(.dismissPolishError) } }
+            )
+        ) {
+            Button("OK") { store.send(.dismissPolishError) }
+        } message: {
+            if let msg = store.polishError { Text(msg) }
+        }
         // AIオンボーディングシート（初回AI処理時に表示）
         .sheet(
             isPresented: Binding(
@@ -218,6 +245,91 @@ public struct MemoDetailView: View {
             return true
         case .idle, .completed, .failed:
             return false
+        }
+    }
+
+    // MARK: - 高精度仕上げ UI（TASK-0044）
+
+    /// 「高精度で仕上げる」ボタン（Pro限定、未仕上げ時のみ表示）
+    private var polishButton: some View {
+        Button {
+            store.send(.polishButtonTapped)
+        } label: {
+            HStack(spacing: VMDesignTokens.Spacing.sm) {
+                if store.isPolishing {
+                    ProgressView()
+                        .tint(.vmPrimary)
+                    Text("仕上げ中...")
+                } else {
+                    Image(systemName: "sparkle.magnifyingglass")
+                    Text("高精度で仕上げる")
+                }
+            }
+            .font(.vmCallout)
+            .foregroundColor(.vmPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, VMDesignTokens.Spacing.md)
+            .background(Color.vmPrimary.opacity(0.08))
+            .cornerRadius(VMDesignTokens.CornerRadius.medium)
+        }
+        .disabled(store.isPolishing)
+        .accessibilityLabel("高精度で仕上げる")
+        .accessibilityHint("文字起こしをより自然な日本語に仕上げます")
+    }
+
+    /// Free ユーザー用の仕上げロックボタン
+    private var polishLockedButton: some View {
+        Button {
+            store.send(.polishButtonTapped)
+        } label: {
+            HStack(spacing: VMDesignTokens.Spacing.sm) {
+                Image(systemName: "lock.fill")
+                    .font(.vmCaption1)
+                Image(systemName: "sparkle.magnifyingglass")
+                Text("高精度で仕上げる")
+            }
+            .font(.vmCallout)
+            .foregroundColor(.vmTextTertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, VMDesignTokens.Spacing.md)
+            .background(Color.vmSurfaceVariant.opacity(0.5))
+            .cornerRadius(VMDesignTokens.CornerRadius.medium)
+        }
+        .accessibilityLabel("高精度で仕上げる")
+        .accessibilityHint("Proプラン限定の機能です")
+    }
+
+    /// 仕上げ済みバッジ + 元のテキスト切替
+    private var polishedBadgeSection: some View {
+        VStack(spacing: VMDesignTokens.Spacing.sm) {
+            // 仕上げ済みバッジ
+            HStack(spacing: VMDesignTokens.Spacing.xs) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(.vmSuccess)
+                Text("高精度仕上げ済み")
+                    .font(.vmCaption1)
+                    .foregroundColor(.vmSuccess)
+                Spacer()
+                // 元のテキスト切替ボタン
+                Button {
+                    store.send(.toggleOriginalText)
+                } label: {
+                    Text(store.showOriginalText ? "仕上げ後を見る" : "元のテキストを見る")
+                        .font(.vmCaption2)
+                        .foregroundColor(.vmTextTertiary)
+                }
+            }
+
+            // 元のテキスト表示（トグル時）
+            if store.showOriginalText, let original = store.polishOriginalText {
+                Text(original)
+                    .font(.vmBody())
+                    .foregroundColor(.vmTextSecondary)
+                    .lineSpacing(VMDesignTokens.LineSpacing.body)
+                    .padding(VMDesignTokens.Spacing.md)
+                    .background(Color.vmSurfaceVariant.opacity(0.5))
+                    .cornerRadius(VMDesignTokens.CornerRadius.small)
+            }
         }
     }
 
@@ -351,8 +463,8 @@ public struct MemoDetailView: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.vmCaption1)
+            Image(systemName: "lock.fill")
+                .font(.vmCaption2)
                 .foregroundColor(.vmTextTertiary)
         }
         .padding(VMDesignTokens.Spacing.md)
@@ -769,6 +881,8 @@ struct RelatedMemosEmptyState: View {
             .background(Color.vmSurfaceVariant.opacity(0.5))
             .cornerRadius(VMDesignTokens.CornerRadius.small)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("つながるきおく: きおくが増えると自動でつながります")
     }
 }
 
@@ -807,10 +921,13 @@ struct RelatedMemosLockedSection: View {
                         .font(.vmCaption1.bold())
                         .foregroundColor(.vmPrimary)
                 }
+                .accessibilityHint("Proプランの詳細画面に移動します")
             }
             .frame(maxWidth: .infinity)
             .padding(.top, VMDesignTokens.Spacing.xs)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("つながるきおく: Proプラン限定")
     }
 
     private func previewCard(_ memo: RelatedMemo) -> some View {

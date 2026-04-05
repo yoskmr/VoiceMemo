@@ -10,8 +10,8 @@
     <string>BUX437B476</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>app.soyoka.ios</key>
-        <string>Soyoka AdHoc</string>
+        <key>app.soyoka.ios.staging</key>
+        <string>Soyoka Staging AdHoc</string>
     </dict>
     <key>uploadSymbols</key>
     <true/>

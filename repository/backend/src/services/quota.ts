@@ -1,6 +1,6 @@
 // --- Constants ---
 
-const FREE_MONTHLY_LIMIT = 15;
+const FREE_MONTHLY_LIMIT = 10;
 const KV_TTL_SECONDS = 3456000; // 40 日
 
 // --- Types ---

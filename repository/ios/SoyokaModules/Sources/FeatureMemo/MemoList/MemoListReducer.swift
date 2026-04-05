@@ -70,6 +70,9 @@ public struct MemoListReducer {
         /// 週次レポート画面（sheet表示用、nilで非表示）
         @Presents public var weeklyReportState: WeeklyReportReducer.State?
 
+        /// きおくに聞く画面（NavigationStack push用、nilで非表示）
+        @Presents public var chatState: ChatReducer.State?
+
         /// サブスクリプション画面（sheet表示用、nilで非表示）
         @Presents public var subscription: SubscriptionReducer.State?
 
@@ -104,6 +107,7 @@ public struct MemoListReducer {
             selectedMemo: MemoDetailReducer.State? = nil,
             emotionTrendState: EmotionTrendReducer.State? = nil,
             weeklyReportState: WeeklyReportReducer.State? = nil,
+            chatState: ChatReducer.State? = nil,
             subscription: SubscriptionReducer.State? = nil,
             pendingMemoID: UUID? = nil,
             deletion: DeletionState = DeletionState(),
@@ -123,6 +127,7 @@ public struct MemoListReducer {
             self.selectedMemo = selectedMemo
             self.emotionTrendState = emotionTrendState
             self.weeklyReportState = weeklyReportState
+            self.chatState = chatState
             self.subscription = subscription
             self.pendingMemoID = pendingMemoID
             self.deletion = deletion
@@ -236,6 +241,9 @@ public struct MemoListReducer {
         case refreshCompleted(Result<[MemoItem], EquatableError>)
         case memoDetail(PresentationAction<MemoDetailReducer.Action>)
         case emotionTrend(PresentationAction<EmotionTrendReducer.Action>)
+        case chatIconTapped
+        case chatProChecked(Bool)
+        case chat(PresentationAction<ChatReducer.Action>)
 
         /// T11: AI月次クォータ情報の読み込み完了
         case aiQuotaLoaded(used: Int, limit: Int, resetDate: Date)
@@ -523,6 +531,41 @@ public struct MemoListReducer {
             case .weeklyReport:
                 return .none
 
+            case .chatIconTapped:
+                return .run { [subscriptionClient] send in
+                    let subState = await subscriptionClient.currentSubscription()
+                    let isPro: Bool
+                    if case .pro = subState { isPro = true } else { isPro = false }
+                    await send(.chatProChecked(isPro))
+                }
+
+            case let .chatProChecked(isPro):
+                if isPro {
+                    state.chatState = ChatReducer.State(isPro: true)
+                } else {
+                    state.chatState = ChatReducer.State(isPro: false, showProSheet: true)
+                }
+                return .none
+
+            case .chat(.presented(.referencedMemoTapped(let memoID))):
+                // 参照きおくタップ → メモ詳細に遷移
+                state.chatState = nil
+                state.selectedMemo = MemoDetailReducer.State(memoID: memoID)
+                return .none
+
+            // Chat: Pro プラン案内
+            case .chat(.presented(.showProPlanTapped)):
+                state.chatState = nil
+                return .send(.showProPlanTapped)
+
+            // Chat: 「あとで」で画面を閉じる
+            case .chat(.presented(.dismissProSheet)):
+                state.chatState = nil
+                return .none
+
+            case .chat:
+                return .none
+
             case .emotionTrend(.presented(.planManagementTapped)):
                 // TASK-0042: EmotionTrend の「Proプランを見てみる」タップをProプランダイアログに委譲
                 state.emotionTrendState = nil
@@ -544,9 +587,18 @@ public struct MemoListReducer {
             case .memoDetail(.presented(._editSavedAndReload)):
                 return .send(.refreshRequested)
 
-            // destination nil 後の遅延 onDisappear を握り潰す（SwiftUI アニメーション競合）
-            case .memoDetail(.presented(.audioPlayer(.onDisappear))):
-                return .none
+            // つながるきおく: 関連メモタップ → メモ詳細を閉じて別メモを開く
+            case .memoDetail(.presented(.relatedMemoTapped(let memoID))):
+                state.selectedMemo = nil
+                // 次のRunLoopで新しいメモ詳細を開く
+                return .run { send in
+                    try await Task.sleep(for: .milliseconds(300))
+                    await send(.memoTapped(id: memoID))
+                }
+
+            // MemoDetail: Pro プラン案内
+            case .memoDetail(.presented(.showProPlanTapped)):
+                return .send(.showProPlanTapped)
 
             case .memoDetail:
                 return .none
@@ -589,6 +641,9 @@ public struct MemoListReducer {
         }
         .ifLet(\.$weeklyReportState, action: \.weeklyReport) {
             WeeklyReportReducer()
+        }
+        .ifLet(\.$chatState, action: \.chat) {
+            ChatReducer()
         }
         .ifLet(\.$subscription, action: \.subscription) {
             SubscriptionReducer()

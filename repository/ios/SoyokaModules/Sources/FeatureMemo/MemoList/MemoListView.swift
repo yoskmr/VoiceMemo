@@ -45,6 +45,11 @@ public struct MemoListView: View {
                         WeeklyReportView(store: reportStore)
                     }
                 }
+                .navigationDestination(
+                    item: $store.scope(state: \.chatState, action: \.chat)
+                ) { (chatStore: StoreOf<ChatReducer>) in
+                    ChatView(store: chatStore)
+                }
                 .sheet(
                     item: $store.scope(
                         state: \.subscription,
@@ -248,12 +253,18 @@ public struct MemoListView: View {
 
     private var toolbarButtons: some View {
         HStack(spacing: VMDesignTokens.Spacing.md) {
+            Button { store.send(.chatIconTapped) } label: {
+                Image(systemName: "bubble.left.and.text.bubble.right")
+            }
+            .accessibilityLabel("きおくに聞く")
             Button { store.send(.weeklyReportTapped) } label: {
                 Image(systemName: "doc.text.magnifyingglass")
             }
+            .accessibilityLabel("一週間をふりかえる")
             Button { store.send(.trendIconTapped) } label: {
                 Image(systemName: "chart.line.uptrend.xyaxis")
             }
+            .accessibilityLabel("こころの流れ")
         }
     }
 }

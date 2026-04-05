@@ -205,7 +205,7 @@ describe("POST /api/v1/ai/process", () => {
     // 使用量
     const usage = body.usage as Record<string, unknown>;
     expect(usage.used).toBe(1);
-    expect(usage.limit).toBe(15);
+    expect(usage.limit).toBe(10);
     expect(usage.plan).toBe("free");
     expect(usage.resets_at).toBeDefined();
 
@@ -273,14 +273,14 @@ describe("POST /api/v1/ai/process", () => {
   it("月次上限到達で 429 USAGE_LIMIT_EXCEEDED を返却する", async () => {
     const kv = createMockKV();
 
-    // 15回分使用済みにする
+    // 10回分使用済みにする
     const yearMonth = (() => {
       const now = new Date();
       const year = now.getUTCFullYear();
       const month = String(now.getUTCMonth() + 1).padStart(2, "0");
       return `${year}-${month}`;
     })();
-    kv._store.set(`usage:${DEVICE_ID}:${yearMonth}`, { value: "15" });
+    kv._store.set(`usage:${DEVICE_ID}:${yearMonth}`, { value: "10" });
 
     const app = createApp({ kv });
     const auth = await getAuthHeader();
@@ -362,5 +362,282 @@ describe("POST /api/v1/ai/process", () => {
     expect(res2.status).toBe(200);
     const body2 = await res2.json() as { usage: { used: number } };
     expect(body2.usage.used).toBe(2);
+  });
+});
+
+// --- Chat / Polish Mock Data ---
+
+const VALID_CHAT_RESPONSE = {
+  answer: "お天気が良い日が多かったようですね。[きおく1]で記録されています。",
+  referenced_memo_ids: ["memo-1"],
+};
+
+const VALID_POLISH_RESPONSE = {
+  polished_text: "今日はとても良い天気で、気分が良いです。",
+};
+
+const VALID_CHAT_REQUEST_BODY = {
+  question: "最近の天気はどうだった？",
+  context_memos: [
+    {
+      id: "memo-1",
+      title: "天気メモ",
+      text: "今日はとても良い天気で気分が良いです。",
+      date: "2026-04-01",
+      emotion: "joy",
+      tags: ["天気", "日常"],
+    },
+  ],
+  language: "ja",
+};
+
+const VALID_POLISH_REQUEST_BODY = {
+  text: "えーと今日はあのーとても良い天気でまあ気分が良いです。",
+  language: "ja",
+};
+
+// --- POST /api/v1/ai/chat Tests ---
+
+describe("POST /api/v1/ai/chat", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("Pro ユーザーが質問応答を取得できる", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      createMockOpenAIFetchResponse(VALID_CHAT_RESPONSE),
+    );
+
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "pro" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify(VALID_CHAT_REQUEST_BODY),
+    });
+
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(body.answer).toBeDefined();
+    expect(body.referenced_memo_ids).toBeDefined();
+
+    const metadata = body.metadata as Record<string, unknown>;
+    expect(metadata.model).toBe("gpt-4o-mini");
+    expect(metadata.provider).toBe("openai");
+    expect(metadata.processing_time_ms).toBeDefined();
+    expect(metadata.request_id).toBeDefined();
+  });
+
+  it("Free ユーザーは 403 FORBIDDEN を受ける", async () => {
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "free" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify(VALID_CHAT_REQUEST_BODY),
+    });
+
+    expect(res.status).toBe(403);
+
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("context_memos が空の場合 400 エラー", async () => {
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "pro" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify({
+        question: "テスト質問",
+        context_memos: [],
+        language: "ja",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe("INVALID_REQUEST");
+  });
+
+  it("question が空の場合 400 エラー", async () => {
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "pro" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify({
+        question: "",
+        context_memos: VALID_CHAT_REQUEST_BODY.context_memos,
+        language: "ja",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe("INVALID_REQUEST");
+  });
+});
+
+// --- POST /api/v1/ai/polish Tests ---
+
+describe("POST /api/v1/ai/polish", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("Pro ユーザーが仕上げテキストを取得できる", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      createMockOpenAIFetchResponse(VALID_POLISH_RESPONSE),
+    );
+
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "pro" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/polish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify(VALID_POLISH_REQUEST_BODY),
+    });
+
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(body.polished_text).toBeDefined();
+
+    const metadata = body.metadata as Record<string, unknown>;
+    expect(metadata.model).toBe("gpt-4o-mini");
+    expect(metadata.provider).toBe("openai");
+    expect(metadata.processing_time_ms).toBeDefined();
+    expect(metadata.request_id).toBeDefined();
+  });
+
+  it("Free ユーザーは 403 FORBIDDEN を受ける", async () => {
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "free" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/polish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify(VALID_POLISH_REQUEST_BODY),
+    });
+
+    expect(res.status).toBe(403);
+
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("custom_dictionary が渡された場合もプロンプトに含まれる", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      createMockOpenAIFetchResponse(VALID_POLISH_RESPONSE),
+    );
+
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "pro" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/polish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify({
+        ...VALID_POLISH_REQUEST_BODY,
+        custom_dictionary: [
+          { reading: "そよか", display: "Soyoka" },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.polished_text).toBeDefined();
+
+    // fetch が呼ばれたことを確認し、プロンプトにカスタム辞書が含まれる
+    const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    if (!fetchCall) throw new Error("fetch was not called");
+    const requestBody = JSON.parse(fetchCall[1].body as string);
+    const systemContent = requestBody.messages[0].content as string;
+    expect(systemContent).toContain("そよか");
+    expect(systemContent).toContain("Soyoka");
+  });
+
+  it("text が空の場合 400 エラー", async () => {
+    const app = createApp({
+      devices: [{ id: DEVICE_ID, plan: "pro" }],
+    });
+    const auth = await getAuthHeader();
+
+    const res = await app.request("/api/v1/ai/polish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
+      body: JSON.stringify({ text: "", language: "ja" }),
+    });
+
+    expect(res.status).toBe(400);
+
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe("INVALID_REQUEST");
   });
 });

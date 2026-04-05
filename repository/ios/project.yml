@@ -58,6 +58,7 @@ targets:
         INFOPLIST_FILE: SoyokaApp/Info.plist
         GENERATE_INFOPLIST_FILE: false
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: BUX437B476
         SWIFT_VERSION: "5.9"
     info:
       path: SoyokaApp/Info.plist

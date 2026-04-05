@@ -151,7 +151,7 @@ public struct SubscriptionView: View {
             proFeatureRow(
                 icon: "sparkle.magnifyingglass",
                 title: "高精度仕上げ",
-                description: "文字起こしをクラウドAIが日本語として完璧に仕上げます"
+                description: "文字起こしをクラウドAIがより自然な日本語に仕上げます"
             )
             proFeatureRow(
                 icon: "calendar.badge.clock",

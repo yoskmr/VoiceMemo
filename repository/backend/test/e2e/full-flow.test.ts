@@ -275,7 +275,7 @@ describe("E2E: 認証 → AI処理 → 使用量確認のフルフロー", () =>
 
     const authHeader = `Bearer ${authBody.access_token}`;
 
-    // Step 2: GET /api/v1/usage → used: 0, limit: 15
+    // Step 2: GET /api/v1/usage → used: 0, limit: 10
     const usageRes1 = await app.request("/api/v1/usage", {
       method: "GET",
       headers: { Authorization: authHeader },
@@ -290,7 +290,7 @@ describe("E2E: 認証 → AI処理 → 使用量確認のフルフロー", () =>
       resets_at: string | null;
     };
     expect(usageBody1.used).toBe(0);
-    expect(usageBody1.limit).toBe(15);
+    expect(usageBody1.limit).toBe(10);
     expect(usageBody1.plan).toBe("free");
 
     // Step 3: POST /api/v1/ai/process（モック OpenAI レスポンス）→ AI 処理結果取得
@@ -315,14 +315,14 @@ describe("E2E: 認証 → AI処理 → 使用量確認のフルフロー", () =>
 
     const aiUsage = aiBody.usage as Record<string, unknown>;
     expect(aiUsage.used).toBe(1);
-    expect(aiUsage.limit).toBe(15);
+    expect(aiUsage.limit).toBe(10);
     expect(aiUsage.plan).toBe("free");
 
     const metadata = aiBody.metadata as Record<string, unknown>;
     expect(metadata.model).toBe("gpt-4o-mini");
     expect(metadata.provider).toBe("cloud_gpt4o_mini");
 
-    // Step 4: GET /api/v1/usage → used: 1, limit: 15
+    // Step 4: GET /api/v1/usage → used: 1, limit: 10
     const usageRes2 = await app.request("/api/v1/usage", {
       method: "GET",
       headers: { Authorization: authHeader },
@@ -335,7 +335,7 @@ describe("E2E: 認証 → AI処理 → 使用量確認のフルフロー", () =>
       limit: number | null;
     };
     expect(usageBody2.used).toBe(1);
-    expect(usageBody2.limit).toBe(15);
+    expect(usageBody2.limit).toBe(10);
   });
 });
 
@@ -351,7 +351,7 @@ describe("E2E: 月次上限到達", () => {
     vi.restoreAllMocks();
   });
 
-  it("KVに15回分をセット → AI処理で429 → 使用量で15を確認", async () => {
+  it("KVに10回分をセット → AI処理で429 → 使用量で10を確認", async () => {
     const kv = createMockKV();
 
     // Step 1: POST /api/v1/auth/device → JWT 取得
@@ -372,9 +372,9 @@ describe("E2E: 月次上限到達", () => {
     const authBody = await authRes.json() as { access_token: string };
     const authHeader = `Bearer ${authBody.access_token}`;
 
-    // Step 2: KV に usage:{deviceId}:{YYYY-MM} = 15 を直接セット
+    // Step 2: KV に usage:{deviceId}:{YYYY-MM} = 10 を直接セット
     const yearMonth = getYearMonth();
-    kv._store.set(`usage:${DEVICE_ID}:${yearMonth}`, { value: "15" });
+    kv._store.set(`usage:${DEVICE_ID}:${yearMonth}`, { value: "10" });
 
     // Step 3: POST /api/v1/ai/process → 429 USAGE_LIMIT_EXCEEDED
     const aiRes = await app.request("/api/v1/ai/process", {
@@ -394,7 +394,7 @@ describe("E2E: 月次上限到達", () => {
     const aiBody = await aiRes.json() as { error: { code: string } };
     expect(aiBody.error.code).toBe("USAGE_LIMIT_EXCEEDED");
 
-    // Step 4: GET /api/v1/usage → used: 15, limit: 15
+    // Step 4: GET /api/v1/usage → used: 10, limit: 10
     const usageRes = await app.request("/api/v1/usage", {
       method: "GET",
       headers: { Authorization: authHeader },
@@ -406,8 +406,8 @@ describe("E2E: 月次上限到達", () => {
       used: number;
       limit: number | null;
     };
-    expect(usageBody.used).toBe(15);
-    expect(usageBody.limit).toBe(15);
+    expect(usageBody.used).toBe(10);
+    expect(usageBody.limit).toBe(10);
   });
 });
 

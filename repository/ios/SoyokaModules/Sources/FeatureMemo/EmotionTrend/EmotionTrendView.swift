@@ -23,6 +23,8 @@ public struct EmotionTrendView: View {
                 Spacer()
                 ProgressView()
                 Spacer()
+            } else if let errorMessage = store.errorMessage {
+                errorStateView(message: errorMessage)
             } else if store.emotions.isEmpty {
                 emptyStateView
             } else {
@@ -78,6 +80,7 @@ public struct EmotionTrendView: View {
             }
             .chartForegroundStyleScale(domain: emotionLabels, range: emotionColors)
             .frame(height: 200)
+            .accessibilityLabel("こころの流れグラフ")
         }
         .padding(VMDesignTokens.Spacing.md)
         .background(Color.vmSurface)
@@ -94,6 +97,33 @@ public struct EmotionTrendView: View {
             }
         }
         .pickerStyle(.segmented)
+        .accessibilityLabel("表示期間")
+    }
+
+    /// エラー状態の表示（H3: エラーと空状態の区別）
+    private func errorStateView(message: String) -> some View {
+        VStack(spacing: VMDesignTokens.Spacing.md) {
+            Spacer()
+
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 32))
+                .foregroundColor(.vmTextTertiary)
+
+            Text(message)
+                .font(.vmCallout)
+                .foregroundColor(.vmTextSecondary)
+
+            Button { store.send(.retryTapped) } label: {
+                Text("もう一度試す")
+                    .font(.vmCallout)
+                    .foregroundColor(.vmPrimary)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(message)。もう一度試すボタンがあります")
     }
 
     /// 感情データなしの空状態
@@ -105,11 +135,11 @@ public struct EmotionTrendView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.vmTextTertiary)
 
-            Text("感情データがありません")
+            Text("まだこころの記録がありません")
                 .font(.vmTitle3)
                 .foregroundColor(.vmTextPrimary)
 
-            Text("きおくにこころの分析を適用すると、\nここに感情の推移が表示されます")
+            Text("きおくにAI整理を使うと、\nここに感情の推移が表示されます")
                 .font(.vmSubheadline)
                 .foregroundColor(.vmTextSecondary)
                 .multilineTextAlignment(.center)
@@ -163,6 +193,7 @@ public struct EmotionTrendView: View {
                     .background(Color.vmAccent)
                     .cornerRadius(VMDesignTokens.CornerRadius.small)
             }
+            .accessibilityHint("Proプランの詳細画面に移動します")
         }
         .frame(maxWidth: .infinity)
         .padding(VMDesignTokens.Spacing.xl)
@@ -205,5 +236,6 @@ public struct EmotionTrendView: View {
         .padding(VMDesignTokens.Spacing.md)
         .background(Color.vmSurface)
         .cornerRadius(VMDesignTokens.CornerRadius.small)
+        .accessibilityElement(children: .combine)
     }
 }

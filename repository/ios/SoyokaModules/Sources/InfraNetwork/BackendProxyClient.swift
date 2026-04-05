@@ -159,6 +159,60 @@ public struct CloudMetadata: Sendable, Equatable, Codable {
     }
 }
 
+/// AI対話リクエスト用のメモコンテキストDTO
+public struct MemoContextDTO: Sendable, Equatable, Codable {
+    public let id: String
+    public let title: String
+    public let text: String
+    public let date: String
+    public let emotion: String?
+    public let tags: [String]
+
+    public init(id: String, title: String, text: String, date: String, emotion: String?, tags: [String]) {
+        self.id = id
+        self.title = title
+        self.text = text
+        self.date = date
+        self.emotion = emotion
+        self.tags = tags
+    }
+}
+
+/// AI対話レスポンスDTO
+public struct ChatResponseDTO: Sendable, Equatable, Codable {
+    public let answer: String
+    public let referencedMemoIDs: [String]
+    public let metadata: ChatMetadataDTO?
+
+    public init(answer: String, referencedMemoIDs: [String], metadata: ChatMetadataDTO? = nil) {
+        self.answer = answer
+        self.referencedMemoIDs = referencedMemoIDs
+        self.metadata = metadata
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case answer
+        case referencedMemoIDs = "referenced_memo_ids"
+        case metadata
+    }
+}
+
+/// AI対話メタデータDTO
+public struct ChatMetadataDTO: Sendable, Equatable, Codable {
+    public let model: String?
+    public let tokensUsed: Int?
+
+    public init(model: String? = nil, tokensUsed: Int? = nil) {
+        self.model = model
+        self.tokensUsed = tokensUsed
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case model
+        case tokensUsed = "tokens_used"
+    }
+}
+
 /// Cloud使用量レスポンス（GET /api/v1/usage）
 public struct CloudUsageResponse: Sendable, Equatable, Codable {
     /// 使用済み回数
@@ -183,6 +237,52 @@ public struct CloudUsageResponse: Sendable, Equatable, Codable {
     }
 }
 
+// MARK: - Polish Request/Response Types (TASK-0044)
+
+/// 高精度仕上げリクエストDTO
+public struct PolishRequestDTO: Codable, Sendable {
+    public let text: String
+    public let custom_dictionary: [CustomDictEntryDTO]?
+    public let language: String
+
+    public struct CustomDictEntryDTO: Codable, Sendable {
+        public let reading: String
+        public let display: String
+
+        public init(reading: String, display: String) {
+            self.reading = reading
+            self.display = display
+        }
+    }
+
+    public init(text: String, custom_dictionary: [CustomDictEntryDTO]?, language: String) {
+        self.text = text
+        self.custom_dictionary = custom_dictionary
+        self.language = language
+    }
+}
+
+/// 高精度仕上げレスポンスDTO
+public struct PolishResponseDTO: Codable, Sendable, Equatable {
+    public let polished_text: String
+    public let metadata: PolishMetadataDTO
+
+    public struct PolishMetadataDTO: Codable, Sendable, Equatable {
+        public let model: String
+        public let processing_time_ms: Int
+
+        public init(model: String, processing_time_ms: Int) {
+            self.model = model
+            self.processing_time_ms = processing_time_ms
+        }
+    }
+
+    public init(polished_text: String, metadata: PolishMetadataDTO) {
+        self.polished_text = polished_text
+        self.metadata = metadata
+    }
+}
+
 // MARK: - BackendProxyClient
 
 /// Backend Proxy との通信クライアント
@@ -196,17 +296,25 @@ public struct BackendProxyClient: Sendable {
     public var getUsage: @Sendable () async throws -> CloudUsageResponse
     /// サブスクリプション検証
     public var verifySubscription: @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse
+    /// AI対話（きおくに聞く）
+    public var chatWithMemos: @Sendable (_ question: String, _ contextMemos: [MemoContextDTO]) async throws -> ChatResponseDTO
+    /// 高精度仕上げ（TASK-0044）
+    public var polishText: @Sendable (_ text: String, _ customDictionary: [(reading: String, display: String)]) async throws -> PolishResponseDTO
 
     public init(
         authenticate: @escaping @Sendable (_ deviceID: String, _ appVersion: String, _ osVersion: String) async throws -> AuthResponse,
         processAI: @escaping @Sendable (_ text: String, _ language: String, _ options: AIRequestOptions) async throws -> CloudAIResponse,
         getUsage: @escaping @Sendable () async throws -> CloudUsageResponse,
-        verifySubscription: @escaping @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse
+        verifySubscription: @escaping @Sendable (_ transactionID: String, _ productID: String, _ originalTransactionID: String) async throws -> SubscriptionVerifyResponse,
+        chatWithMemos: @escaping @Sendable (_ question: String, _ contextMemos: [MemoContextDTO]) async throws -> ChatResponseDTO,
+        polishText: @escaping @Sendable (_ text: String, _ customDictionary: [(reading: String, display: String)]) async throws -> PolishResponseDTO
     ) {
         self.authenticate = authenticate
         self.processAI = processAI
         self.getUsage = getUsage
         self.verifySubscription = verifySubscription
+        self.chatWithMemos = chatWithMemos
+        self.polishText = polishText
     }
 }
 
@@ -568,6 +676,166 @@ extension BackendProxyClient {
                     await logRequest(endpoint: "api/v1/subscription/verify", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
                     throw error
                 }
+            },
+
+            chatWithMemos: { question, contextMemos in
+                guard let token = keychainManager.loadString(key: .accessToken) else {
+                    throw BackendProxyError.tokenNotFound
+                }
+
+                let url = baseURL.appendingPathComponent("api/v1/ai/chat")
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+                await applyAttestHeader(to: &request, attestManager: appAttestManager)
+
+                let memosPayload = contextMemos.map { memo -> [String: Any] in
+                    var dict: [String: Any] = [
+                        "id": memo.id,
+                        "title": memo.title,
+                        "text": memo.text,
+                        "date": memo.date,
+                        "tags": memo.tags,
+                    ]
+                    if let emotion = memo.emotion {
+                        dict["emotion"] = emotion
+                    }
+                    return dict
+                }
+
+                let body: [String: Any] = [
+                    "question": question,
+                    "context_memos": memosPayload,
+                    "language": "ja",
+                ]
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                let requestBodyString = String(data: request.httpBody ?? Data(), encoding: .utf8)
+                let startTime = CFAbsoluteTimeGetCurrent()
+
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    if httpResponse.statusCode == 401 {
+                        logger.warning("AI対話: 401 Unauthorized → 再認証が必要")
+                        let authError = BackendProxyError.tokenNotFound
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: authError, duration: duration)
+                        throw authError
+                    }
+
+                    if httpResponse.statusCode == 429 {
+                        let quotaError = BackendProxyError.quotaExceeded
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: quotaError, duration: duration)
+                        throw quotaError
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let serverError = BackendProxyError.serverError(httpResponse.statusCode)
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: serverError, duration: duration)
+                        throw serverError
+                    }
+
+                    do {
+                        let chatResponse = try decoder.decode(ChatResponseDTO.self, from: data)
+                        logger.info("AI対話成功: referenced_memos=\(chatResponse.referencedMemoIDs.count)")
+                        await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                        return chatResponse
+                    } catch {
+                        throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    }
+                } catch let error as BackendProxyError {
+                    throw error
+                } catch {
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/ai/chat", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
+                }
+            },
+
+            polishText: { text, customDictionary in
+                // JWT を Keychain から取得
+                guard let token = keychainManager.loadString(key: .accessToken) else {
+                    throw BackendProxyError.tokenNotFound
+                }
+
+                let url = baseURL.appendingPathComponent("api/v1/ai/polish")
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+                // App Attest Assertion ヘッダー付加（対応端末のみ）
+                await applyAttestHeader(to: &request, attestManager: appAttestManager)
+
+                let dictEntries: [PolishRequestDTO.CustomDictEntryDTO]? = customDictionary.isEmpty
+                    ? nil
+                    : customDictionary.map { PolishRequestDTO.CustomDictEntryDTO(reading: $0.reading, display: $0.display) }
+
+                let requestDTO = PolishRequestDTO(
+                    text: text,
+                    custom_dictionary: dictEntries,
+                    language: "ja"
+                )
+                request.httpBody = try JSONEncoder().encode(requestDTO)
+
+                let requestBodyString = String(data: request.httpBody ?? Data(), encoding: .utf8)
+                let startTime = CFAbsoluteTimeGetCurrent()
+
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    let responseBody = String(data: data, encoding: .utf8)
+
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        let networkError = BackendProxyError.networkError("Invalid response type")
+                        await logRequest(endpoint: "api/v1/ai/polish", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: nil, error: networkError, duration: duration)
+                        throw networkError
+                    }
+
+                    if httpResponse.statusCode == 401 {
+                        logger.warning("高精度仕上げ: 401 Unauthorized → 再認証が必要")
+                        let authError = BackendProxyError.tokenNotFound
+                        await logRequest(endpoint: "api/v1/ai/polish", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: authError, duration: duration)
+                        throw authError
+                    }
+
+                    if httpResponse.statusCode == 429 {
+                        let quotaError = BackendProxyError.quotaExceeded
+                        await logRequest(endpoint: "api/v1/ai/polish", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: quotaError, duration: duration)
+                        throw quotaError
+                    }
+
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let serverError = BackendProxyError.serverError(httpResponse.statusCode)
+                        await logRequest(endpoint: "api/v1/ai/polish", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: serverError, duration: duration)
+                        throw serverError
+                    }
+
+                    do {
+                        let polishResponse = try decoder.decode(PolishResponseDTO.self, from: data)
+                        logger.info("高精度仕上げ成功: model=\(polishResponse.metadata.model)")
+                        await logRequest(endpoint: "api/v1/ai/polish", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: responseBody, statusCode: httpResponse.statusCode, error: nil, duration: duration)
+                        return polishResponse
+                    } catch {
+                        throw BackendProxyError.decodingFailed(error.localizedDescription)
+                    }
+                } catch let error as BackendProxyError {
+                    throw error
+                } catch {
+                    let duration = CFAbsoluteTimeGetCurrent() - startTime
+                    await logRequest(endpoint: "api/v1/ai/polish", method: "POST", requestHeaders: request.allHTTPHeaderFields, requestBody: requestBodyString, responseHeaders: nil, responseBody: nil, statusCode: nil, error: error, duration: duration)
+                    throw error
+                }
             }
         )
     }
@@ -580,7 +848,9 @@ extension BackendProxyClient: TestDependencyKey {
         authenticate: unimplemented("BackendProxyClient.authenticate"),
         processAI: unimplemented("BackendProxyClient.processAI"),
         getUsage: unimplemented("BackendProxyClient.getUsage"),
-        verifySubscription: unimplemented("BackendProxyClient.verifySubscription")
+        verifySubscription: unimplemented("BackendProxyClient.verifySubscription"),
+        chatWithMemos: unimplemented("BackendProxyClient.chatWithMemos"),
+        polishText: unimplemented("BackendProxyClient.polishText")
     )
 }
 

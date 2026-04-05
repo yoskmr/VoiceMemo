@@ -17,19 +17,22 @@ public struct EmotionTrendReducer {
         public var isLoading: Bool = false
         public var selectedPeriod: Period = .week
         public var isPro: Bool = false
+        public var errorMessage: String?
 
         public init(
             emotions: [EmotionEntry] = [],
             dailyEmotions: [DailyEmotion] = [],
             isLoading: Bool = false,
             selectedPeriod: Period = .week,
-            isPro: Bool = false
+            isPro: Bool = false,
+            errorMessage: String? = nil
         ) {
             self.emotions = emotions
             self.dailyEmotions = dailyEmotions
             self.isLoading = isLoading
             self.selectedPeriod = selectedPeriod
             self.isPro = isPro
+            self.errorMessage = errorMessage
         }
     }
 
@@ -103,6 +106,8 @@ public struct EmotionTrendReducer {
         case dailyEmotionsLoaded([DailyEmotion])
         case subscriptionStateLoaded(Bool)
         case planManagementTapped
+        case retryTapped
+        case dismissError
     }
 
     // MARK: - Cancellation IDs
@@ -170,6 +175,7 @@ public struct EmotionTrendReducer {
                 state.isLoading = false
                 state.emotions = []
                 state.dailyEmotions = []
+                state.errorMessage = "こころの記録を読み込めませんでした"
                 return .none
 
             case let .dailyEmotionsLoaded(dailyEmotions):
@@ -177,11 +183,34 @@ public struct EmotionTrendReducer {
                 return .none
 
             case let .subscriptionStateLoaded(isPro):
+                let previousIsPro = state.isPro
                 state.isPro = isPro
+                // Pro に変わった場合は再取得（3件制限 → 全件取得）
+                if isPro && !previousIsPro && !state.emotions.isEmpty {
+                    return .send(.periodChanged(state.selectedPeriod))
+                }
                 return .none
 
             case .planManagementTapped:
                 // 親Reducerに委譲（MemoListReducerで処理）
+                return .none
+
+            case .retryTapped:
+                state.errorMessage = nil
+                state.isLoading = true
+                let period = state.selectedPeriod
+                return .run { send in
+                    let result = await Result {
+                        try await self.fetchEmotionEntries(period: period)
+                    }.mapError { EquatableError($0) }
+                    await send(.emotionsLoaded(result))
+                    let dailyEmotions = await self.aggregateDailyEmotions(period: period)
+                    await send(.dailyEmotionsLoaded(dailyEmotions))
+                }
+                .cancellable(id: CancelID.fetch, cancelInFlight: true)
+
+            case .dismissError:
+                state.errorMessage = nil
                 return .none
             }
         }

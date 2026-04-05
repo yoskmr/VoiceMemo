@@ -75,6 +75,32 @@ export const ErrorResponseSchema = z.object({
   }),
 });
 
+// --- AI Chat Schemas (きおくに聞く) ---
+
+export const AIChatRequestSchema = z.object({
+  question: z.string().min(1).max(1000),
+  context_memos: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    text: z.string(),
+    date: z.string(),
+    emotion: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+  })).min(1).max(10),
+  language: z.enum(["ja", "en"]).default("ja"),
+});
+
+// --- AI Polish Schemas (高精度仕上げ) ---
+
+export const AIPolishRequestSchema = z.object({
+  text: z.string().min(1).max(30000),
+  custom_dictionary: z.array(z.object({
+    reading: z.string(),
+    display: z.string(),
+  })).optional(),
+  language: z.enum(["ja", "en"]).default("ja"),
+});
+
 // --- Subscription Schemas ---
 
 export const SubscriptionVerifyRequestSchema = z.object({
@@ -96,6 +122,8 @@ export type UsageMeta = z.infer<typeof UsageMetaSchema>;
 export type AIProcessResponse = z.infer<typeof AIProcessResponseSchema>;
 export type UsageResponse = z.infer<typeof UsageResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
+export type AIChatRequest = z.infer<typeof AIChatRequestSchema>;
+export type AIPolishRequest = z.infer<typeof AIPolishRequestSchema>;
 
 // --- Cloudflare Workers Bindings ---
 
