@@ -544,6 +544,10 @@ public struct MemoListReducer {
             case .memoDetail(.presented(._editSavedAndReload)):
                 return .send(.refreshRequested)
 
+            // destination nil 後の遅延 onDisappear を握り潰す（SwiftUI アニメーション競合）
+            case .memoDetail(.presented(.audioPlayer(.onDisappear))):
+                return .none
+
             case .memoDetail:
                 return .none
 

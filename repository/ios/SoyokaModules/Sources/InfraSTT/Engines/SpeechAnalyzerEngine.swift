@@ -160,10 +160,18 @@ extension SpeechAnalyzerEngine: STTEngineProtocol {
                     let consumeTask = Task { [weak self] in
                         guard let self else { return }
                         do {
+                            var lastYieldedText = ""
+
                             for try await result in newTranscriber.results {
                                 guard !Task.isCancelled else { break }
                                 let text = String(result.text.characters)
                                 guard !text.isEmpty else { continue }
+
+                                // volatile の重複抑制: 同一テキストの繰り返しyieldをスキップ
+                                if !result.isFinal && text == lastYieldedText {
+                                    continue
+                                }
+                                lastYieldedText = text
 
                                 let transcriptionResult = TranscriptionResult(
                                     text: text,
