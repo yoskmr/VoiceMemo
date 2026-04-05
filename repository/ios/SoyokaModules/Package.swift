@@ -183,20 +183,28 @@ let package = Package(
             plugins: []
         ),
 
+        // MARK: - Test Support
+        .target(
+            name: "TestSupport",
+            dependencies: [],
+            path: "Tests/TestSupport"
+        ),
+
         // MARK: - Test Targets
-        .testTarget(name: "DomainTests", dependencies: ["Domain"]),
+        .testTarget(name: "DomainTests", dependencies: ["Domain", "TestSupport"]),
         .testTarget(name: "FeatureRecordingTests", dependencies: ["FeatureRecording"]),
         .testTarget(name: "FeatureMemoTests", dependencies: ["FeatureMemo"]),
         .testTarget(name: "FeatureAITests", dependencies: ["FeatureAI"]),
         .testTarget(name: "InfraSTTTests", dependencies: ["InfraSTT"]),
-        .testTarget(name: "InfraLLMTests", dependencies: ["InfraLLM"]),
+        .testTarget(name: "InfraLLMTests", dependencies: ["InfraLLM", "TestSupport"]),
         .testTarget(name: "InfraStorageTests", dependencies: [
             "InfraStorage",
             "Domain",
+            "TestSupport",
             .product(name: "ZIPFoundation", package: "ZIPFoundation"),
         ]),
         .testTarget(name: "FeatureSearchTests", dependencies: ["FeatureSearch", "Domain"]),
-        .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "FeatureSubscription", "Domain", "InfraLogging"]),
+        .testTarget(name: "FeatureSettingsTests", dependencies: ["FeatureSettings", "FeatureSubscription", "Domain", "InfraLogging", "TestSupport"]),
         .testTarget(name: "InfraLoggingTests", dependencies: ["InfraLogging"]),
         .testTarget(name: "InfraNetworkTests", dependencies: ["InfraNetwork"]),
         .testTarget(name: "E2ETests", dependencies: [
