@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 @testable import Domain
 
 @Suite("BackupPayload Codable テスト")
@@ -77,6 +78,7 @@ struct BackupPayloadTests {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(original)
+        Attachment.record(String(data: data, encoding: .utf8) ?? "", named: "encoded-payload.json")
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let decoded = try decoder.decode(BackupPayload.self, from: data)
@@ -93,6 +95,7 @@ struct BackupPayloadTests {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(payload)
+        Attachment.record(String(data: data, encoding: .utf8) ?? "", named: "emotion-scores-payload.json")
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         let memos = json["memos"] as! [[String: Any]]
         let emotion = memos[0]["emotionAnalysis"] as! [String: Any]
@@ -119,6 +122,10 @@ struct BackupPayloadTests {
         let payload = try decoder.decode(BackupPayload.self, from: json)
         #expect(payload.version == 1)
         #expect(payload.memos.isEmpty)
+        Issue.record(
+            "未知フィールド 'futureField' が検出されたが正常にデコード成功（前方互換性OK）",
+            severity: .warning
+        )
     }
 
     @Test("バージョンチェック: currentSupportedVersion は 1")

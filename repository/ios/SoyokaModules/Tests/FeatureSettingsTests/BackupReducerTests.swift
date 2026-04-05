@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import Testing
+import TestSupport
 @testable import Domain
 @testable import FeatureSettings
 
@@ -45,6 +46,10 @@ struct BackupReducerTests {
         await store.receive(\.exportFailed) {
             $0.isExporting = false
             $0.errorMessage = "バックアップの作成に失敗しました"
+            Attachment.record(
+                "isExporting: \($0.isExporting), errorMessage: \($0.errorMessage ?? "nil")",
+                named: "export-failed-state.txt"
+            )
         }
     }
 
@@ -98,6 +103,10 @@ struct BackupReducerTests {
             $0.isImporting = false
             $0.importResult = result
             $0.showImportResultAlert = true
+            Attachment.record(
+                "importResult: \(String(describing: $0.importResult))",
+                named: "import-completed-state.txt"
+            )
         }
     }
 
@@ -121,6 +130,10 @@ struct BackupReducerTests {
         await store.receive(\.importFailed) {
             $0.isImporting = false
             $0.errorMessage = "テストエラー"
+            Attachment.record(
+                "isImporting: \($0.isImporting), errorMessage: \($0.errorMessage ?? "nil")",
+                named: "import-failed-state.txt"
+            )
         }
     }
 
@@ -143,6 +156,10 @@ struct BackupReducerTests {
             $0.isImporting = false
             $0.importResult = result
             $0.showImportResultAlert = true
+            Attachment.record(
+                "importResult: \(String(describing: $0.importResult))",
+                named: "import-from-url-state.txt"
+            )
         }
     }
 }

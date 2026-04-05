@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TestSupport
 @testable import Domain
 @testable import InfraLLM
 
@@ -35,8 +36,10 @@ struct TextPreprocessorTests {
     @Test("英語と日本語が混在する場合、英語-日本語間のスペースは保持")
     func test_removeUnnecessarySpaces_英語日本語混在_英語側スペース保持() {
         let input = "Hello World の テスト"
+        let expected = "Hello World のテスト"
         let result = TextPreprocessor.removeUnnecessarySpaces(input)
-        #expect(result == "Hello World のテスト")
+        attachTextComparison(input: input, expected: expected, actual: result, named: "spaces-mixed-lang")
+        #expect(result == expected)
     }
 
     @Test("空文字列は空文字列を返す")
@@ -55,8 +58,10 @@ struct TextPreprocessorTests {
     @Test("文末パターン「です」の後のスペースに句点が挿入される")
     func test_insertPunctuation_です_句点挿入() {
         let input = "今日はいい天気です 明日も晴れます"
+        let expected = "今日はいい天気です。明日も晴れます"
         let result = TextPreprocessor.insertPunctuation(input)
-        #expect(result == "今日はいい天気です。明日も晴れます")
+        attachTextComparison(input: input, expected: expected, actual: result, named: "punctuation-desu")
+        #expect(result == expected)
     }
 
     @Test("文末パターン「ます」の後のスペースに句点が挿入される")
@@ -165,6 +170,7 @@ struct TextPreprocessorTests {
     func test_removeFillers_aggressiveLevel_複数フィラー連続() {
         let input = "えーと なんか まあ すごかった"
         let result = TextPreprocessor.removeFillers(input, level: .aggressive)
+        attachTextComparison(input: input, expected: "すごかった", actual: result, named: "fillers-aggressive-multi")
         #expect(!result.contains("えーと"))
         #expect(!result.contains("なんか"))
         #expect(!result.contains("まあ"))
@@ -188,6 +194,7 @@ struct TextPreprocessorTests {
     func test_removeFillers_aggressive_内容語その_保持() {
         let input = "その本を読んだ"
         let result = TextPreprocessor.removeFillers(input, level: .aggressive)
+        attachTextComparison(input: input, expected: input, actual: result, named: "fillers-sono-content")
         #expect(result.contains("その本"))
     }
 
@@ -203,6 +210,7 @@ struct TextPreprocessorTests {
     func test_removeFillers_aggressive_その_区切り文字あり_除去() {
         let input = "その、あの本が面白かった"
         let result = TextPreprocessor.removeFillers(input, level: .aggressive)
+        attachTextComparison(input: input, expected: "あの本が面白かった", actual: result, named: "fillers-sono-delimiter")
         #expect(!result.hasPrefix("その"))
     }
 }

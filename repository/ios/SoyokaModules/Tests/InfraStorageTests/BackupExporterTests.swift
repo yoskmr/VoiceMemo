@@ -3,6 +3,7 @@ import Testing
 import SwiftData
 @testable import Domain
 @testable import InfraStorage
+import TestSupport
 
 @Suite("BackupExporter テスト")
 struct BackupExporterTests {
@@ -59,6 +60,7 @@ struct BackupExporterTests {
 
         let exporter = BackupExporter(modelContainer: container)
         let payload = try exporter.buildPayload()
+        attachJSON(payload, named: "backup-payload")
 
         #expect(payload.version == 1)
         #expect(payload.sourceApp == "Soyoka")
@@ -87,6 +89,7 @@ struct BackupExporterTests {
 
         let exporter = BackupExporter(modelContainer: container)
         let payload = try exporter.buildPayload()
+        attachJSON(payload.memos, named: "backup-memos-audio")
 
         #expect(payload.memos[0].audioFileName == "\(memoID.uuidString).m4a")
     }
@@ -115,6 +118,7 @@ struct BackupExporterTests {
 
         let exporter = BackupExporter(modelContainer: container)
         let payload = try exporter.buildPayload()
+        attachJSON(payload, named: "backup-payload-emotion")
 
         let memoPayload = payload.memos.first { $0.title == "感情テスト" }!
         #expect(memoPayload.emotionAnalysis?.emotionScores["joy"] == 0.72)
