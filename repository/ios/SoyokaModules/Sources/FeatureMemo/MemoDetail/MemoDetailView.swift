@@ -790,16 +790,15 @@ struct AISummarySection: View {
     }
 
     // MARK: - AI整理の待機中プレースホルダ
-
+    // .queued / .processing は親ビュー側で AIProcessingAnimationView を表示するため、
+    // ここに到達するのは実質 .idle / .failed のいずれか。
+    // 「整理しています」と誤解させずに、ユーザー操作を明確に促す表示にする。
     private var placeholderCard: some View {
         VStack(spacing: VMDesignTokens.Spacing.md) {
-            // パルスアニメーション付きアイコン
-            PulsingDotView()
-                .frame(height: 32)
-
-            Text("きおくを整理しています...")
+            Text(placeholderHeadline)
                 .font(.vmCallout)
-                .foregroundColor(.vmTextTertiary)
+                .foregroundColor(.vmTextSecondary)
+                .multilineTextAlignment(.center)
 
             if let onTriggerAI {
                 Button {
@@ -815,7 +814,27 @@ struct AISummarySection: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, VMDesignTokens.Spacing.lg)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("AI整理待機中")
+        .accessibilityLabel(placeholderAccessibilityLabel)
+    }
+
+    /// 状態に応じた見出し文言
+    private var placeholderHeadline: String {
+        switch aiProcessingStatus {
+        case .failed:
+            return "AI整理を再実行できます"
+        case .idle, .queued, .processing, .completed:
+            return "AIで日記風に整理する"
+        }
+    }
+
+    /// VoiceOver 用ラベル
+    private var placeholderAccessibilityLabel: String {
+        switch aiProcessingStatus {
+        case .failed:
+            return "AI整理を再実行できます"
+        case .idle, .queued, .processing, .completed:
+            return "AI整理を実行できます"
+        }
     }
 }
 

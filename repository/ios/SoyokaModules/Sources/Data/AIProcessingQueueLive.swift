@@ -34,6 +34,12 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     /// メモID → ステータス通知用の continuation マップ
     private var statusContinuations: [UUID: [UUID: AsyncStream<AIProcessingStatus>.Continuation]] = [:]
 
+    /// メモID → 最新ステータスのキャッシュ（observeStatus の遅延 subscribe 対策）
+    /// 録音完了直後に enqueue → 画面遷移後に observeStatus が始まるまでの間に
+    /// 発行された .queued / .processing(0%) を取りこぼさないため、
+    /// 最新ステータスをここに保持し、subscribe 時に即座に再生する
+    private var lastStatus: [UUID: AIProcessingStatus] = [:]
+
     /// 排他制御用ロック
     private let lock = NSLock()
 
@@ -133,7 +139,16 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
                 self.statusContinuations[memoId] = [:]
             }
             self.statusContinuations[memoId]?[streamId] = continuation
+            // 直近のステータスがあれば subscribe 時に即座に再生する。
+            // これにより、録音完了 → 画面遷移までの間に発行された
+            // .queued / .processing(...) が取りこぼされても、
+            // MemoDetail が画面表示時に現在の状態を取得できる。
+            let cached = self.lastStatus[memoId]
             self.lock.unlock()
+
+            if let cached {
+                continuation.yield(cached)
+            }
 
             continuation.onTermination = { [weak self] _ in
                 self?.lock.lock()
@@ -591,8 +606,11 @@ public final class AIProcessingQueueLive: @unchecked Sendable {
     // MARK: - Status Notification
 
     /// ステータス変化を全リスナーに通知
+    /// 同時に lastStatus キャッシュも更新するため、後から subscribe してきた
+    /// 購読者も最新ステータスを取得できる。
     private func notifyStatus(memoId: UUID, status: AIProcessingStatus) {
         lock.lock()
+        lastStatus[memoId] = status
         let continuations = statusContinuations[memoId]
         lock.unlock()
 

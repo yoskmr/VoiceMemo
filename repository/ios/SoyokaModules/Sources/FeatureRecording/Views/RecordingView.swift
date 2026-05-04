@@ -17,6 +17,11 @@ public struct RecordingView: View {
         ZStack(alignment: .bottom) {
             recordingContent
 
+            if store.recordingStatus == .saving {
+                savingOverlay
+                    .transition(.opacity)
+            }
+
             if case .saved = store.recordingStatus {
                 // タップで閉じる背景（タブバーは操作可能なので背景色なし）
                 Color.clear
@@ -38,6 +43,34 @@ public struct RecordingView: View {
             reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85),
             value: store.recordingStatus
         )
+    }
+
+    // MARK: - Saving Overlay
+
+    /// 停止ボタンを押した直後の文字起こし確定フェーズで表示するオーバーレイ
+    /// UX原則: 操作に対してすぐ反応を返す。停止ボタンが押せない理由を視覚的に伝える
+    @ViewBuilder
+    private var savingOverlay: some View {
+        VStack(spacing: VMDesignTokens.Spacing.md) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(.vmPrimary)
+            Text("つぶやきを整えています…")
+                .font(.vmCallout)
+                .foregroundColor(.vmTextSecondary)
+            Text("文字起こしを確定しています")
+                .font(.vmCaption1)
+                .foregroundColor(.vmTextTertiary)
+        }
+        .padding(VMDesignTokens.Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.vmBackground.opacity(0.92))
+        .contentShape(Rectangle())
+        // 背面の停止ボタン等を再度タップできないよう、全面でタップを吸収する
+        .onTapGesture {}
+        .ignoresSafeArea()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("つぶやきを整えています。文字起こしを確定しています")
     }
 
     @ViewBuilder
